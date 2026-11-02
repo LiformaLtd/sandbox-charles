@@ -1,0 +1,23 @@
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+# Dependencies and environments at any application depth
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+# Generated application output
+.svelte-kit/
+.vercel/
+.wrangler/
+.next/
+.nuxt/
+.output/
+dist/
+build/
+coverage/
+.cache/
+.DS_Store
