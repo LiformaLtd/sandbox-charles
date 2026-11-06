@@ -61,8 +61,10 @@ Python worker. The setup downloads about 1.3 GB into `.local/head-motion`.
 The demo feeds it overlapping audio windows and blends the resulting angles
 at each join. DAWN originally processes full clips, so this is a streaming
 adaptation. The renderer uses the rotational channels with reduced strength
-for James and drives the existing neck pivot. The first run loads the head
-motion weights before it can produce animation. [DAWN paper](https://arxiv.org/abs/2410.13726)
+for James and drives the existing neck pivot. On page load, the same model
+processes 12 seconds of silence. The local server caches a smoothed loop from
+that prediction and the viewer blends it with the speech pose during playback.
+[DAWN paper](https://arxiv.org/abs/2410.13726)
 
 The active model is read from `.local/model.onnx`. It must accept the batch-one
 browser interface with `window`, `identity`, `emotion`, `input_latents`, and

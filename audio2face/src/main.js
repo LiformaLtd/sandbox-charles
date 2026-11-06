@@ -3,7 +3,7 @@ import { createJames } from './rig.js';
 import { createStreamPlayback } from './stream-playback.js';
 import { concatPcm, encodeWav } from 'phonon-tts';
 import { animationBlocks, loadModel } from './inference.js';
-import { blinkAt, idleHeadAt } from './idle-motion.js';
+import { blinkAt, idleHeadAt, loadIdleHead } from './idle-motion.js';
 
 const viewport = document.querySelector('#viewport');
 const form = document.querySelector('#speech-form');
@@ -30,6 +30,8 @@ let headRotations = [];
 let activeFrame = -1;
 let viewerStarted;
 let lastPoseTime;
+let idleTrack;
+let idleStarted;
 let speechWeight = 0;
 let lastSpeechRotation = [0, 0, 0];
 let sourceUrl;
@@ -94,10 +96,13 @@ function draw(now) {
     const speechRotation = playing ? headRotations[next] : undefined;
     if (speechRotation) lastSpeechRotation = speechRotation;
     const target = speechRotation ? 1 : 0;
-    speechWeight += (target - speechWeight) * (1 - Math.exp(-dt / 0.15));
+    const transitionSeconds = speechRotation ? 0.15 : 0.38;
+    speechWeight += (target - speechWeight) * (1 - Math.exp(-dt / transitionSeconds));
     if (Math.abs(target - speechWeight) < 0.001) speechWeight = target;
     const strength = headMotion.valueAsNumber / 100;
-    const rotation = strength ? idleHeadAt(elapsed).map((angle, axis) =>
+    if (idleTrack) idleStarted ??= now;
+    const idle = idleHeadAt(idleTrack, (now - (idleStarted ?? now)) / 1000);
+    const rotation = strength ? idle.map((angle, axis) =>
       strength * (angle + (lastSpeechRotation[axis] - angle) * speechWeight)) : undefined;
     rig.pose(frames[next], blinkAt(elapsed), rotation);
     if (next !== activeFrame) {
@@ -113,6 +118,12 @@ createJames(viewport).then((viewer) => {
   generate.disabled = false;
   report('Ready. The model loads on the first generation.');
   requestAnimationFrame(draw);
+  loadIdleHead().then((track) => {
+    idleTrack = track;
+  }).catch((error) => {
+    console.error('Could not load idle head motion.', error);
+    if (!liveRun && !sourceUrl) report(`Could not load idle head motion. ${error.message}`, true);
+  });
 }).catch((error) => {
   console.error(error);
   report(error.message, true);

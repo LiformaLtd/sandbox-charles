@@ -7,6 +7,7 @@ export function createHeadPoseServer(root) {
   const pending = new Map();
   let process;
   let nextId = 0;
+  let idleTrack;
 
   function start() {
     const worker = spawn(join(assets, '.venv/bin/python'), [
@@ -39,22 +40,33 @@ export function createHeadPoseServer(root) {
     return worker;
   }
 
-  return {
-    async predict(pcm, startSample) {
-      const worker = process ?? start();
-      const id = nextId++;
-      try {
-        return await new Promise((resolve, reject) => {
-          const timer = setTimeout(() => reject(new Error('Head motion inference timed out.')), 30_000);
-          pending.set(id, {
-            resolve: (reply) => { clearTimeout(timer); resolve(reply); },
-            reject: (error) => { clearTimeout(timer); reject(error); },
-          });
-          worker.stdin.write(JSON.stringify({ id, pcm: pcm.toString('base64'), startSample }) + '\n');
+  async function predict(request) {
+    const worker = process ?? start();
+    const id = nextId++;
+    try {
+      return await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('Head motion inference timed out.')), 30_000);
+        pending.set(id, {
+          resolve: (reply) => { clearTimeout(timer); resolve(reply); },
+          reject: (error) => { clearTimeout(timer); reject(error); },
         });
-      } finally {
-        pending.delete(id);
-      }
+        worker.stdin.write(JSON.stringify({ id, ...request }) + '\n');
+      });
+    } finally {
+      pending.delete(id);
+    }
+  }
+
+  return {
+    predict(pcm, startSample) {
+      return predict({ pcm: pcm.toString('base64'), startSample });
+    },
+    idle() {
+      idleTrack ??= predict({ idle: true }).catch((error) => {
+        idleTrack = undefined;
+        throw error;
+      });
+      return idleTrack;
     },
     close() {
       process?.kill();

@@ -15,6 +15,7 @@ import yaml
 
 FPS = 25
 SAMPLE_RATE = 16000
+IDLE_SECONDS = 12
 
 
 class HeadPose:
@@ -61,6 +62,24 @@ class HeadPose:
         # DAWN uses yaw, pitch, roll. The rig's Euler axes are pitch, yaw, roll.
         return result[:, [1, 0, 2]] * np.array([1, -1, 1], dtype=np.float32)
 
+    def predict_idle(self):
+        track = self.predict(np.zeros(IDLE_SECONDS * SAMPLE_RATE, dtype=np.float32))
+        # Overlap one second at the loop join, easing into the start of the track.
+        blend = (np.arange(FPS) / FPS)[:, None]
+        blend = blend * blend * (3 - 2 * blend)
+        track[-FPS:] += (track[:FPS] - track[-FPS:]) * blend
+        loop = track[FPS:]
+        # A centered Gaussian damps quick changes. Wrap the filter around
+        # the loop so it smooths the join the same way as any other frame.
+        sigma = 0.20 * FPS
+        radius = round(3 * sigma)
+        offsets = np.arange(-radius, radius + 1)
+        kernel = np.exp(-0.5 * (offsets / sigma) ** 2)
+        kernel /= kernel.sum()
+        padded = np.pad(loop, ((radius, radius), (0, 0)), mode="wrap")
+        smoothed = np.stack([np.convolve(axis, kernel, mode="valid") for axis in padded.T], axis=1)
+        return (smoothed - smoothed.mean(axis=0)) * [1.25, 1.3, 1.0]
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -74,11 +93,14 @@ def main():
     for line in sys.stdin:
         request = json.loads(line)
         try:
-            pcm = np.frombuffer(base64.b64decode(request["pcm"], validate=True), dtype="<f4")
-            if not 0 < len(pcm) <= 32000 or not np.isfinite(pcm).all():
-                raise ValueError("Expected up to two seconds of finite 16 kHz mono PCM.")
             with redirect_stdout(io.StringIO()):
-                track = model.predict(pcm, request["startSample"])
+                if request.get("idle"):
+                    track = model.predict_idle()
+                else:
+                    pcm = np.frombuffer(base64.b64decode(request["pcm"], validate=True), dtype="<f4")
+                    if not 0 < len(pcm) <= 32000 or not np.isfinite(pcm).all():
+                        raise ValueError("Expected up to two seconds of finite 16 kHz mono PCM.")
+                    track = model.predict(pcm, request["startSample"])
             if not np.isfinite(track).all():
                 raise ValueError("The pose model produced a non-finite result.")
             reply = {"id": request["id"], "fps": FPS, "angles": track.tolist()}

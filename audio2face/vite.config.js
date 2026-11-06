@@ -44,6 +44,12 @@ function localStudio() {
     server.middlewares.use(async (request, response, next) => {
       const pathname = request.url?.split('?')[0];
       try {
+        if (pathname === '/api/idle-head-motion') {
+          if (request.method !== 'GET') return fail(response, 405, 'Use GET to load idle head motion.');
+          const { fps, angles } = await headPose.idle();
+          response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+          return response.end(JSON.stringify({ fps, angles }));
+        }
         if (pathname === '/api/head-motion') {
           if (request.method !== 'POST') return fail(response, 405, 'Use POST to generate head motion.');
           if (request.headers['content-type'] !== 'application/octet-stream') {
@@ -82,7 +88,9 @@ function localStudio() {
         if (error.code === 'ENOENT') {
           return fail(response, 404, 'Local model or rig asset is missing. See the setup instructions.');
         }
-        if (pathname === '/api/head-motion') return fail(response, 500, error.message);
+        if (pathname === '/api/head-motion' || pathname === '/api/idle-head-motion') {
+          return fail(response, 500, error.message);
+        }
         fail(response, 500, 'Could not serve the local asset.');
       }
     });

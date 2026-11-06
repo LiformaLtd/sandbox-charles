@@ -18,29 +18,21 @@ export function blinkAt(time) {
   return 0;
 }
 
-// Slow shifts between held poses. Pitch, yaw, and roll are in degrees.
-const center = [0, 0, 0];
-const lookLeft = [-0.7, 2.4, 0.8];
-const lookRight = [1.1, -1.9, -0.6];
-const lift = [-1.4, 0.5, -0.3];
-const idlePoses = [
-  [0, center],
-  [1.1, center],
-  [2.7, lookLeft],
-  [5.4, lookLeft],
-  [7.2, lookRight],
-  [10.8, lookRight],
-  [12.4, lift],
-  [14.2, lift],
-  [16, center],
-];
+const neutral = [0, 0, 0];
 
-export function idleHeadAt(time) {
-  const phase = time % idlePoses.at(-1)[0];
-  const next = idlePoses.findIndex(([start]) => start > phase);
-  const [start, from] = idlePoses[next - 1];
-  const [end, to] = idlePoses[next];
-  const t = (phase - start) / (end - start);
-  const ease = t * t * (3 - 2 * t);
-  return from.map((angle, axis) => angle + (to[axis] - angle) * ease);
+export async function loadIdleHead() {
+  const response = await fetch('/api/idle-head-motion');
+  const track = await response.json();
+  if (!response.ok) throw new Error(track.error || 'DAWN idle inference failed.');
+  return track;
+}
+
+export function idleHeadAt(track, time) {
+  if (!track) return neutral;
+  const { fps, angles } = track;
+  const position = (time * fps) % angles.length;
+  const index = Math.floor(position);
+  const next = angles[(index + 1) % angles.length];
+  const fade = Math.min(1, time / 0.5);
+  return angles[index].map((angle, axis) => fade * (angle + (next[axis] - angle) * (position - index)));
 }
