@@ -5,18 +5,37 @@ import { to16k } from './pcm.js';
 const workers = new Map();
 const engines = { pocket: [PocketWorker, 24000], supertonic: [SupertonicWorker, 44100] };
 
+export function releaseOnnxTts(engine) {
+  workers.get(engine)?.terminate();
+  workers.delete(engine);
+}
+
 export function openOnnxStream(engine, text, report, signal) {
-  signal.throwIfAborted();
+  const pcm = runWorker(engine, text, report, signal);
+  return {
+    chunks: to16k(pcm, engines[engine][1]),
+  };
+}
+
+export async function prepareOnnxTts(engine, report) {
+  const pcm = runWorker(engine, null, report);
+  for await (const _ of pcm) {
+    // The worker acknowledges preparation by closing without emitting audio.
+  }
+}
+
+function runWorker(engine, text, report, signal) {
+  signal?.throwIfAborted();
   const [SpeechWorker, rate] = engines[engine];
   const worker = workers.get(engine) ?? new SpeechWorker();
   workers.set(engine, worker);
 
-  const pcm = new ReadableStream({
+  return new ReadableStream({
     start(controller) {
       function detach() {
         worker.onmessage = null;
         worker.onerror = null;
-        signal.removeEventListener('abort', abort);
+        signal?.removeEventListener('abort', abort);
       }
       function fail(error) {
         detach();
@@ -46,10 +65,8 @@ export function openOnnxStream(engine, text, report, signal) {
         }
       };
       worker.onerror = (event) => fail(new Error(event.message || 'The browser speech worker failed.'));
-      signal.addEventListener('abort', abort, { once: true });
+      signal?.addEventListener('abort', abort, { once: true });
       worker.postMessage(text);
     },
   });
-
-  return { chunks: to16k(pcm, rate) };
 }

@@ -9,6 +9,8 @@ const viewport = document.querySelector('#viewport');
 const form = document.querySelector('#speech-form');
 const input = document.querySelector('#speech');
 const generate = document.querySelector('#generate');
+const prepareTts = document.querySelector('#prepare-tts');
+const prepareSta = document.querySelector('#prepare-sta');
 const status = document.querySelector('#status');
 const progress = document.querySelector('#progress');
 const audio = document.querySelector('#audio');
@@ -24,6 +26,13 @@ const duration = document.querySelector('#duration');
 const headMotion = document.querySelector('#head-motion');
 const headMotionValue = document.querySelector('#head-motion-value');
 
+// iPad Safari can send a desktop user agent.
+const appleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const staMode = new URLSearchParams(location.search).get('sta');
+const cpuOnly = staMode === 'cpu' || (appleMobile && staMode !== 'webgpu' && !navigator.gpu);
+if (cpuOnly) document.querySelector('#sta-runtime').textContent = '60 fps · CPU';
+
 let rig;
 let frames = [];
 let headRotations = [];
@@ -37,9 +46,34 @@ let lastSpeechRotation = [0, 0, 0];
 let sourceUrl;
 let livePlayback;
 let liveRun;
+let selectedTts;
+
+const interruptionKey = 'james-mobile-stage';
+let previousStage;
+let savedStage;
+let trackStage = false;
+if (appleMobile) {
+  try {
+    previousStage = sessionStorage.getItem(interruptionKey);
+    sessionStorage.removeItem(interruptionKey);
+  } catch {
+    // The demo can run when browser storage is unavailable.
+  }
+}
 stopStream.addEventListener('click', () => liveRun?.abort());
 
 function report(message, error = false) {
+  if (trackStage && !error) {
+    const stage = message.replace(/… \d+%$/, '…');
+    if (stage !== savedStage) {
+      savedStage = stage;
+      try {
+        sessionStorage.setItem(interruptionKey, stage);
+      } catch {
+        // Progress is still displayed when browser storage is unavailable.
+      }
+    }
+  }
   status.textContent = message;
   status.classList.toggle('error', error);
 }
@@ -115,8 +149,10 @@ function draw(now) {
 
 createJames(viewport).then((viewer) => {
   rig = viewer;
-  generate.disabled = false;
-  report('Ready. The model loads on the first generation.');
+  setBusy(false);
+  report(previousStage
+    ? `The previous run was interrupted at “${previousStage}”`
+    : 'Ready. The model loads on the first generation.');
   requestAnimationFrame(draw);
   loadIdleHead().then((track) => {
     idleTrack = track;
@@ -152,7 +188,6 @@ async function streamSpeech(text, engine) {
   liveRun = run;
   const context = new AudioContext({ latencyHint: 'interactive' });
   let complete = false;
-  let speech;
   try {
     // Resume during the click event so playback can start after async setup.
     const resumed = context.resume();
@@ -164,11 +199,26 @@ async function streamSpeech(text, engine) {
     stopStream.hidden = false;
     playbackEngine.textContent = `Live playback · ${label}`;
     duration.textContent = '';
-    const loadingSpeech = engine === 'phonon'
-      ? import('./phonon.js').then(({ openPhononStream }) => openPhononStream(text, report, signal))
-      : import('./onnx-tts.js').then(({ openOnnxStream }) => openOnnxStream(engine, text, report, signal));
-    const [model, stream] = await Promise.all([loadModel(), loadingSpeech, resumed]);
-    speech = stream;
+    const prepareModel = () => loadModel({
+      cpuOnly,
+      mobile: appleMobile,
+      report: appleMobile ? (message) => {
+        if (!signal.aborted) report(message);
+      } : undefined,
+    });
+    const startSpeech = async () => {
+      const tts = await selectSpeechEngine(engine);
+      signal.throwIfAborted();
+      return engine === 'phonon'
+        ? tts.openPhononStream(text, report, signal, appleMobile)
+        : tts.openOnnxStream(engine, text, report, signal);
+    };
+    const loadingModel = prepareModel();
+    // On mobile, avoid overlapping cold startup allocations. Both sessions
+    // stay loaded, so preparing them separately skips startup here.
+    const loadingSpeech = appleMobile ? loadingModel.then(startSpeech) : startSpeech();
+    const [model, speech] = await Promise.all([loadingModel, loadingSpeech, resumed]);
+    signal.throwIfAborted();
     const blocks = [];
     let samples = 0;
     for await (const block of animationBlocks(model, speech.chunks, signal)) {
@@ -189,9 +239,10 @@ async function streamSpeech(text, engine) {
     if (!samples || frames.length !== Math.ceil(samples * 60 / 16000)) {
       throw new Error(`${label} did not produce a complete animation track.`);
     }
+    const pcm = concatPcm(blocks);
     report('Finishing playback…');
     await livePlayback.finish(signal);
-    setReplay(encodeWav(concatPcm(blocks), 16000), samples, label);
+    setReplay(encodeWav(pcm, 16000), samples, label);
     complete = true;
     report('Animation ready to replay.');
   } catch (error) {
@@ -214,27 +265,82 @@ async function streamSpeech(text, engine) {
   }
 }
 
-form.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const text = input.value.trim();
-  if (!text || generate.disabled) return;
-  const engine = form.elements.engine.value;
-  audio.pause();
-  generate.disabled = true;
-  voiceSwitch.disabled = true;
+function setBusy(busy) {
+  generate.disabled = busy;
+  prepareTts.disabled = busy;
+  prepareSta.disabled = busy;
+  voiceSwitch.disabled = busy;
+}
+
+async function runWithProgress(message, action) {
+  if (generate.disabled) return;
+  setBusy(true);
   progress.removeAttribute('value');
   progress.hidden = false;
-  report(`Preparing ${engines[engine].label} in your browser…`);
+  trackStage = appleMobile;
+  savedStage = undefined;
+  report(message);
   try {
-    await streamSpeech(text, engine);
+    await action();
   } catch (error) {
     console.error(error);
     report(error.message, true);
   } finally {
+    if (trackStage) {
+      trackStage = false;
+      try {
+        sessionStorage.removeItem(interruptionKey);
+      } catch {
+        // There is no saved stage to clear when browser storage is unavailable.
+      }
+    }
     progress.hidden = true;
-    voiceSwitch.disabled = false;
-    generate.disabled = false;
+    setBusy(false);
   }
+}
+
+async function selectSpeechEngine(engine) {
+  const tts = engine === 'phonon' ? await import('./phonon.js') : await import('./onnx-tts.js');
+  if (appleMobile && selectedTts?.engine !== engine) {
+    await selectedTts?.release();
+    selectedTts = {
+      engine,
+      release: engine === 'phonon' ? tts.releasePhonon : () => tts.releaseOnnxTts(engine),
+    };
+  }
+  return tts;
+}
+
+prepareTts.addEventListener('click', () => {
+  const engine = form.elements.engine.value;
+  const { label } = engines[engine];
+  runWithProgress(`Preparing ${label} in your browser…`, async () => {
+    const tts = await selectSpeechEngine(engine);
+    if (engine === 'phonon') {
+      await tts.preparePhonon(report, appleMobile);
+    } else {
+      await tts.prepareOnnxTts(engine, report);
+    }
+    report(`${label} is ready.`);
+  });
+});
+
+prepareSta.addEventListener('click', () => {
+  runWithProgress('Preparing the STA model…', async () => {
+    await loadModel({ cpuOnly, mobile: appleMobile, report });
+    report('STA is ready.');
+  });
+});
+
+form.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const text = input.value.trim();
+  if (!text) return;
+  const engine = form.elements.engine.value;
+  runWithProgress(`Preparing ${engines[engine].label} in your browser…`, () => {
+    audio.pause();
+    return streamSpeech(text, engine);
+  });
 });
 
 window.addEventListener('pagehide', () => {

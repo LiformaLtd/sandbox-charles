@@ -25,6 +25,10 @@ self.onmessage = async ({ data: text }) => {
   try {
     loading ??= load();
     const { style, textToSpeech } = await loading;
+    if (text === null) {
+      postMessage({ type: 'done' });
+      return;
+    }
     report('Generating speech with Supertonic 3…');
     const { sampleRate } = textToSpeech;
     const segments = chunkText(text, 160);

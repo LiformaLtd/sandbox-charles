@@ -60,7 +60,13 @@ textarea {
   padding: 12px 15px; font-size: 14px; font-weight: 750;
 }
 .generate:hover { background: #ffdac1; }
-.generate:disabled { opacity: .55; cursor: wait; }
+.prepare-buttons { display: flex; gap: 8px; margin-top: 8px; }
+.prepare-buttons button {
+  flex: 1; min-height: 44px; padding: 8px 12px; border: 1px solid #383a47;
+  border-radius: 10px; background: #242633; color: #e9e9ee; font-size: 13px;
+}
+.prepare-buttons button:hover:enabled { background: #363642; }
+.generate:disabled, .prepare-buttons button:disabled { opacity: .55; cursor: wait; }
 .status { color: var(--muted); font-size: 13px; line-height: 1.45; min-height: 38px; margin: 14px 0 0; }
 .status.error { color: #ffa7a0; }
 progress { width: 100%; height: 8px; accent-color: var(--accent); margin-bottom: 10px; }

@@ -113,7 +113,6 @@ export default defineConfig(() => {
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (id.includes('/onnxruntime-web/')) return 'onnx-runtime';
             if (id.endsWith('/three/build/three.core.js')) return 'three-core';
           },
         },

@@ -42,15 +42,19 @@
             <input type="range" id="head-motion" min="0" max="100" step="1" value="60" aria-valuetext="60%">
           </div>
           <button type="submit" class="generate" id="generate" disabled>Generate &amp; play <span aria-hidden="true">↗</span></button>
+          <div class="prepare-buttons">
+            <button type="button" id="prepare-tts" disabled>Prepare TTS</button>
+            <button type="button" id="prepare-sta" disabled>Prepare STA</button>
+          </div>
         </form>
         <p id="status" class="status" role="status" aria-live="polite">Loading the James rig…</p>
-        <progress id="progress" aria-label="Animation generation progress" hidden></progress>
+        <progress id="progress" aria-label="Model preparation or generation progress" hidden></progress>
         <div id="playback" class="playback" hidden>
           <div class="playback-label"><strong id="playback-engine">Playback</strong><span id="duration"></span></div>
           <button type="button" id="stop-stream" class="stop-stream" hidden>Stop streaming</button>
           <audio id="audio" controls preload="auto" aria-label="Generated speech"></audio>
         </div>
-        <div class="notes"><span>James v3 mesh</span><span>60 fps · WebGPU</span></div>
+        <div class="notes"><span>James v3 mesh</span><span id="sta-runtime">60 fps · WebGPU</span></div>
       </aside>
     </main>
     <script type="module" src="/src/main.js"></script>

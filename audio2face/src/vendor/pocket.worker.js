@@ -59,6 +59,10 @@ self.onmessage = async ({ data: text }) => {
         if (!loading) postMessage({ type: 'status', message: 'Loading Pocket TTS in your browser…' });
         loading ??= load();
         await loading;
+        if (text === null) {
+          postMessage({ type: 'done' });
+          return;
+        }
         postMessage({ type: 'status', message: 'Generating speech with Pocket TTS…' });
         const { chunks, framesAfterEos } = splitIntoBestSentences(text);
         await runGenerationPipeline(chunks, framesAfterEos);

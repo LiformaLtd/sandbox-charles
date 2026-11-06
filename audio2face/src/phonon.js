@@ -3,23 +3,27 @@ import workerUrl from './phonon.worker.js?worker&url';
 import wasmUrl from 'phonon-tts/wasm/phonon_tts_bg.wasm?url';
 import simdWasmUrl from 'phonon-tts/wasm/phonon_tts_simd_bg.wasm?url';
 
+import { modelAssetUrl } from './model-assets.js';
 import { to16k } from './pcm.js';
 
 let loading;
 
-function load(report) {
+export function preparePhonon(report, mobile) {
   loading ??= PhononTTS.load({
     model: {
-      weights: { q8: '/assets/phonon/model.q8.gguf' },
-      tokenizer: '/assets/phonon/tokenizer.json',
-      config: '/assets/phonon/config.json',
-      voices: { easton: '/assets/phonon/easton.safetensors' },
+      weights: { q8: modelAssetUrl('/assets/phonon/model.q8.gguf') },
+      tokenizer: modelAssetUrl('/assets/phonon/tokenizer.json'),
+      config: modelAssetUrl('/assets/phonon/config.json'),
+      voices: { easton: modelAssetUrl('/assets/phonon/easton.safetensors') },
       defaultVoice: 'easton',
     },
     lang: 'en',
     quant: 'q8',
     device: 'cpu',
     threads: 1,
+    // The SDK otherwise sends the downloaded weights back to the page and
+    // copies them into a cache response while the worker model is live.
+    cache: !mobile,
     workerUrl,
     wasmUrl,
     simdWasmUrl,
@@ -30,16 +34,34 @@ function load(report) {
     },
   }).catch((error) => {
     loading = undefined;
-    throw new Error(`Could not load browser Phonon. Run sh scripts/fetch_phonon.sh to install its local assets. ${error.message}`);
+    if (error.message.startsWith('phonon-tts worker failed:')) {
+      throw new Error(`Could not start the Phonon worker. ${error.message}`, { cause: error });
+    }
+    const hint = import.meta.env.MODE === 'hosted'
+      ? 'Check your connection and try again.'
+      : 'For local assets, run sh scripts/fetch_phonon.sh.';
+    throw new Error(`Could not load Phonon. ${hint} ${error.message}`, { cause: error });
   });
   return loading;
 }
 
-export async function openPhononStream(text, report, signal) {
-  const engine = await load(report);
+export async function releasePhonon() {
+  const prepared = loading;
+  loading = undefined;
+  (await prepared)?.dispose();
+}
+
+export async function openPhononStream(text, report, signal, mobile) {
+  const prepared = preparePhonon(report, mobile);
+  const engine = await prepared;
   signal.throwIfAborted();
   report('Generating speech with Phonon…');
   const speech = engine.stream(text, { voice: 'easton', signal });
+  speech.done.catch((error) => {
+    if (loading === prepared && error.message.startsWith('phonon-tts worker failed:')) {
+      loading = undefined;
+    }
+  });
   return {
     chunks: to16k(speech, engine.sampleRate),
     done: speech.done,

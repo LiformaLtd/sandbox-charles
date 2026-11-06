@@ -1,14 +1,77 @@
-import * as ort from 'onnxruntime-web/webgpu';
+import { modelAssetUrl } from './model-assets.js';
 import { geometryBlocks } from './geometry.mjs';
 import { joinHeadWindow, predictHead } from './head-motion.js';
 
+async function downloadFaceModel(url, report) {
+  report('Downloading the STA model…');
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Could not download the face model (HTTP ${response.status}).`);
+  const length = Number(response.headers.get('content-length'));
+  if (!response.body || !Number.isSafeInteger(length) || length <= 0
+      || response.headers.get('content-encoding')) return response.arrayBuffer();
+
+  const bytes = new Uint8Array(length);
+  const reader = response.body.getReader();
+  let offset = 0;
+  let percent = -1;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      bytes.set(value, offset);
+      offset += value.byteLength;
+      const next = Math.floor(100 * offset / length);
+      if (next !== percent) {
+        percent = next;
+        report(`Downloading the STA model… ${percent}%`);
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  if (offset !== length) throw new Error('The face model download was incomplete.');
+  return bytes;
+}
+
 let modelSession;
-export async function loadModel() {
+export async function loadModel({ cpuOnly = false, mobile = false, report } = {}) {
   if (!modelSession) {
     modelSession = (async () => {
-      if (!await navigator.gpu?.requestAdapter()) throw new Error('WebGPU is unavailable. Open this app in Chrome with graphics acceleration enabled.');
-      ort.env.wasm.numThreads = Math.min(4, navigator.hardwareConcurrency || 1);
-      return ort.InferenceSession.create('/assets/model.onnx', { executionProviders: ['webgpu', 'wasm'] });
+      if (!cpuOnly && !await navigator.gpu?.requestAdapter()) {
+        throw new Error('WebGPU is unavailable. Open this app in a browser with WebGPU enabled.');
+      }
+      const ort = cpuOnly
+        ? await import('onnxruntime-web/wasm')
+        : await import('onnxruntime-web/webgpu');
+      ort.env.wasm.numThreads = mobile || cpuOnly ? 1 : Math.min(4, navigator.hardwareConcurrency || 1);
+      const url = modelAssetUrl('/assets/model.onnx');
+      const model = report ? await downloadFaceModel(url, report) : url;
+      report?.(`Starting the STA model with ${cpuOnly ? 'CPU' : 'WebGPU'}…`);
+      const executionProviders = cpuOnly ? ['wasm'] : ['webgpu', 'wasm'];
+      const options = { executionProviders };
+      if (mobile) {
+        // Keep quantized constants from being expanded during session creation.
+        options.extra = { optimization: { disable_specified_optimizers: 'ConstantFolding' } };
+        if (!cpuOnly) {
+          // Release temporary WebGPU buffers after queued work has used them.
+          executionProviders[0] = {
+            name: 'webgpu',
+            storageBufferCacheMode: 'lazyRelease',
+            defaultBufferCacheMode: 'lazyRelease',
+          };
+        }
+      }
+      try {
+        const session = await ort.InferenceSession.create(model, options);
+        return { ort, session };
+      } finally {
+        // ORT copies the download into its own memory during create(). Drop
+        // our backing store before reporting ready, without waiting for GC.
+        if (typeof model !== 'string') {
+          const buffer = ArrayBuffer.isView(model) ? model.buffer : model;
+          buffer.transfer?.(0);
+        }
+      }
     })().catch((error) => {
       modelSession = undefined;
       throw error;
@@ -35,7 +98,7 @@ function diffusionNoise() {
 }
 
 let noise;
-export async function* animationBlocks(session, audio, signal) {
+export async function* animationBlocks({ ort, session }, audio, signal) {
   noise ??= diffusionNoise();
   let previous;
   const inferHead = import.meta.env.MODE === 'hosted'
