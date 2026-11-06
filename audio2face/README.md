@@ -22,8 +22,10 @@ curl -fL https://huggingface.co/nvidia/Audio2Face-3D-v3.0/resolve/b74132732fd9a9
   -o .local/model_data_James.npz
 python3 scripts/prepare_rig.py .local/james_geom_v3.ma .local/model_data_James.npz
 
-# Substitute the path to the compact WebGPU ONNX export you want to audition.
-cp /path/to/audio2face-v3-phoneme-closure-webgpu.onnx .local/model.onnx
+# Download the v1 baseline and make it active.
+compact_models=https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/geometry-compact-v1
+curl -fL "$compact_models/model-v1.onnx" -o .local/model-v1.onnx
+cp .local/model-v1.onnx .local/model.onnx
 # Download the default browser voice and the two ONNX alternatives.
 sh scripts/fetch_phonon.sh
 sh scripts/fetch_onnx_tts.sh
@@ -66,10 +68,33 @@ processes 12 seconds of silence. The local server caches a smoothed loop from
 that prediction and the viewer blends it with the speech pose during playback.
 [DAWN paper](https://arxiv.org/abs/2410.13726)
 
-The active model is read from `.local/model.onnx`. It must accept the batch-one
-browser interface with `window`, `identity`, `emotion`, `input_latents`, and
-`noise`, and return `prediction` and `output_latents`. Reload the page after
-replacing it. The current experimental export is 72.2 MB.
+The demo reads the active export from `.local/model.onnx`. All four compact
+exports use the same batch-one interface with `window`, `identity`, `emotion`,
+`input_latents`, and `noise` as inputs and `prediction` and `output_latents`
+as outputs. To audition another export, download it under its versioned
+filename, copy it to `.local/model.onnx`, and reload the page.
+
+The [staging artifact manifest](https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/geometry-compact-v1/manifest.json)
+lists byte counts and SHA-256 checksums. Model weights go in the ignored
+`.local` directory. The [model license](https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/geometry-compact-v1/LICENSE.pdf)
+and [attribution notice](https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/geometry-compact-v1/NOTICE.txt)
+are available alongside the exports.
+
+| Export | Size | Lip-gap RMS ↓ | Closure F1 ↑ | `/m/` contacts ↑ |
+| --- | ---: | ---: | ---: | ---: |
+| `model-v1.onnx` | 72.16 MB | 0.0754 | 94.2% | 117/206 |
+| `model-v2.onnx` | 72.28 MB | 0.0730 | 95.4% | 111/206 |
+| `model-encoder-precision.onnx` | 73.83 MB | 0.0698 | 95.5% | 116/206 |
+| `model-encoder-closure.onnx` | 73.92 MB | 0.0741 | 94.9% | 153/206 |
+
+The table uses the same 27 held-out clips in Chrome. RMS and F1 measure
+agreement with the full model. The contact count measures the rig's lip gap
+during aligned `/m/` sounds. The closure model adds a smoothed detector
+trained on aligned speech and reviewed scripted contrasts. On an additional
+24 held-out contrasts, it made contact on 11 of 12 `/m/` sounds, compared
+with 9 for the encoder model, with zero new closures on the 12 negative
+clips. Median paired Chrome inference time was the same as the encoder
+baseline across three clips and four repeats.
 
 `npm run build` checks the frontend build. The local head motion API and
 asset paths are also available under `npm run preview`.
