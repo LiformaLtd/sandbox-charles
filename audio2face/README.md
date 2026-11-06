@@ -5,6 +5,21 @@ mesh speak it. The browser drives the skin, tongue, jaw, and eyes from the
 batch-one ONNX graph. The audio player's clock selects the animation frame,
 including after pause, seek, and replay.
 
+## Vercel preview
+
+Deploy from the `audio2face` directory with the Vite preset. The hosted
+build prepares the James rig and serves the Pocket tokenizer module locally.
+Vercel redirects model downloads to the pinned CDN and upstream URLs in
+`vercel.json`. All speech synthesis and facial inference run in the browser.
+
+The hosted build plays a smoothed, precomputed DAWN idle loop during both
+idle and speech. Live speech-driven head gestures use the local DAWN service
+described below.
+
+```sh
+vercel deploy --environment preview
+```
+
 ## Run locally
 
 Use Node.js 22.12 or later, and Chrome with

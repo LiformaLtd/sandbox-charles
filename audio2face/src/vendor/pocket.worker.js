@@ -1,6 +1,7 @@
 // Adapted from the Pocket TTS ONNX Web Demo by KevinAHM (Apache-2.0, see POCKET-LICENSE).
 // https://huggingface.co/spaces/KevinAHM/pocket-tts-web/tree/d0c0c79b7712256a32d691c67f20b8ae2e020d00
 import * as ort from 'onnxruntime-web/wasm';
+import { configureTtsWasm } from '../tts-wasm.js';
 
 const base = '/assets/pocket';
 const CHUNK_GAP_SEC = 0.25;
@@ -26,7 +27,7 @@ async function asset(name) {
 }
 
 async function load() {
-    ort.env.wasm.numThreads = Math.min(navigator.hardwareConcurrency || 1, 4);
+    configureTtsWasm(ort);
     bundleMetadata = await (await asset('bundle.json')).json();
     currentSampleRate = bundleMetadata.sample_rate;
     currentLatentDim = bundleMetadata.latent_dim;

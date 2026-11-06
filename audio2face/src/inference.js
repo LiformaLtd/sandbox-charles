@@ -38,11 +38,13 @@ let noise;
 export async function* animationBlocks(session, audio, signal) {
   noise ??= diffusionNoise();
   let previous;
-  const inferHead = (pcm, start) => predictHead(pcm, start, signal);
+  const inferHead = import.meta.env.MODE === 'hosted'
+    ? undefined
+    : (pcm, start) => predictHead(pcm, start, signal);
   for await (const { sampleIndices, geometry, pcm, head } of geometryBlocks(ort, session, audio, noise, 1, inferHead)) {
     const block = geometry.slice();
     const frames = sampleIndices.map((_, i) => block.subarray(i * 88831, (i + 1) * 88831));
-    const rotations = joinHeadWindow(head, previous, sampleIndices);
+    const rotations = head ? joinHeadWindow(head, previous, sampleIndices) : sampleIndices.map(() => undefined);
     previous = head;
     yield { frames, pcm, rotations };
   }

@@ -1,0 +1,117 @@
+{
+  "framework": "vite",
+  "buildCommand": "npm run build:hosted",
+  "outputDirectory": "dist",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Cross-Origin-Embedder-Policy",
+          "value": "require-corp"
+        }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/assets/model.onnx",
+      "destination": "https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/geometry-compact-v1/model-v1.onnx",
+      "permanent": false
+    },
+    {
+      "source": "/assets/phonon/model.q8.gguf",
+      "destination": "https://huggingface.co/gradium/phonon-31m-en/resolve/8c64b55ec301728e2d1695bfea87a08a267d0c2d/model.q8.gguf",
+      "permanent": false
+    },
+    {
+      "source": "/assets/phonon/tokenizer.json",
+      "destination": "https://huggingface.co/gradium/phonon-31m-en/resolve/8c64b55ec301728e2d1695bfea87a08a267d0c2d/tokenizer.json",
+      "permanent": false
+    },
+    {
+      "source": "/assets/phonon/config.json",
+      "destination": "https://huggingface.co/gradium/phonon-31m-en/resolve/8c64b55ec301728e2d1695bfea87a08a267d0c2d/config.json",
+      "permanent": false
+    },
+    {
+      "source": "/assets/phonon/easton.safetensors",
+      "destination": "https://huggingface.co/gradium/phonon-voices/resolve/0ee17205f254b5abc43b266c8a0f215565c352f7/voices/LMDIYE0Oa377Qh6Z.safetensors",
+      "permanent": false
+    },
+    {
+      "source": "/assets/supertonic/onnx/duration_predictor.onnx",
+      "destination": "https://huggingface.co/supertone-oss-archive/supertonic-3/resolve/aafc6e32416a594460b32413efc49d7fe4ce6d46/onnx/duration_predictor.onnx",
+      "permanent": false
+    },
+    {
+      "source": "/assets/supertonic/onnx/text_encoder.onnx",
+      "destination": "https://huggingface.co/supertone-oss-archive/supertonic-3/resolve/aafc6e32416a594460b32413efc49d7fe4ce6d46/onnx/text_encoder.onnx",
+      "permanent": false
+    },
+    {
+      "source": "/assets/supertonic/onnx/vector_estimator.onnx",
+      "destination": "https://huggingface.co/supertone-oss-archive/supertonic-3/resolve/aafc6e32416a594460b32413efc49d7fe4ce6d46/onnx/vector_estimator.onnx",
+      "permanent": false
+    },
+    {
+      "source": "/assets/supertonic/onnx/vocoder.onnx",
+      "destination": "https://huggingface.co/supertone-oss-archive/supertonic-3/resolve/aafc6e32416a594460b32413efc49d7fe4ce6d46/onnx/vocoder.onnx",
+      "permanent": false
+    },
+    {
+      "source": "/assets/supertonic/onnx/tts.json",
+      "destination": "https://huggingface.co/supertone-oss-archive/supertonic-3/resolve/aafc6e32416a594460b32413efc49d7fe4ce6d46/onnx/tts.json",
+      "permanent": false
+    },
+    {
+      "source": "/assets/supertonic/onnx/unicode_indexer.json",
+      "destination": "https://huggingface.co/supertone-oss-archive/supertonic-3/resolve/aafc6e32416a594460b32413efc49d7fe4ce6d46/onnx/unicode_indexer.json",
+      "permanent": false
+    },
+    {
+      "source": "/assets/supertonic/voice_styles/M1.json",
+      "destination": "https://huggingface.co/supertone-oss-archive/supertonic-3/resolve/aafc6e32416a594460b32413efc49d7fe4ce6d46/voice_styles/M1.json",
+      "permanent": false
+    },
+    {
+      "source": "/assets/pocket/bundle.json",
+      "destination": "https://huggingface.co/spaces/KevinAHM/pocket-tts-web/resolve/d0c0c79b7712256a32d691c67f20b8ae2e020d00/onnx/english_2026-04/bundle.json",
+      "permanent": false
+    },
+    {
+      "source": "/assets/pocket/flow_lm_flow_int8.onnx",
+      "destination": "https://huggingface.co/spaces/KevinAHM/pocket-tts-web/resolve/d0c0c79b7712256a32d691c67f20b8ae2e020d00/onnx/english_2026-04/flow_lm_flow_int8.onnx",
+      "permanent": false
+    },
+    {
+      "source": "/assets/pocket/flow_lm_main_int8.onnx",
+      "destination": "https://huggingface.co/spaces/KevinAHM/pocket-tts-web/resolve/d0c0c79b7712256a32d691c67f20b8ae2e020d00/onnx/english_2026-04/flow_lm_main_int8.onnx",
+      "permanent": false
+    },
+    {
+      "source": "/assets/pocket/mimi_decoder_int8.onnx",
+      "destination": "https://huggingface.co/spaces/KevinAHM/pocket-tts-web/resolve/d0c0c79b7712256a32d691c67f20b8ae2e020d00/onnx/english_2026-04/mimi_decoder_int8.onnx",
+      "permanent": false
+    },
+    {
+      "source": "/assets/pocket/text_conditioner_int8.onnx",
+      "destination": "https://huggingface.co/spaces/KevinAHM/pocket-tts-web/resolve/d0c0c79b7712256a32d691c67f20b8ae2e020d00/onnx/english_2026-04/text_conditioner_int8.onnx",
+      "permanent": false
+    },
+    {
+      "source": "/assets/pocket/tokenizer.model",
+      "destination": "https://huggingface.co/spaces/KevinAHM/pocket-tts-web/resolve/d0c0c79b7712256a32d691c67f20b8ae2e020d00/onnx/english_2026-04/tokenizer.model",
+      "permanent": false
+    },
+    {
+      "source": "/assets/pocket/voices.bin",
+      "destination": "https://huggingface.co/spaces/KevinAHM/pocket-tts-web/resolve/d0c0c79b7712256a32d691c67f20b8ae2e020d00/onnx/english_2026-04/voices.bin",
+      "permanent": false
+    }
+  ]
+}

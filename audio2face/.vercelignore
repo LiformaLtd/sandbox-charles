@@ -1,0 +1,7 @@
+.local/
+.vercel/
+.env*
+node_modules/
+dist/
+public/assets/
+**/__pycache__/

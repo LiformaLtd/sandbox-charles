@@ -1,4 +1,5 @@
 import * as ort from 'onnxruntime-web/wasm';
+import { configureTtsWasm } from './tts-wasm.js';
 import { chunkText, loadTextToSpeech, loadVoiceStyle } from './vendor/supertonic.js';
 
 const base = '/assets/supertonic';
@@ -9,7 +10,7 @@ function report(message) {
 }
 
 async function load() {
-  ort.env.wasm.numThreads = Math.min(navigator.hardwareConcurrency || 1, 4);
+  configureTtsWasm(ort);
   const style = await loadVoiceStyle([`${base}/voice_styles/M1.json`]);
   const { textToSpeech } = await loadTextToSpeech(`${base}/onnx`, { executionProviders: ['wasm'] },
     (name, index, count) => report(`Loading Supertonic 3 in your browser… ${index}/${count} · ${name}`));

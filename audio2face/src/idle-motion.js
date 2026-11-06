@@ -21,6 +21,9 @@ export function blinkAt(time) {
 const neutral = [0, 0, 0];
 
 export async function loadIdleHead() {
+  if (import.meta.env.MODE === 'hosted') {
+    return (await import('./idle-head-track.json')).default;
+  }
   const response = await fetch('/api/idle-head-motion');
   const track = await response.json();
   if (!response.ok) throw new Error(track.error || 'DAWN idle inference failed.');
