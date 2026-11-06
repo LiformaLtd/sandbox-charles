@@ -1,0 +1,10 @@
+.local/
+node_modules/
+dist/
+.env
+__pycache__/
+.vercel/
+.env.local
+/public/assets/
+.vercel
+.env*
