@@ -1,0 +1,18 @@
+{
+  "name": "lito-model-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "dev": "npm run build && npm start"
+  },
+  "dependencies": {
+    "@sparkjsdev/spark": "2.4.0",
+    "express": "^5.1.0",
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
+  }
+}

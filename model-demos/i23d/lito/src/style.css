@@ -1,0 +1,34 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+  background: #101419;
+  color: #e8edf3;
+}
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { max-width: 1200px; margin: auto; padding: 40px 24px; }
+header { margin-bottom: 26px; }
+h1 { font-size: 3rem; margin: 4px 0; letter-spacing: -.05em; }
+h2 { font-size: 1rem; margin: 0 0 14px; }
+p { color: #b0bdca; }
+.eyebrow { font-size: .74rem; letter-spacing: .14em; color: #8dddc3; }
+.workspace { display: grid; grid-template-columns: minmax(240px, 320px) minmax(0, 1fr); gap: 16px; }
+.panel { background: #171d24; border: 1px solid #2c3641; border-radius: 14px; padding: 18px; }
+label { display: block; font-size: .84rem; color: #b0bdca; margin-bottom: 7px; }
+input { max-width: 100%; }
+.preview { display: grid; place-items: center; aspect-ratio: 1; background: #101419; border-radius: 8px; margin: 16px 0; overflow: hidden; color: #b0bdca; font-size: .85rem; }
+.preview img { width: 100%; height: 100%; object-fit: contain; }
+button { font: inherit; border: 1px solid #4a685f; border-radius: 7px; padding: 8px 12px; background: #253d35; color: #eaf8f3; cursor: pointer; }
+button:disabled { opacity: .45; cursor: default; }
+#generate { width: 100%; }
+#status { min-height: 2.6em; font-size: .88rem; margin-bottom: 0; }
+.output-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.output-heading h2 { margin: 0; }
+.viewport { position: relative; display: grid; place-items: center; height: clamp(330px, 55vh, 650px); background: #101419; border-radius: 8px; overflow: hidden; }
+.viewport canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+.viewport p { z-index: 1; padding: 12px; text-align: center; pointer-events: none; }
+.hint { font-size: .82rem; margin: 12px 0 0; }
+[hidden] { display: none !important; }
+@media (max-width: 720px) { .workspace { grid-template-columns: 1fr; } .preview { max-width: 320px; } }
+
+#source-detail-hint { margin: 0 0 14px; }

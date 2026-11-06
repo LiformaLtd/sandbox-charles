@@ -1,0 +1,3 @@
+gsplat-mlx @ git+https://github.com/RobotFlow-Labs/gsplat-mlx.git@9e53709a94e9c56fb66db2708d7d728832176713
+opencv-python-headless==5.0.0.93
+plyfile==1.1.5

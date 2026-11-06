@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <meta name="theme-color" content="#101419">
+    <title>LiTo · Image to 3D</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "@sparkjsdev/spark": "/vendor/spark/spark.module.min.js",
+          "three": "/vendor/three/three.module.js",
+          "three/addons/": "/vendor/three-addons/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main>
+      <header><p class="eyebrow">MODEL DEMOS / IMAGE TO 3D</p><h1>LiTo</h1><p>Turn an image into an interactive Gaussian splat on your Mac.</p></header>
+      <div class="workspace">
+        <section class="panel source" aria-labelledby="source-heading">
+          <h2 id="source-heading">Source image</h2>
+          <label for="image">Choose a PNG, JPEG or WebP</label>
+          <input id="image" type="file" accept="image/png,image/jpeg,image/webp" disabled>
+          <div class="preview"><img id="preview" alt="Selected source image" hidden><span id="preview-empty">No image selected</span></div>
+          <div>
+            <label for="source-detail"><input id="source-detail" type="checkbox" aria-describedby="source-detail-hint" disabled> Add source detail</label>
+            <p class="hint" id="source-detail-hint">Projects detail onto the visible surface. Use transparency or a solid green or blue screen.</p>
+          </div>
+          <button id="generate" disabled>Generate</button>
+          <p id="status" role="status" aria-live="polite">Restoring session…</p>
+        </section>
+        <section class="panel output" aria-labelledby="output-heading">
+          <div class="output-heading"><h2 id="output-heading">Gaussian splat</h2><button id="reset" disabled>Reset view</button></div>
+          <div class="viewport" id="viewport"><p id="viewer-status">Your splat will appear here.</p></div>
+          <p class="hint">Drag to orbit · Scroll to zoom</p>
+        </section>
+      </div>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
