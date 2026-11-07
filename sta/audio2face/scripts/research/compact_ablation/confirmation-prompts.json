@@ -1,0 +1,290 @@
+[
+  {
+    "stem": "confirm-conversation-000",
+    "split": "test",
+    "source": "conversation",
+    "text": "Hello, I am James. Before we begin, tell me what brought you here and what you would like to practise today."
+  },
+  {
+    "stem": "confirm-conversation-001",
+    "split": "test",
+    "source": "conversation",
+    "text": "I have checked the booking. Your room will be ready after lunch, and we can keep your bags here until then."
+  },
+  {
+    "stem": "confirm-conversation-002",
+    "split": "test",
+    "source": "conversation",
+    "text": "The meeting has moved to Wednesday morning. Please bring the revised plan and a short list of open questions."
+  },
+  {
+    "stem": "confirm-conversation-003",
+    "split": "test",
+    "source": "conversation",
+    "text": "It sounds as though the button worked the first time, but the page stopped responding when you tried again."
+  },
+  {
+    "stem": "confirm-conversation-004",
+    "split": "test",
+    "source": "conversation",
+    "text": "We do not need to solve everything this morning. Pick one small problem, and we will work through it together."
+  },
+  {
+    "stem": "confirm-conversation-005",
+    "split": "test",
+    "source": "conversation",
+    "text": "After the rain stopped, we took a quiet walk along the river and watched the birds settle on the bridge."
+  },
+  {
+    "stem": "confirm-conversation-006",
+    "split": "test",
+    "source": "conversation",
+    "text": "Would you prefer a clear explanation first, or shall I show you an example and explain it as we go?"
+  },
+  {
+    "stem": "confirm-conversation-007",
+    "split": "test",
+    "source": "conversation",
+    "text": "Thanks for waiting. I have found the missing parcel, and someone will bring it to the front desk shortly."
+  },
+  {
+    "stem": "confirm-closure_m-008",
+    "split": "test",
+    "source": "closure_m",
+    "text": "Mum made a warm meal for Emma. We met them at home and shared the remaining plums."
+  },
+  {
+    "stem": "confirm-closure_m-009",
+    "split": "test",
+    "source": "closure_m",
+    "text": "Tom remembers the moment the music stopped. He put the empty mug on the table and smiled."
+  },
+  {
+    "stem": "confirm-closure_m-010",
+    "split": "test",
+    "source": "closure_m",
+    "text": "Sam came home from the museum with a small map and a memorable story about the moon."
+  },
+  {
+    "stem": "confirm-closure_m-011",
+    "split": "test",
+    "source": "closure_m",
+    "text": "Maybe the summer programme will begin in May. In the meantime, we can meet on Monday morning."
+  },
+  {
+    "stem": "confirm-closure_m-012",
+    "split": "test",
+    "source": "closure_m",
+    "text": "The team remained calm. A moment later, the main screen came on and the room became silent."
+  },
+  {
+    "stem": "confirm-closure_m-013",
+    "split": "test",
+    "source": "closure_m",
+    "text": "Emma moved the lamp from the middle of the room. Then Mum made room for the new armchair."
+  },
+  {
+    "stem": "confirm-closure_m-014",
+    "split": "test",
+    "source": "closure_m",
+    "text": "Come home, Sam. The meal is warm, the film is ready, and Mum is waiting by the window."
+  },
+  {
+    "stem": "confirm-closure_m-015",
+    "split": "test",
+    "source": "closure_m",
+    "text": "My memory of the morning is simple: a humming room, a warm muffin, and the smell of fresh mint."
+  },
+  {
+    "stem": "confirm-closure_b-016",
+    "split": "test",
+    "source": "closure_b",
+    "text": "Bob bought a bright blue bowl for the baby. Brenda brought it back before breakfast."
+  },
+  {
+    "stem": "confirm-closure_b-017",
+    "split": "test",
+    "source": "closure_b",
+    "text": "The big brown bear stood beside the broken bridge. Nobody believed it would be brave enough to cross."
+  },
+  {
+    "stem": "confirm-closure_b-018",
+    "split": "test",
+    "source": "closure_b",
+    "text": "Ruby borrowed a bicycle and rode behind the bus. At the bottom of the hill, she rang the bell."
+  },
+  {
+    "stem": "confirm-closure_b-019",
+    "split": "test",
+    "source": "closure_b",
+    "text": "Bring the black bag back, Ben. The blue book belongs beside the brown box on the bench."
+  },
+  {
+    "stem": "confirm-closure_b-020",
+    "split": "test",
+    "source": "closure_b",
+    "text": "The baby began to bubble with laughter when Bob bounced the ball gently across the bed."
+  },
+  {
+    "stem": "confirm-closure_b-021",
+    "split": "test",
+    "source": "closure_b",
+    "text": "Barbara baked bread before the builders arrived. By breakfast, the bakery smelled wonderful."
+  },
+  {
+    "stem": "confirm-closure_b-022",
+    "split": "test",
+    "source": "closure_b",
+    "text": "A bright ribbon hung above the cupboard. Below it stood a bottle, a bowl, and a battered brass bell."
+  },
+  {
+    "stem": "confirm-closure_b-023",
+    "split": "test",
+    "source": "closure_b",
+    "text": "We bought the tickets, boarded the boat, and waved goodbye to everybody waiting by the harbour."
+  },
+  {
+    "stem": "confirm-closure_p-024",
+    "split": "test",
+    "source": "closure_p",
+    "text": "Pam put a pink paper parcel beside the purple plate. Please pick it up before the party."
+  },
+  {
+    "stem": "confirm-closure_p-025",
+    "split": "test",
+    "source": "closure_p",
+    "text": "The puppy popped out from behind the plant. Peter promptly put the empty pot back in place."
+  },
+  {
+    "stem": "confirm-closure_p-026",
+    "split": "test",
+    "source": "closure_p",
+    "text": "Keep the cup upright. Pour the soup slowly, put down the spoon, and pass the pepper, please."
+  },
+  {
+    "stem": "confirm-closure_p-027",
+    "split": "test",
+    "source": "closure_p",
+    "text": "Philip packed a spare pair of slippers and a paperback before the trip to the coast."
+  },
+  {
+    "stem": "confirm-closure_p-028",
+    "split": "test",
+    "source": "closure_p",
+    "text": "The shopkeeper wrapped the apple pie in paper. We picked up the package and stepped outside."
+  },
+  {
+    "stem": "confirm-closure_p-029",
+    "split": "test",
+    "source": "closure_p",
+    "text": "A drop of paint appeared on the carpet. Pip paused, picked up a cloth, and wiped it away."
+  },
+  {
+    "stem": "confirm-closure_p-030",
+    "split": "test",
+    "source": "closure_p",
+    "text": "Please stop at the top of the path. Put the backpack down and help me open the picnic hamper."
+  },
+  {
+    "stem": "confirm-closure_p-031",
+    "split": "test",
+    "source": "closure_p",
+    "text": "We hope the performance will happen in April. The people preparing the programme seem pleased."
+  },
+  {
+    "stem": "confirm-connected-032",
+    "split": "test",
+    "source": "connected",
+    "text": "Who would choose warm soup over cool juice? We watched the moon move slowly above the roof."
+  },
+  {
+    "stem": "confirm-connected-033",
+    "split": "test",
+    "source": "connected",
+    "text": "Five visitors left fresh flowers by the silver vase. Three of them thanked the driver before leaving."
+  },
+  {
+    "stem": "confirm-connected-034",
+    "split": "test",
+    "source": "connected",
+    "text": "I thought the weather would improve, but the wind grew stronger and the sky turned grey again."
+  },
+  {
+    "stem": "confirm-connected-035",
+    "split": "test",
+    "source": "connected",
+    "text": "The little girl looked through the window, laughed at the puppy, and hurried downstairs to let him in."
+  },
+  {
+    "stem": "confirm-connected-036",
+    "split": "test",
+    "source": "connected",
+    "text": "Before breakfast, we checked the map, packed the bags, and made sure the back door was properly locked."
+  },
+  {
+    "stem": "confirm-connected-037",
+    "split": "test",
+    "source": "connected",
+    "text": "Could you repeat the last part more slowly? I understood the question, but I missed the number you gave."
+  },
+  {
+    "stem": "confirm-connected-038",
+    "split": "test",
+    "source": "connected",
+    "text": "On our way home, we stopped for an apple, a bowl of oats, and a small bottle of orange juice."
+  },
+  {
+    "stem": "confirm-connected-039",
+    "split": "test",
+    "source": "connected",
+    "text": "The road was narrow, the bridge was old, and the river below us was moving surprisingly quickly."
+  },
+  {
+    "stem": "confirm-pauses-040",
+    "split": "test",
+    "source": "pauses",
+    "text": "Wait. Bob? Is that you? Oh, good. Put the bag down. Take a breath, and begin at the beginning."
+  },
+  {
+    "stem": "confirm-pauses-041",
+    "split": "test",
+    "source": "pauses",
+    "text": "Maybe. Perhaps. Probably not. Give me a moment to think before I promise something I cannot do."
+  },
+  {
+    "stem": "confirm-pauses-042",
+    "split": "test",
+    "source": "pauses",
+    "text": "Please stop! The paper is still wet. Put it beside the lamp, and we can pick it up in a minute."
+  },
+  {
+    "stem": "confirm-pauses-043",
+    "split": "test",
+    "source": "pauses",
+    "text": "Good morning. Welcome back. We have three things to discuss: the budget, the programme, and the next meeting."
+  },
+  {
+    "stem": "confirm-pauses-044",
+    "split": "test",
+    "source": "pauses",
+    "text": "I was ready to leave. Then the phone rang. Mum sounded worried, so I put my bag down and listened."
+  },
+  {
+    "stem": "confirm-pauses-045",
+    "split": "test",
+    "source": "pauses",
+    "text": "Well, that was unexpected. A broken cup, a missing map, and a puppy asleep in the cupboard."
+  },
+  {
+    "stem": "confirm-pauses-046",
+    "split": "test",
+    "source": "pauses",
+    "text": "Are we prepared? Have we packed the blue bag? What about the passports? Yes? Perfect. Let us go."
+  },
+  {
+    "stem": "confirm-pauses-047",
+    "split": "test",
+    "source": "pauses",
+    "text": "No rush. We have plenty of time. First, make yourself comfortable. Then tell me what happened."
+  }
+]

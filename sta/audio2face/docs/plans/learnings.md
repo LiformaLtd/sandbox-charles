@@ -1,6 +1,6 @@
 # Building a small, accurate audio-to-face model with low browser memory
 
-Research notes from the James Audio2Face experiments, recorded on 2026-11-07.
+Research notes from the James Audio2Face experiments, consolidated on 2026-11-07 through the matched-seed and channel-folding follow-up.
 
 This document gives a reconstruction procedure for researchers starting with the full teacher and changing the data, fitting objective, student, or browser implementation. Numerical results below describe specific experiments. Hyperparameters are reference settings to repeat or ablate, rather than established optima.
 
@@ -643,3 +643,257 @@ Historical trainers and raw benchmarks were executed in a research workspace out
 On the development machine, selected v3 manifests and results are retained under the ignored `.local/compact-v3/` directory. Local files are supplementary evidence, not portable dependencies for a fresh clone. Exact historical score reproduction needs an archive of the original audio, labels, cached noise, split manifests, training scripts, environment lockfiles and raw benchmark traces. The recipe above supports a new experiment from the pinned teacher with independently generated data; its measured scores should be reported as a new run.
 
 This document is an experimental record and reconstruction recipe. It intentionally retains regressions, rejected approaches and measurement limits alongside the successful changes so a new researcher can choose a different objective and verify the consequences.
+
+
+## 16. Isolate capacity, context and data from extra training
+
+The [first controlled ablation study](compact-v3-ablations.md) compared widths
+128/192, longer input context, a larger temporal receptive field, and 61 extra
+training clips. Every trained arm had the same six-epoch, 486-update budget.
+An unchanged 96-channel model trained for the same budget was the control.
+Without that control, most of the benefit would have been attributed to the
+intervention rather than simply continuing optimization.
+
+On the existing 65-clip test set:
+
+| Intervention | ONNX MB | Gap RMSE | Contact F1 |
+| --- | ---: | ---: | ---: |
+| Released v3 | 2.252 | 0.2246 | 0.8794 |
+| Additional training only | 2.252 | 0.2212 | 0.8816 |
+| Width 128 | 3.218 | 0.2202 | 0.8818 |
+| Width 192 | 5.935 | 0.2190 | 0.8823 |
+| Longer input window only | 2.252 | 0.2210 | 0.8821 |
+| Longer window and larger receptive field | 2.252 | 0.2213 | 0.8797 |
+| 61 extra targeted clips | 2.252 | 0.2203 | 0.8801 |
+
+Width 192 improved gap error by only about 1% beyond the training control.
+The extra 61 clips, totaling 203.04 seconds, produced a small gap improvement
+without better closure F1 than the control. They were selected using training
+errors and subtitle frequencies, excluding every historical transcript. This
+result tests one data addition at fixed updates; it does not establish that
+more data or greater acoustic diversity would be ineffective.
+
+Distinguish an input window from a receptive field. Extending the waveform from
+one to 1.5 seconds supplied 151 mel frames instead of 101, while retaining the
+same eight dilations and roughly 0.8-second feature receptive field. This
+replaces some boundary padding with real audio. A separate arm changed block 5
+from dilation 1 to 32, extending the feature receptive field from 81 to 143
+frames. Neither produced a clear newer-test gain over the control. The latter
+also missed more labial contacts, despite improving gap error on the original
+corpus. Both needed 250 ms more source-audio lookahead.
+
+These are warm-started, fixed-budget fine-tunes. They do not compare fully
+converged architectures trained independently from scratch. Wider networks were
+initialized by duplicating channels and dividing downstream fan-in weights by
+the replication counts, preserving the initial function apart from 1e-5 weight
+noise. Retest a different initialization or training schedule as a new experiment.
+
+## 17. Repeat across seeds and reserve a new confirmation set
+
+The [longer follow-up](compact-v3-width-followup.md) ran all three widths for
+12 epochs at seeds 37, 73 and 101: nine fits, each with 972 optimizer updates.
+Every update contained 48 frozen v3-corpus windows and 16 legacy replay windows.
+The 61-clip pilot addition was excluded to keep the width comparison separate.
+The cosine LR schedule ran from 0.00006 to 0.000006 over the full 12 epochs.
+
+A longer schedule should be specified explicitly. This was a new 12-epoch run
+from released v3, not a restart of a decayed six-epoch optimizer with an
+undocumented LR reset. Checkpoints used the same validation objective, with
+epoch zero still eligible. Some runs selected earlier checkpoints; one wider
+run improved again at epoch 11 after several flat epochs. That observation
+argues against assuming that an early plateau proves convergence.
+
+Use separate random generators for initialization and sample order. Otherwise,
+a wider initializer consumes more random draws and silently changes the batches
+even when the nominal seed is identical. Within each seed pair, the study held
+window and legacy replay order fixed. Independent fine-tuning seeds estimate
+variation around a fixed v3 initialization, not variability across training an
+entire student from scratch.
+
+Repeated comparisons on the same test set can overstate generalization. Before
+evaluating the follow-up, we froze 48 newly written prompts: eight each for
+conversation, `/m/`, `/b/`, `/p/`, connected speech, and pauses. Exact normalized
+transcripts did not overlap any historical split or the previous data addition.
+The resulting 256 seconds contained 15,379 frames and 287 eligible teacher
+contacts. These are new transcripts from the same Phonon Easton distribution,
+not held-out speakers or synthesis engines. Labels remained automatic, using
+the full teacher and the same lip-aware fitter.
+
+The following are means across three seeds; released v3 is one fixed reference:
+
+| Model | Fresh 48: gap RMSE | Fresh 48: contact F1 | Original 51: gap RMSE / F1 |
+| --- | ---: | ---: | --- |
+| Released v3 | 0.2580 | 0.7618 | 0.3227 / 0.6217 |
+| Longer-trained 96 | 0.2548 | 0.7691 | 0.3226 / 0.6221 |
+| Longer-trained 128 | 0.2539 | 0.7700 | 0.3242 / 0.6204 |
+| Longer-trained 192 | 0.2517 | 0.7728 | 0.3248 / 0.6173 |
+
+Width 192 reduced fresh-set gap error in every matched seed: about 1.24% beyond
+the longer-trained control and 2.45% against released v3. A crossed paired
+bootstrap resampled seeds and whole clips together, preserving within-clip
+correlation. Its 95% interval for RMSE difference against the control was
+approximately [-0.00495, -0.00143]. The F1 interval, [-0.00025, 0.00804], included
+zero. Three seeds remain a limited estimate of training variability.
+
+The original diverse corpus regressed slightly. Width 128's fresh-set gains
+were inconsistent across seeds. Report these outcomes alongside the gains;
+they do not support claiming a universal improvement over v3. Representatives
+for browser and visual checks were chosen by validation, not by test scores.
+
+Compare timing on the same detected events. Pooling matched seed-events, the
+192-channel intervention improved `/m/` and `/p/` release MAE by approximately
+2.5 and 4.4 ms, while their onset MAE worsened by approximately 0.9 and 2.9 ms.
+It did not improve every aspect of lip synchronization. Averages over different
+successful-event subsets can conceal that tradeoff.
+
+## 18. Train wider, then fold equivalent replicas back to the small graph
+
+Inspect whether a larger trained network actually uses distinct extra features.
+Our 192-channel warm starts retained almost identical channel replicas; encoder
+replica cosine similarity was approximately 1.0. This led to a secondary,
+deterministic transformation that used the trained weights, without fitting to
+confirmation examples.
+
+For the modulo-96 duplication used here, merge the 192 channels into 96:
+
+1. Average encoder output-channel replicas and their biases.
+2. In every hidden convolution, sum weights across duplicated input channels,
+   then average across duplicated output channels. Average the hidden biases.
+3. Sum duplicated input columns in the final projection, preserving its output
+   biases. Keep normalization, channel mapping and audio/timestamp buffers fixed.
+
+In notation, for hidden convolution weights:
+
+```text
+W_fold[o, i, k] = mean over output replicas a of
+                   (sum over input replicas b of W_wide[a, b, k])
+b_fold[o] = mean over output replicas a of b_wide[a]
+```
+
+This is algebraically equivalent when corresponding replica features are
+identical. With learned divergence it can be lossy; it is not generic pruning
+or a way to halve any independently trained network. The current helper requires
+an integer multiple of 96 channels in the original replica ordering; it does not
+implement the nonuniform duplication case used for width 128.
+
+Validate the operator sequence, convolution attributes, frontend, normalization,
+channel map and temporal buffers before exporting. Then compare full outputs on
+silence, deterministic random input and speech, followed by complete held-out
+tracks. The [folding helper](../../scripts/research/compact_ablation/fold_width.py)
+performs structural checks; these do not replace numerical or quality evaluation.
+
+For our three seeds, all 224 historical/confirmation clips per seed were checked:
+**8,638,344 coefficients** in total. The largest absolute folding difference was
+**8.94e-7**, with mean absolute differences around 1.2e-8. All reported rounded
+quality scores matched the corresponding wide models. Browser inference of the
+selected folded checkpoint matched ONNX CPU outputs within 3.73e-7 across 9,360
+additional fixture values.
+
+The resulting model has **331,047 learned parameters** and is exactly
+**2,251,828 bytes**, matching the original 96-channel export. It retains the
+wider fine-tune's measured function while using the original inference topology.
+This demonstrates that a wider fine-tune can alter optimization dynamics without
+requiring more deployed parameters. It does not demonstrate a fundamental
+capacity limit of a normally trained 96-channel student. A larger model with
+independent features, different initialization or more training could behave
+differently.
+
+Validation selected width-192 seed 37 at epoch 8 for the representative folded
+candidate. Its SHA-256 is:
+
+`b87c52993117fa32d5d48ab97851314996177fd0dd254384596fb898efc52f2f`
+
+It is a local experimental artifact under
+`.local/compact-followup/james-arkit-student-folded-candidate.onnx`, not one of
+the published v1/v2/v3 releases listed earlier. Keep v3 available while evaluating
+the candidate's narrower Phonon-focused gains and diverse-speech regression.
+
+## 19. Count emitted frames when reporting real-time speed
+
+The standard model reads an overlapping one-second input window but emits
+**30 usable centre frames**, advancing **0.5 seconds of audio** at 60 fps.
+Boundary blocks can be shorter. For steady blocks, the speed factor is:
+
+```text
+real-time factor = 500 ms of emitted audio / measured block milliseconds
+```
+
+Using the full one-second input duration would overstate streaming throughput
+by a factor of two. Keep warm inference, startup, source-audio lookahead and
+click-to-first-audio latency separate. Warm measurements here include the audio
+frontend, GPU inference and readback, but exclude TTS generation.
+
+The follow-up ran 30 fresh-browser tests: five model choices, two clip lengths
+(about 4.2 and 12.7 seconds) and three repeats. Training stopped before timing.
+The same Phonon/James pipeline retained continuous idle animation.
+
+| Representative | Short / long block ms | Short / long peak MB | Explicit model GPU MB |
+| --- | --- | --- | ---: |
+| Released v3 | 3.02 / 3.02 | 906.0 / 899.7 | 1.492 |
+| Longer-trained 96 | 2.74 / 3.18 | 895.8 / 897.3 | 1.492 |
+| Longer-trained 128 | 3.78 / 3.64 | 896.9 / 902.0 | 2.497 |
+| Longer-trained 192 | 4.96 / 4.80 | 909.8 / 910.7 | 5.292 |
+| Folded candidate, 96 at inference | 2.98 / 3.04 | 896.8 / 900.3 | 1.492 |
+
+The folded candidate therefore achieved approximately **164–168× real time**,
+with the original **1,492,236 bytes** of explicit model GPU buffers. All models
+used two compute pipelines and 25 model buffers. Prepared click-to-first-audio
+medians for the folded model were 115 and 123 ms. Several short-run timings were
+noisy; report repeats and ranges rather than treating a single run as precise.
+
+The largest individual process peak was 913.8 MB. These are desktop macOS
+WebKit 2388 measurements on the M5 Max with iPhone 13 viewport/user-agent
+emulation. The 20 ms sampler sums simultaneous WebContent and GPU physical
+footprints; it does not establish unique total-system memory or physical iPhone
+requirements. Small peak differences are within the observed variability.
+Model-buffer equivalence is stronger evidence than an apparent few-MB reduction
+in whole-browser memory.
+
+## 20. Consistent targets and reliable experiments are further optimization work
+
+A training-label audit found different levels of agreement with raw geometry:
+
+| Training corpus | Clips | Fitted-label gap RMSE | Fitted-label contact F1 |
+| --- | ---: | ---: | ---: |
+| Legacy v1 | 219 | 0.1367 | 0.7583 |
+| Legacy v2 | 180 | 0.1173 | 0.7305 |
+| V3 dictionary | 453 | 0.0356 | 0.9721 |
+| Earlier 96 extra clips | 96 | 0.0355 | 0.9737 |
+
+These are different corpora, so the table does not isolate the fitter's causal
+effect. It does show that legacy replay supplies less faithful coefficient
+targets. The next useful data experiment is to regenerate lip-aware targets on
+the same legacy training audio while preserving teacher noise, precision and
+timing, then compare otherwise identical training. Keep test references frozen.
+More data with inconsistent labels can retain a systematic error rather than
+remove it. This relabeling experiment has not yet been performed.
+
+Additional practical lessons from the research harness:
+
+- Freeze scripts, input/model hashes, splits and environment versions per study.
+  Save optimizer, scheduler, model, best checkpoint and RNG state so interrupted
+  work can be reconstructed. Do not silently change the LR schedule on resume.
+- Fingerprint audio, labels and manifests when caching features; changing a label
+  fitter must invalidate cached targets. Completed-run reuse must also account
+  for changed inputs. Write cache files atomically before concurrent readers use
+  them. In-process reuse avoids loading the same dataset repeatedly.
+- Separate seed variability from clip-sampling uncertainty. Keep older tests as
+  regression checks, and choose representative models using validation. A new
+  exact-transcript holdout still does not establish unseen-speaker generalization.
+- Pre-bundle lazy worker dependencies in a Vite benchmark. The first cold attempt
+  reloaded during preparation when Vite discovered `phonon-tts/worker.js`.
+  Pre-bundling it fixed the harness; accepted runs assert one main-frame
+  navigation. A dev-server reload must not be misdiagnosed as a memory crash.
+- Use one waveform, playback clock and seek position for visual comparisons.
+  Hold the head steady when inspecting lips, but keep continuous idle animation
+  in the separate runtime-memory tests. The teacher-fitted lane is distinct from
+  rendering the full teacher mesh. Fixed closure frames looked broadly similar;
+  they did not establish a dramatic perceptual upgrade or a blinded preference.
+
+The [research scripts and setup](../../scripts/research/compact_ablation/README.md)
+include the model, losses, matched-study driver, original confirmation prompts,
+evaluation, folding, browser sampling and synchronized comparison tools. The
+[follow-up report](compact-v3-width-followup.md) retains full experiment details.
+Raw corpora, frozen historical recipes, checkpoints and traces remain local,
+ignored artifacts; exact replay still requires their archive and compatible
+teacher/dictionary dependencies. Treat a regenerated corpus as a new experiment.

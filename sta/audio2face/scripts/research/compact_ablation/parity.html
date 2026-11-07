@@ -1,0 +1,13 @@
+<!doctype html><html><body><p id="status">Checking numerical parity…</p><pre id="result"></pre><script type="module">
+import { createCompactWebGpu } from './src/compact-webgpu.js';
+try {
+  const name=new URLSearchParams(location.search).get('candidate');
+  const [bytes,fixtures]=await Promise.all([fetch('/candidate.onnx?candidate='+name).then(r=>r.arrayBuffer()),fetch('/fixtures.json?candidate='+name).then(r=>r.json())]);
+  const run=await createCompactWebGpu(await navigator.gpu.requestAdapter(),bytes,()=>{});
+  let max=0,sum=0,count=0;
+  for(const {pcm,expected} of fixtures){const actual=await run(Float32Array.from(pcm));if(actual.length!==expected.length)throw Error('Wrong output size');for(let i=0;i<actual.length;i++){const error=Math.abs(actual[i]-expected[i]);max=Math.max(max,error);sum+=error;count++;}}
+  if(!Number.isFinite(max)||max>.00005)throw Error('Parity failed: '+max);
+  document.querySelector('#result').textContent=JSON.stringify({max,mae:sum/count,count});
+  document.querySelector('#status').textContent='Passed';
+} catch(error) {document.querySelector('#status').textContent='Failed';document.querySelector('#result').textContent=error.stack;}
+</script></body></html>
