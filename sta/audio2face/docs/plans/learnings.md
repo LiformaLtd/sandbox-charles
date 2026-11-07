@@ -1133,3 +1133,32 @@ The shader fix adds no buffers or pipelines, but that observation is not a new
 measurement of total page peak memory. Preserve the previous measured memory
 results and remeasure when changing allocation lifetimes, topology or renderer
 assets; do not infer a new phone memory result from a shader arithmetic change.
+
+## 24. Gain augmentation helps robustness but needs a matched fine-tuning control
+
+The [teacher-labelled gain follow-up](compact-gain-robustness-results.md) tested
+original versus original/half/headroom-boosted speech, with a newly generated
+teacher track for every recording. Both arms started from v4 and used the same
+744 updates, development selection and clean replay. Amplification respected
+per-clip peak headroom; quarter-level speech was reserved for evaluation.
+
+Gain augmentation reduced half/boost macro lip-gap RMS by 3.4% versus the matched
+control, missing the predeclared 5% gate. Quarter-level error improved 7.3% versus
+control, but ordinary-level error improved only 0.3%. Its 1.6% ordinary-level
+improvement versus v4 would overstate the gain intervention if the extra-training
+control were omitted. Contact improved on level-shifted speech, but the experiment
+did not deliver a broad quality breakthrough. Keep v4; do not silently lower the
+gate, pick another seed against this test set, or promote an experimental export.
+
+All original-level teacher labels regenerated exactly, while teacher geometry
+changed slightly with waveform gain. This confirms both that supervision was
+consistent and that unchanged-label augmentation would have been inaccurate.
+A source-hash cache guard initially rejected labels after logging-only source
+changes. Rather than weaken the guard or mix provenance, the new setup regenerated
+all labels under one current recipe. Keep archived recipes and failed-setup records.
+
+The gain export retained 331,047 parameters and 2,251,827 bytes. Robustness data
+can therefore help without adding runtime encoders or model memory, but identical
+topology is not a new peak-memory measurement. More level variants also do not
+add distinct transcripts or articulatory contexts. The larger remaining fidelity
+gap still calls for broader speech coverage and independent representation tests.

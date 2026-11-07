@@ -126,6 +126,8 @@ def main():
     parser.add_argument('--seed', type=int, default=37)
     parser.add_argument('--threads', type=int, default=4)
     parser.add_argument('--lr', type=float, default=.00012)
+    parser.add_argument('--baseline', type=Path, help='Explicit initialization for a separate follow-up study')
+    parser.add_argument('--steps-per-epoch', type=int, help='Fix update budget when a follow-up changes corpus size')
     parser.add_argument('--clean-replay', action='store_true',
                         help='Second-stage engineering arm: 48 new + 16 clean legacy windows, with an Easton validation guard')
     args = parser.parse_args()
@@ -135,7 +137,7 @@ def main():
     suffix = '-replay' if args.clean_replay else ''
     run = OUT / 'runs' / f'{args.arm}{suffix}-s{args.seed}'
     run.mkdir(parents=True, exist_ok=True)
-    baseline = WORK / 'arkit-student-v3/james-arkit-student-v3.onnx'
+    baseline = args.baseline or WORK / 'arkit-student-v3/james-arkit-student-v3.onnx'
     graph = onnx.load(baseline)
     values = {t.name: numpy_helper.to_array(t).copy() for t in graph.graph.initializer}
     rig = np.load(WORK / 'arkit-student/rig-metrics.npz')
@@ -162,7 +164,8 @@ def main():
     rest = torch.from_numpy(rig['rest'] + rig['gap_offset'])
     names = json.loads((WORK / 'arkit-student/channels.json').read_text())
     lips = torch.tensor([1.7 if names[i].startswith(('mouth', 'jaw')) else 1. for i in active])
-    recipe = dict(config=vars(args), baseline_sha256=sha(baseline), train_sha256=train_sha, dev_sha256=dev_sha,
+    config = {k: str(v) if isinstance(v, Path) else v for k, v in vars(args).items()}
+    recipe = dict(config=config, baseline_sha256=sha(baseline), train_sha256=train_sha, dev_sha256=dev_sha,
                   code_sha256=sha(__file__), model_sha256=sha(OUT / 'sources/model.py'),
                   clean_replay_fingerprints=replay_fingerprint,
                   phone_weight=.1, feature_weight=.1,
@@ -218,7 +221,9 @@ def main():
     groups = [torch.nonzero(train['voice'] == v, as_tuple=True)[0] for v in train['voice'].unique()]
     if len(groups) != 8:
         raise ValueError('Expected eight balanced training voices')
-    steps = math.ceil(len(train['mel']) / 64)
+    steps = args.steps_per_epoch or math.ceil(len(train['mel']) / 64)
+    if steps < 1:
+        raise ValueError('Expected a positive update budget')
     optimizer = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=.015)
     schedule = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, steps * args.epochs, eta_min=args.lr * .1)
     score, initial = evaluate()
