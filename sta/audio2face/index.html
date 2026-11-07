@@ -32,22 +32,24 @@
               <label><input type="radio" name="engine" value="pocket"><span>Pocket TTS</span></label>
             </div>
           </fieldset>
-          <fieldset class="voice-switch" id="animation-switch">
-            <legend>Animation model</legend>
-            <select name="animation" aria-label="Animation model">
-              <option value="compact-v4" selected>Compact ARKit v4 (2.25 MB)</option>
-              <option value="compact-v3">Compact ARKit v3 (2.25 MB)</option>
-              <option value="compact-v2">Compact ARKit v2 (2.25 MB)</option>
-              <option value="compact">Compact ARKit v1 (2.25 MB)</option>
-              <option value="geometry">Original geometry (72.16 MB)</option>
-            </select>
-          </fieldset>
-          <fieldset class="voice-switch" id="runtime-switch">
-            <select name="runtime" aria-label="Animation runtime">
-              <option value="webgpu" selected>WebGPU</option>
-              <option value="cpu">CPU</option>
-            </select>
-          </fieldset>
+          <div class="animation-settings">
+            <fieldset class="voice-switch" id="animation-switch">
+              <legend>Animation model</legend>
+              <select name="animation" aria-label="Animation model">
+                <option value="compact-v4" selected>Compact ARKit v4 (2.25 MB)</option>
+                <option value="compact-v3">Compact ARKit v3 (2.25 MB)</option>
+                <option value="compact-v2">Compact ARKit v2 (2.25 MB)</option>
+                <option value="compact">Compact ARKit v1 (2.25 MB)</option>
+                <option value="geometry">Original geometry (72.16 MB)</option>
+              </select>
+            </fieldset>
+            <fieldset class="voice-switch" id="runtime-switch">
+              <select name="runtime" aria-label="Animation runtime">
+                <option value="webgpu" selected>WebGPU</option>
+                <option value="cpu">CPU</option>
+              </select>
+            </fieldset>
+          </div>
           <div class="dialogue-heading">
             <label for="speech">Dialogue</label>
             <div class="dialogue-navigation" role="group" aria-label="Sample dialogues">
