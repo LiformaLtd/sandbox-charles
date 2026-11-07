@@ -49,6 +49,14 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent);
 h1 { font-size: clamp(31px, 3.4vw, 49px); line-height: 1.04; letter-spacing: -.065em; margin: 13px 0 12px; }
 .intro { color: var(--muted); line-height: 1.6; font-size: 14px; margin: 0 0 28px; }
 label { display: block; font-size: 13px; font-weight: 650; margin-bottom: 9px; }
+.dialogue-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.dialogue-heading label { margin: 0; }
+.dialogue-navigation { display: flex; align-items: center; gap: 7px; }
+.dialogue-navigation span { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dialogue-navigation button { padding: 6px 8px; border: 1px solid var(--border); border-radius: 7px; background: #242633; color: #e9e9ee; font-size: 12px; }
+.dialogue-navigation button:hover:enabled { background: #363642; }
+.dialogue-navigation button:disabled { opacity: .55; cursor: wait; }
+.dialogue-sample { margin: 0 0 9px; color: var(--muted); font-size: 12px; line-height: 1.4; }
 textarea {
   width: 100%; resize: vertical; min-height: 110px; max-height: 360px;
   color: #e9e9ee; background: #11131b; border: 1px solid #383a47; border-radius: 11px;

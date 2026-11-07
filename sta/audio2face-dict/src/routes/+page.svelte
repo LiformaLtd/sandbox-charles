@@ -8,6 +8,7 @@
   import DictionaryWorker from '../lib/dictionary/dictionary.worker.js?worker';
   import type { prepareTranscript } from '../lib/alignment/engine.ts';
   import { CHANNELS, FPS, SAMPLE_RATE } from '../lib/dictionary/index.mjs';
+  import { dialogueSamples } from '../lib/dialogue-samples';
   import '../lib/studio/style.css';
 
   interface AnimationResult {
@@ -22,7 +23,9 @@
     corpus: 'pilot' | 'full' | 'targeted' | 'subtitles';
   }
 
-  let dialogue = $state('Please put the blue map back by the lamp.');
+  let sampleIndex = $state(0);
+  let dialogue = $state<string>(dialogueSamples[0].text);
+  const sampleTitle = $derived(dialogue === dialogueSamples[sampleIndex].text ? dialogueSamples[sampleIndex].title : 'Custom dialogue');
   let status = $state('Loading the James rig…');
   let error = $state('');
   let inputError = $state('');
@@ -133,6 +136,23 @@
     }
   }
 
+  function stepDialogue(direction: number) {
+    if (busy) return;
+    sampleIndex = (sampleIndex + direction + dialogueSamples.length) % dialogueSamples.length;
+    dialogue = dialogueSamples[sampleIndex].text;
+    inputError = '';
+    error = '';
+    audio?.pause();
+    audio?.removeAttribute('src');
+    audio?.load();
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    audioUrl = undefined;
+    frameViews = [];
+    details = null;
+    duration = 0;
+    if (ready) status = 'Ready to generate speech.';
+  }
+
   const elapsed = (milliseconds: number) => milliseconds < 1000
     ? milliseconds.toFixed(1) + ' ms' : (milliseconds / 1000).toFixed(2) + ' s';
 
@@ -222,10 +242,18 @@
     <form onsubmit={generate}>
       <div class="voice-switch">Speech engine · Phonon</div>
       <div class="voice-switch">Animation model · Dictionary</div>
-      <label for="speech">Dialogue</label>
+      <div class="dialogue-heading">
+        <label for="speech">Dialogue</label>
+        <div class="dialogue-navigation" role="group" aria-label="Sample dialogues">
+          <button type="button" aria-label="Previous dialogue" disabled={busy} onclick={() => stepDialogue(-1)}>← Prev</button>
+          <span>{sampleIndex + 1} / {dialogueSamples.length}</span>
+          <button type="button" aria-label="Next dialogue" disabled={busy} onclick={() => stepDialogue(1)}>Next →</button>
+        </div>
+      </div>
+      <p class="dialogue-sample" id="dialogue-sample" aria-live="polite">{sampleTitle}</p>
       <textarea id="speech" rows="5" maxlength="500" required bind:value={dialogue}
         oninput={() => { inputError = ''; }} aria-invalid={!!inputError}
-        aria-describedby={inputError ? 'dialogue-error' : undefined}></textarea>
+        aria-describedby={inputError ? 'dialogue-sample dialogue-error' : 'dialogue-sample'}></textarea>
       {#if inputError}<p id="dialogue-error" class="status error" role="alert">{inputError}</p>{/if}
       <div class="input-meta"><span>Easton · generated in this browser</span><span>{dialogue.length} / 500</span></div>
       <div class="head-motion-control">
