@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "threshold": 0.1,
+  "fps": 60,
+  "trainingClips": 504,
+  "trainingSetSha256": "e0a09bb0693bc37f1d0fa8c9d02028b2c1c39ba4055cbbfc0fc64b44cf540b79",
+  "population": "Full native Audio2Face v3.2 James outputs and their existing ARKit lip fits on Phonon Easton training speech, aligned by full TinyAligner. Evaluation and development clips excluded.",
+  "percentileBand": [
+    5,
+    95
+  ],
+  "phones": {
+    "P": {
+      "examples": 203,
+      "onsetRangeMs": [
+        -158.22101176905406,
+        -51.47542619727899
+      ],
+      "releaseRangeMs": [
+        -74.48102764231237,
+        -8.589889824297863
+      ]
+    },
+    "B": {
+      "examples": 176,
+      "onsetRangeMs": [
+        -162.04452532684198,
+        -62.056271991020154
+      ],
+      "releaseRangeMs": [
+        -72.53973906228516,
+        -24.8495630715629
+      ]
+    },
+    "M": {
+      "examples": 134,
+      "onsetRangeMs": [
+        -144.30955318626496,
+        -30.916014481681845
+      ],
+      "releaseRangeMs": [
+        -75.53689669177875,
+        -1.0053868899612022
+      ]
+    }
+  }
+}

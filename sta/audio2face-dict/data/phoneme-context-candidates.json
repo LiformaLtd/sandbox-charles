@@ -1,0 +1,489 @@
+{
+  "version": 1,
+  "trainingManifestSHA256": "71689a22f36122cfa9f4c9e526dd859ad62acf460d3b4de60d32765f673f03a2",
+  "closureTrainingSetSHA256": "e0a09bb0693bc37f1d0fa8c9d02028b2c1c39ba4055cbbfc0fc64b44cf540b79",
+  "active": false,
+  "description": "Provisional feature-context margins, not validated playback settings. Broad ranges can contain unrelated neighbor motion and must be bounded by donor events and target context.",
+  "phonemes": {
+    "AA": {
+      "occurrences": 365,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "AE": {
+      "occurrences": 392,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "AH": {
+      "occurrences": 1524,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "AO": {
+      "occurrences": 259,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "AW": {
+      "occurrences": 126,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "AY": {
+      "occurrences": 226,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "B": {
+      "occurrences": 372,
+      "active": false,
+      "evidence": [
+        {
+          "feature": "lipClosure",
+          "examples": 176,
+          "beforeMs": 183.33333333333334,
+          "afterMs": 16.666666666666668,
+          "source": "data/closure-windows.json",
+          "onsetMedianSensitivitySpreadMs": null
+        }
+      ],
+      "candidateBeforeMs": 183.33333333333334,
+      "candidateAfterMs": 16.666666666666668,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "candidate_requires_playback_validation"
+    },
+    "CH": {
+      "occurrences": 129,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "D": {
+      "occurrences": 715,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "DH": {
+      "occurrences": 568,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "EH": {
+      "occurrences": 515,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "ER": {
+      "occurrences": 338,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "EY": {
+      "occurrences": 293,
+      "active": false,
+      "evidence": [
+        {
+          "feature": "jawOpening",
+          "examples": 35,
+          "matchedFraction": 0.11945392491467577,
+          "beforeMs": 200,
+          "afterMs": 83.33333333333333,
+          "onsetMedianSensitivitySpreadMs": 14.892823116555792
+        }
+      ],
+      "candidateBeforeMs": 200,
+      "candidateAfterMs": 83.33333333333333,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "candidate_requires_playback_validation"
+    },
+    "F": {
+      "occurrences": 289,
+      "active": false,
+      "evidence": [
+        {
+          "feature": "fvProximity",
+          "examples": 165,
+          "matchedFraction": 0.5709342560553633,
+          "beforeMs": 250,
+          "afterMs": 200,
+          "onsetMedianSensitivitySpreadMs": 22.617238715815546
+        }
+      ],
+      "candidateBeforeMs": 250,
+      "candidateAfterMs": 200,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "candidate_requires_playback_validation"
+    },
+    "G": {
+      "occurrences": 230,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "HH": {
+      "occurrences": 161,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "IH": {
+      "occurrences": 832,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "IY": {
+      "occurrences": 443,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "JH": {
+      "occurrences": 139,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "K": {
+      "occurrences": 582,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "L": {
+      "occurrences": 720,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "M": {
+      "occurrences": 385,
+      "active": false,
+      "evidence": [
+        {
+          "feature": "lipClosure",
+          "examples": 134,
+          "beforeMs": 166.66666666666666,
+          "afterMs": 16.666666666666668,
+          "source": "data/closure-windows.json",
+          "onsetMedianSensitivitySpreadMs": null
+        }
+      ],
+      "candidateBeforeMs": 166.66666666666666,
+      "candidateAfterMs": 16.666666666666668,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "candidate_requires_playback_validation"
+    },
+    "N": {
+      "occurrences": 964,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "NG": {
+      "occurrences": 165,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "OW": {
+      "occurrences": 237,
+      "active": false,
+      "evidence": [
+        {
+          "feature": "rounding",
+          "examples": 64,
+          "matchedFraction": 0.270042194092827,
+          "beforeMs": 316.6666666666667,
+          "afterMs": 233.33333333333334,
+          "onsetMedianSensitivitySpreadMs": 50.6099436633177
+        }
+      ],
+      "candidateBeforeMs": 316.6666666666667,
+      "candidateAfterMs": 233.33333333333334,
+      "thresholdSensitive": true,
+      "broadContext": true,
+      "status": "candidate_requires_playback_validation"
+    },
+    "OY": {
+      "occurrences": 41,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "P": {
+      "occurrences": 417,
+      "active": false,
+      "evidence": [
+        {
+          "feature": "lipClosure",
+          "examples": 203,
+          "beforeMs": 183.33333333333334,
+          "afterMs": 16.666666666666668,
+          "source": "data/closure-windows.json",
+          "onsetMedianSensitivitySpreadMs": null
+        }
+      ],
+      "candidateBeforeMs": 183.33333333333334,
+      "candidateAfterMs": 16.666666666666668,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "candidate_requires_playback_validation"
+    },
+    "R": {
+      "occurrences": 857,
+      "active": false,
+      "evidence": [
+        {
+          "feature": "rounding",
+          "examples": 126,
+          "matchedFraction": 0.147024504084014,
+          "beforeMs": 283.3333333333333,
+          "afterMs": 216.66666666666666,
+          "onsetMedianSensitivitySpreadMs": 34.18203466750941
+        }
+      ],
+      "candidateBeforeMs": 283.3333333333333,
+      "candidateAfterMs": 216.66666666666666,
+      "thresholdSensitive": true,
+      "broadContext": true,
+      "status": "candidate_requires_playback_validation"
+    },
+    "S": {
+      "occurrences": 761,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "SH": {
+      "occurrences": 229,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "T": {
+      "occurrences": 1036,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "TH": {
+      "occurrences": 113,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "UH": {
+      "occurrences": 75,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "UW": {
+      "occurrences": 215,
+      "active": false,
+      "evidence": [
+        {
+          "feature": "rounding",
+          "examples": 56,
+          "matchedFraction": 0.26046511627906976,
+          "beforeMs": 300,
+          "afterMs": 183.33333333333334,
+          "onsetMedianSensitivitySpreadMs": 53.071448671947905
+        }
+      ],
+      "candidateBeforeMs": 300,
+      "candidateAfterMs": 183.33333333333334,
+      "thresholdSensitive": true,
+      "broadContext": true,
+      "status": "candidate_requires_playback_validation"
+    },
+    "V": {
+      "occurrences": 217,
+      "active": false,
+      "evidence": [
+        {
+          "feature": "fvProximity",
+          "examples": 116,
+          "matchedFraction": 0.5345622119815668,
+          "beforeMs": 300,
+          "afterMs": 200,
+          "onsetMedianSensitivitySpreadMs": 31.453916588539244
+        }
+      ],
+      "candidateBeforeMs": 300,
+      "candidateAfterMs": 200,
+      "thresholdSensitive": false,
+      "broadContext": true,
+      "status": "candidate_requires_playback_validation"
+    },
+    "W": {
+      "occurrences": 278,
+      "active": false,
+      "evidence": [
+        {
+          "feature": "rounding",
+          "examples": 52,
+          "matchedFraction": 0.18705035971223022,
+          "beforeMs": 350,
+          "afterMs": 133.33333333333334,
+          "onsetMedianSensitivitySpreadMs": 22.867668224690007
+        }
+      ],
+      "candidateBeforeMs": 350,
+      "candidateAfterMs": 133.33333333333334,
+      "thresholdSensitive": false,
+      "broadContext": true,
+      "status": "candidate_requires_playback_validation"
+    },
+    "Y": {
+      "occurrences": 125,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "Z": {
+      "occurrences": 310,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    },
+    "ZH": {
+      "occurrences": 34,
+      "active": false,
+      "evidence": [],
+      "candidateBeforeMs": null,
+      "candidateAfterMs": null,
+      "thresholdSensitive": false,
+      "broadContext": false,
+      "status": "insufficient_unambiguous_feature_evidence"
+    }
+  }
+}

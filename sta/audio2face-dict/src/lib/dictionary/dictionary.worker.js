@@ -2,6 +2,7 @@ import * as ort from 'onnxruntime-web/wasm';
 import { align, prepareWords, transcriptWords } from '../alignment/engine.ts';
 import { bakeAnimation, planAnimation } from './animate.mjs';
 import { validClosureModel } from './closures.mjs';
+import { validSelectionModel } from './selection-model.mjs';
 import channels from '../studio/channels.json';
 import { CHANNELS, FPS, SAMPLE_RATE } from './index.mjs';
 
@@ -27,6 +28,9 @@ async function loadDictionary() {
   if (index.closureModel && (!index.lipRig || !validClosureModel(index.closureModel))) {
     throw new Error('Invalid closure model in the dictionary. Rebuild the bundle.');
   }
+  if (index.selectionModel && (!index.lipRig || !validSelectionModel(index.selectionModel))) {
+    throw new Error('Invalid selection model in the dictionary. Rebuild the bundle.');
+  }
   const weights = await fetchAsset('/dictionary/' + index.weightsFile, 'arrayBuffer');
   if (weights.byteLength !== index.frameCount * CHANNELS * 4) {
     throw new Error('Dictionary animation data is incomplete. Rebuild the bundle.');
@@ -34,7 +38,7 @@ async function loadDictionary() {
   return { ...index, weights: new Float32Array(weights) };
 }
 
-self.onmessage = async ({ data: { id, type, text, pcm } }) => {
+self.onmessage = async ({ data: { id, type, text, pcm, recordedPauses = false } }) => {
   try {
     if (type === 'prepare') {
       lexicon ??= await fetchAsset('/models/lexicon.json', 'json');
@@ -53,12 +57,13 @@ self.onmessage = async ({ data: { id, type, text, pcm } }) => {
     const samplingStarted = performance.now();
     dictionary ??= await loadDictionary();
     const started = performance.now();
-    const plan = planAnimation(dictionary, phones, pcm);
+    const plan = planAnimation(dictionary, phones, pcm, { recordedPauses });
     const frames = bakeAnimation(dictionary, plan);
     self.postMessage({ id, value: {
       frames, phonemeCount: phones.length, coverage: plan.coverage, usage: plan.usage, joins: plan.joins.length,
       alignmentMs, samplingMs: performance.now() - samplingStarted,
       lookupMs: performance.now() - started, corpus: dictionary.corpus,
+      pauseUsage: plan.pauseDiagnostics ? { used: plan.pauseDiagnostics.usedPauses, detected: plan.pauseDiagnostics.detectedPauses } : undefined,
     } }, [frames.buffer]);
   } catch (error) {
     self.postMessage({ id, error: error.message });

@@ -2,10 +2,17 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { buildIndex, CHANNELS, FPS, SAMPLE_RATE, speechRuns, validatePhones } from '../src/lib/dictionary/index.mjs';
 import { validClosureModel } from '../src/lib/dictionary/closures.mjs';
+import { describeSpeech } from '../src/lib/dictionary/acoustics.mjs';
+import { validSelectionModel } from '../src/lib/dictionary/selection-model.mjs';
 
-const [mode = 'pilot', option, fit = 'lip', ...extra] = process.argv.slice(2);
-if ((option && option !== '--fit') || (option && !process.argv[4]) || extra.length ||
-    !['lip', 'baseline'].includes(fit)) throw new Error('Use --fit lip or --fit baseline');
+const [mode = 'pilot', ...options] = process.argv.slice(2);
+let fit = 'lip';
+let includeAcoustics = false;
+for (let i = 0; i < options.length; i++) {
+  if (options[i] === '--acoustics') includeAcoustics = true;
+  else if (options[i] === '--fit' && ['lip', 'baseline'].includes(options[i + 1])) fit = options[++i];
+  else throw new Error('Use --fit lip|baseline and/or --acoustics');
+}
 const weightExtension = fit === 'lip' ? '.lip.arkit' : '.arkit';
 if (!['pilot', 'full', 'targeted', 'subtitles'].includes(mode)) throw new Error('Usage: npm run pack -- pilot|full|targeted|subtitles');
 const sources = (mode === 'subtitles' ? ['full', 'targeted', 'subtitles'] : mode === 'targeted' ? ['full', 'targeted'] : [mode])
@@ -34,8 +41,9 @@ for (const row of rows) {
   }
   validatePhones(row.phones, row.samples / SAMPLE_RATE);
   const samples = new Float32Array(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + pcm.byteLength));
-  const runs = speechRuns(row.phones, samples, silenceRms).map(({ from, to }) => ({ from, to }));
-  clips.push({ id: row.id, phones: row.phones, frameCount, frameOffset, runs });
+  const runs = speechRuns(row.phones, samples, silenceRms).map(({ from, to, pause }) => ({ from, to, ...(pause ? { pause } : {}) }));
+  clips.push({ id: row.id, phones: row.phones, frameCount, frameOffset, runs,
+    ...(includeAcoustics ? { acoustics: describeSpeech(samples, row.phones) } : {}) });
   tracks.push(weights);
   frameOffset += frameCount;
 }
@@ -55,6 +63,13 @@ if (fit === 'lip' && ['targeted', 'subtitles'].includes(mode)) {
   }
 }
 const bundle = { lipRig, closureModel, version: 1, corpus: mode, fit, channels: expectedChannels, fps: FPS, silenceRms, clips, index, frameCount: frameOffset, weightsFile };
+if (includeAcoustics && fit === 'lip') {
+  try {
+    const model = JSON.parse(await readFile(new URL('../.local/selection-model.json', import.meta.url)));
+    if (!validSelectionModel(model)) throw new Error('Invalid selection model; rerun scripts/train-selection.py');
+    if (model.weightsFile === weightsFile) bundle.selectionModel = model;
+  } catch (error) { if (error.code !== 'ENOENT') throw error; }
+}
 await mkdir(target, { recursive: true });
 for (const [name, data] of [[weightsFile, binary], ['index.json', JSON.stringify(bundle)]]) {
   await writeFile(new URL(name + '.partial', target), data);

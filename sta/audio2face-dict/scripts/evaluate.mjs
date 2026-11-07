@@ -2,9 +2,12 @@ import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
 import { bakeAnimation, planAnimation } from '../src/lib/dictionary/animate.mjs';
 import { CHANNELS, FPS } from '../src/lib/dictionary/index.mjs';
+import { checkAdvanceClosures, summarizeAdvanceClosures, validateClosureProfile } from './lib/closure-quality.mjs';
 
 const packed = new URL('../static/dictionary/', import.meta.url);
 const dictionary = JSON.parse(await readFile(new URL('index.json', packed)));
+const closureProfile = JSON.parse(await readFile(new URL('../data/closure-windows.json', import.meta.url)));
+validateClosureProfile(closureProfile);
 const local = new URL('../.local/' + (['targeted', 'subtitles'].includes(dictionary.corpus) ? 'full' : dictionary.corpus) + '/', import.meta.url);
 const rows = JSON.parse(await readFile(new URL('clips.json', local))).filter(({ split }) => split === 'test');
 const lipRig = JSON.parse(await readFile(new URL('lip-rig.json', local)));
@@ -18,9 +21,10 @@ function lipGap(track, frame, landmark) {
   return gap;
 }
 
-const coverage = { triple: 0, pair: 0, single: 0, fallback: 0, miss: 0 };
+const coverage = { triple: 0, pair: 0, single: 0, fallback: 0, miss: 0, approximate: 0 };
 const joins = {};
 const closure = { geometry: 0, fitted: 0, dictionary: 0, dictionaryAndFitted: 0, count: 0 };
+const advanceChecks = { dictionaryVsGeometry: [], fittedVsGeometry: [] };
 let lipDifference = 0;
 let fitDifference = 0;
 let values = 0;
@@ -38,6 +42,12 @@ for (const clip of rows) {
   assert.equal(motion.length, fitted.length);
   assert.equal(geometry.length, motion.length / CHANNELS * nLips);
   assert.ok(motion.every(Number.isFinite));
+  const center = Math.floor(nLips / 2), frameCount = motion.length / CHANNELS;
+  const nativeCenter = Float32Array.from({ length: frameCount }, (_, frame) => geometry[frame * nLips + center]);
+  for (const [name, track] of [['dictionaryVsGeometry', motion], ['fittedVsGeometry', fitted]]) {
+    const actualCenter = Float32Array.from({ length: frameCount }, (_, frame) => lipGap(track, frame, center));
+    advanceChecks[name].push(...checkAdvanceClosures(clip.phones, actualCenter, nativeCenter, closureProfile));
+  }
   for (const key of Object.keys(coverage)) coverage[key] += plan.coverage[key];
   for (const join of plan.joins) {
     const key = [join.outgoing.match.count, join.incoming.match.count].sort().join('-');
@@ -70,6 +80,9 @@ for (const clip of rows) {
 const report = {
   corpus: dictionary.corpus, testClips: rows.length, coverage, joins,
   centerLipContacts: closure, closureThreshold: 0.1,
+  primaryClosureMetric: 'advanceWindowClosures', legacyClosureMetric: 'centerLipContacts uses the former +/-20ms phoneme window',
+  closureProfile,
+  advanceWindowClosures: Object.fromEntries(Object.entries(advanceChecks).map(([name, checks]) => [name, summarizeAdvanceClosures(checks)])),
   lipGapRms: { dictionaryVsFitted: Math.sqrt(lipDifference / values), fittedVsGeometry: Math.sqrt(fitDifference / values) },
   lookupMs: { mean: lookup / rows.length, max: slowest },
   dictionaryBytes: dictionary.weights.byteLength + Buffer.byteLength(await readFile(new URL('index.json', packed))),

@@ -88,8 +88,8 @@ test('single-phoneme fallback fills only missing pairs and reuses the surroundin
   const pcm = new Float32Array(9000);
   const exact = planAnimation(dict, target, pcm, { singleFallback: false });
   const plan = planAnimation(dict, target, pcm);
-  assert.deepEqual(exact.coverage, { triple: 0, pair: 2, single: 0, fallback: 0, miss: 1 });
-  assert.deepEqual(plan.coverage, { triple: 0, pair: 2, single: 0, fallback: 1, miss: 0 });
+  assert.deepEqual(exact.coverage, { triple: 0, pair: 2, single: 0, fallback: 0, miss: 1, approximate: 0 });
+  assert.deepEqual(plan.coverage, { triple: 0, pair: 2, single: 0, fallback: 1, miss: 0, approximate: 0 });
   const frames = bakeAnimation(dict, plan);
   const old = bakeAnimation(dict, exact);
   const [gap] = plan.segments.filter((part) => part.kind === 'fallback');
@@ -172,9 +172,9 @@ test('match counts count a triple once and include single-phoneme fallback sourc
   const pcm = new Float32Array(9000);
   const triple = planAnimation(dictionary([['A', 'B', 'C']]), phones(['A', 'B', 'C']), pcm);
   assert.equal(triple.coverage.triple, 2);
-  assert.deepEqual(triple.usage, { triple: 1, pair: 0, single: 0 });
+  assert.deepEqual(triple.usage, { triple: 1, pair: 0, single: 0, approximate: 0 });
   const fallback = planAnimation(dictionary([['A', 'B'], ['C', 'D']]), phones(['A', 'B', 'C', 'D']), pcm);
-  assert.deepEqual(fallback.usage, { triple: 0, pair: 2, single: 2 });
+  assert.deepEqual(fallback.usage, { triple: 0, pair: 2, single: 2, approximate: 0 });
   const isolated = planAnimation(dictionary([['A']]), phones(['A']), pcm);
-  assert.deepEqual(isolated.usage, { triple: 0, pair: 0, single: 1 });
+  assert.deepEqual(isolated.usage, { triple: 0, pair: 0, single: 1, approximate: 0 });
 });

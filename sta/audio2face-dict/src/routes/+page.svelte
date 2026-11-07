@@ -14,13 +14,14 @@
   interface AnimationResult {
     frames: Float32Array;
     phonemeCount: number;
-    coverage: Record<'triple' | 'pair' | 'single' | 'fallback' | 'miss', number>;
-    usage: Record<'triple' | 'pair' | 'single', number>;
+    coverage: Record<'triple' | 'pair' | 'single' | 'fallback' | 'miss' | 'approximate', number>;
+    usage: Record<'triple' | 'pair' | 'single' | 'approximate', number>;
     joins: number;
     lookupMs: number;
     alignmentMs: number;
     samplingMs: number;
     corpus: 'pilot' | 'full' | 'targeted' | 'subtitles';
+    pauseUsage?: { used: number; detected: number };
   }
 
   let sampleIndex = $state(0);
@@ -31,6 +32,7 @@
   let inputError = $state('');
   let strength = $state(60);
   let closeup = $state(false);
+  let recordedPauses = $state(false);
   let ready = $state(false);
   let busy = $state(false);
   let details = $state<(Omit<AnimationResult, 'frames'> & { ttsMs: number }) | null>(null);
@@ -69,7 +71,7 @@
         worker = undefined;
         reject(new Error(event.message || 'Could not start the alignment worker.'));
       };
-      activeWorker.postMessage({ id, type, text, pcm }, pcm ? [pcm.buffer] : []);
+      activeWorker.postMessage({ id, type, text, pcm, recordedPauses }, pcm ? [pcm.buffer] : []);
     });
   }
 
@@ -256,6 +258,7 @@
         aria-describedby={inputError ? 'dialogue-sample dialogue-error' : 'dialogue-sample'}></textarea>
       {#if inputError}<p id="dialogue-error" class="status error" role="alert">{inputError}</p>{/if}
       <div class="input-meta"><span>Easton · generated in this browser</span><span>{dialogue.length} / 500</span></div>
+      <label class="pause-pilot"><input type="checkbox" bind:checked={recordedPauses} disabled={busy} /> Recorded pauses (pilot)</label>
       <div class="head-motion-control">
         <label for="head-motion">Head motion</label>
         <span aria-hidden="true">{strength}%</span>
@@ -276,7 +279,7 @@
     {#if details}
       <div class="coverage" role="status" aria-live="polite">
         <p>{details.phonemeCount} phonemes in the speech</p>
-        <p>{details.usage.triple} triples · {details.usage.pair} doubles · {details.usage.single} single phonemes</p>
+        <p>{details.usage.triple} exact triples · {details.usage.approximate} approximate triples (P ↔ B) · {details.usage.pair} doubles · {details.usage.single} single phonemes</p>
         <p>Dictionary matches selected before blending.</p>
         <ol aria-label="Processing times">
           <li>Text to speech · {elapsed(details.ttsMs)}</li>
@@ -287,9 +290,10 @@
       </div>
       <details class="coverage">
         <summary>Match coverage</summary>
-        <p>{details.coverage.triple + details.coverage.pair} exact ({details.coverage.triple} triples, {details.coverage.pair} doubles) · {details.coverage.fallback} fallback · {details.coverage.miss} misses</p>
+        <p>{details.coverage.triple + details.coverage.pair} exact ({details.coverage.triple} triples, {details.coverage.pair} doubles) · {details.coverage.approximate} approximate intervals · {details.coverage.fallback} single-phoneme fallback · {details.coverage.miss} misses</p>
         {#if details.coverage.single}<p>{details.coverage.single} isolated phoneme matches</p>{/if}
         <p>{details.joins} extended joins · {details.lookupMs.toFixed(1)} ms lookup and blend · {details.corpus} corpus</p>
+        {#if details.pauseUsage}<p>Recorded pauses: {details.pauseUsage.used} of {details.pauseUsage.detected} used.</p>{/if}
       </details>
     {/if}
     <div class="notes"><span>James v3 mesh</span><span>60 fps · Dictionary</span></div>

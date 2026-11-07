@@ -18,7 +18,7 @@ for (const source of corpusSources) {
 }
 const rows = await readJson(new URL('clips.json', root));
 const groups = {};
-const empty = () => ({ sentences: 0, triple: 0, pair: 0, single: 0, fallback: 0, miss: 0, isolatedMiss: 0, missSeconds: 0 });
+const empty = () => ({ sentences: 0, triple: 0, pair: 0, single: 0, fallback: 0, miss: 0, approximate: 0, isolatedMiss: 0, missSeconds: 0 });
 const fallback = process.argv.includes('--fallback');
 const misses = {};
 for (const row of rows) {
@@ -41,9 +41,10 @@ for (const row of rows) {
   }
 }
 for (const tally of Object.values(groups)) {
-  const total = tally.triple + tally.pair + tally.fallback + tally.miss;
+  const total = tally.triple + tally.pair + tally.approximate + tally.fallback + tally.miss;
   tally.exactPercent = total ? 100 * (tally.triple + tally.pair) / total : 0;
   tally.fallbackPercent = total ? 100 * tally.fallback / total : 0;
+  tally.approximatePercent = total ? 100 * tally.approximate / total : 0;
   tally.missSeconds = Number(tally.missSeconds.toFixed(3));
 }
 console.log(JSON.stringify({ corpus: index.corpus, fallback, groups, missingPairs: misses }, null, 2));
