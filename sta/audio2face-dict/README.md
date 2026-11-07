@@ -335,7 +335,7 @@ The revised pass admits 61 context regions on fresh sentences (previously 186) a
 
 ## Recorded internal pauses: opt-in pilot
 
-Enable **Recorded pauses (pilot)** before generating speech to try recorded release/rest/preparation motion instead of synthetic relaxation. The checkbox defaults to off. Match coverage details report how many detected pauses used recordings. API callers can pass `{ recordedPauses: true }` to `planAnimation`; single-phoneme, join and closure selection remain unchanged. The bounded feature-context experiment stays off independently. The initial pilot comparison below retains the historical 25 ms fade in both variants; current playback now uses the slower fallback described in the next section.
+**Recorded pauses (pilot)** is checked by default in the browser, using recorded release/rest/preparation motion where supported. Uncheck it to use synthetic relaxation throughout. Match coverage details report how many detected pauses used recordings. API callers can pass `{ recordedPauses: true }` to `planAnimation`; single-phoneme, join and closure selection remain unchanged. The bounded feature-context experiment stays off independently. The initial pilot comparison below retains the historical 25 ms fade in both variants; current playback now uses the slower fallback described in the next section.
 
 The training bundle contains 215 internal quiet intervals (189 at least 200 ms), with full ARKit motion already present in the existing weight file. Packing now retains the quiet timestamps alongside speech-run boundaries. Rebuild an older bundle with `npm run pack -- subtitles`; no Audio2Face inference or new corpus clips are needed. Older bundles without timestamps gracefully retain current playback. This metadata change leaves the dictionary keys, clip order, weights and closure model unchanged.
 
@@ -398,3 +398,48 @@ End-transition coefficient acceleration RMS falls by 74.6% / 67.6% on the origin
 Every protected speech-contact frame and speech-run contact mask is unchanged in all six evaluation groups, with the pilot both off and on. Each P/B/M advance-window classification is identical to the previous version (including exclusions): original fresh TP/FP/FN stays 18/2/11; original test stays 10/1/8. No complete-track contact count or isolated quiet-contact count increases. Coverage and selected match counts are unchanged. Accepted recorded-pause frames are bit-identical with the smoother fallback enabled. The envelope was developed on the seven development recordings and three development pairs; the fixed fresh/test suites provide comparisons and regression checks.
 
 Rendered reviews cover the previously unsupported P→pause in “Bring the cup. Then shut the door.” and the ending of “The little dog slept under a blanket.” They show the slower settling clearly, while also showing that synthetic relaxation does not reproduce every feature of the native motion. Live browser generation and playback were checked with the new default enabled and the recorded-pause pilot unchecked.
+
+## Additional phoneme substitutions: opt-in pilot
+
+**S/Z, SH/ZH and K/G fallbacks (pilot)** now enables only those three recommended pairs alongside the existing P↔B pair. The browser checkbox is checked by default and can be turned off for comparison. F/V, TH/DH and T/D are retained in the CLI/API for experiments but are not enabled by the browser checkbox. Every pair is symmetric, can replace the first, middle or final phoneme, and permits only one substitution per triple. Exact triples still take priority at the lookup position; approximate triples compete with exact doubles using the existing timing/join cost and substitution penalty. This changes animation lookup only, not generated audio or TinyAligner's phonemes and timings. M, vowels and other consonant groupings remain excluded. The full-six-pair results below document the earlier trial; the three-pair comparison at the end explains the browser recommendation.
+
+API callers can import `RECOMMENDED_VISEME_PAIRS` from `src/lib/dictionary/viseme-pairs.mjs` to use the browser's subset. For experiments, pass `visemePairs: ['P/B','F/V']` to isolate a pair or import `ALL_VISEME_PAIRS` for the complete set. An empty list disables substitutions; unknown pair identifiers are rejected. Selected approximate triples are counted separately from exact triples and doubles, with per-pair counts in the UI and comparison reports. The `planAnimation` API default remains P/B only; the browser explicitly requests the recommended subset through its checked checkbox. This option is independent of the recorded-pause pilot.
+
+The seven development and fixed 24 fresh / 12 test sentences were compared against current P/B playback with advance guidance, the opening fix and 200 ms neutral transitions enabled in both variants. Each additional pair was tested separately and then all together. The development set selected no new substitutions. Only S/Z and K/G were selected on the fixed fresh/test sets, so those sets cannot assess the other four pairs.
+
+Twelve additional sentences in `scripts/extended-viseme-prompts.mjs` exercise the remaining opportunities. These prompts were selected using the pronunciation lexicon and missing dictionary triples, not native animation scores. They are a targeted challenge set, not a replacement for the fixed test set or an unbiased estimate of general quality. They do not overlap training or existing evaluation transcripts. Phonon generates their speech, full TinyAligner aligns it, and full native Audio2Face supplies new references; these recordings are not added to the dictionary.
+
+```sh
+node scripts/compare-fallback.mjs --extended-visemes --output .local/extended-fresh.json
+node scripts/compare-fallback.mjs --extended-visemes --test-set --output .local/extended-test.json
+node scripts/compare-fallback.mjs --extended-visemes --substitution-pairs F/V --development-set --output .local/fv-development.json
+node scripts/prepare-viseme-challenge.mjs
+"$A2F_PYTHON" scripts/label.py .local/viseme-challenge --runner "$A2F_RUNNER" --model "$A2F_MODEL" --rig "$A2F_RIG" --geometry-reference
+node scripts/compare-fallback.mjs --extended-visemes --challenge-set --output .local/extended-challenge.json
+```
+
+`--substitution-pairs` accepts comma-separated canonical pair identifiers and automatically retains P/B. Omitting it tests all seven pairs. `--save-tracks` writes baseline, expanded, native ARKit-fit and audio review tracks under `.local/extended-visemes/review/`. Exact, approximate and single fallback interval counts remain separate; mixed exact/approximate overlaps are classified as approximate. No missing intervals were recovered on these sets: their single fallback/miss counts stay unchanged. Selected exact-triple counts are unchanged, while some doubles are replaced or overlapped by approximate triples.
+
+| All additional pairs together | Fresh 24 | Test 12 | Challenge 12 |
+| --- | ---: | ---: | ---: |
+| Lip-gap RMS change | -0.70% | +0.14% | -0.17% |
+| Join step-error RMS change | -2.05% | -0.38% | -2.99% |
+| Additional approximate triples selected | 6 | 1 | 14 |
+| Matched / extra / missed native contact episodes, before and after | 46 / 26 / 16 | 36 / 10 / 10 | 27 / 12 / 2 |
+
+| Isolated pair, measured over the same 12 challenge sentences | Selected matches | Lip-gap RMS change | Join error change |
+| --- | ---: | ---: | ---: |
+| F/V | 2 | +0.19% | +0.25% |
+| S/Z | 2 | -0.06% | -0.17% |
+| TH/DH | 1 | +0.51% | -0.23% |
+| SH/ZH | 2 | -0.28% | -2.06% |
+| T/D | 3 | +0.16% | +0.50% |
+| K/G | 4 | -0.69% | -1.28% |
+
+Lower error is better. Full-combination effects need not equal the sum of isolated effects. S/Z alone slightly worsens fixed test-set shape error; F/V, TH/DH and T/D worsen challenge shape error. For example, the expanded version increases whole-sentence lip-gap error by 4.1% on “Wafers fell from the silver tray.” and 7.8% on “Ethan thought the path was lethal.” Sharing a broad viseme does not establish interchangeable motion through the surrounding sounds. No pair-specific penalty was tuned on these reference outputs.
+
+Across all 28 split/pair comparisons, the per-sentence event audit retains every previously matched native reference closure and pairs every predicted extra episode to an existing baseline extra episode. No extra-contact count increases. The combined variants' advance-window TP/FP/FN and exclusion counts are also unchanged. This is a measured regression check, not a runtime guarantee for untested speech. Quality metrics use nine vertical lip gaps and join motion; they do not fully score tooth/tongue visibility or lip protrusion. Functional tests cover both substitution directions and every triple position, exact-triple priority, single-substitution limits, disabled defaults, invalid configuration and silence boundaries. Native quality examples cover every pair, but not every direction/position combination.
+
+Side-by-side rendered reviews include “Please leave the keys beside the sink.” (a substantial measured improvement with S/Z and K/G selected) and “Wafers fell from the silver tray.” (an F/V regression). The full native reference is rendered through its ARKit fit. Browser generation with the additional-pair checkbox enabled was verified, including the per-pair match counts. The browser now exposes the narrower recommended subset; the full six-pair trial remains reproducible through the CLI/API.
+
+Comparing just S/Z + SH/ZH + K/G with all six additional pairs gives identical output on the fixed fresh/test sentences because F/V, TH/DH and T/D are not selected there. On the challenge set, the three-pair subset reduces lip-gap error by 1.03% and join error by 3.52%, versus 0.17% and 2.99% for all six. Both retain P/B, and all closure-event audits pass. For a fair cross-configuration join comparison, add `--join-reference-pairs all` to the subset run and `--join-reference-pairs S/Z,SH/ZH,K/G` to the full run. That measures both over the same union of baseline/subset/full join anchors; otherwise each two-way comparison can use slightly different join windows.

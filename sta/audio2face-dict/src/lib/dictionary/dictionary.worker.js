@@ -5,6 +5,7 @@ import { validClosureModel } from './closures.mjs';
 import { validSelectionModel } from './selection-model.mjs';
 import channels from '../studio/channels.json';
 import { CHANNELS, FPS, SAMPLE_RATE } from './index.mjs';
+import { RECOMMENDED_VISEME_PAIRS, DEFAULT_VISEME_PAIRS } from './viseme-pairs.mjs';
 
 ort.env.wasm.numThreads = 1;
 
@@ -38,7 +39,7 @@ async function loadDictionary() {
   return { ...index, weights: new Float32Array(weights) };
 }
 
-self.onmessage = async ({ data: { id, type, text, pcm, recordedPauses = false } }) => {
+self.onmessage = async ({ data: { id, type, text, pcm, recordedPauses = false, extendedVisemes = false } }) => {
   try {
     if (type === 'prepare') {
       lexicon ??= await fetchAsset('/models/lexicon.json', 'json');
@@ -57,10 +58,13 @@ self.onmessage = async ({ data: { id, type, text, pcm, recordedPauses = false } 
     const samplingStarted = performance.now();
     dictionary ??= await loadDictionary();
     const started = performance.now();
-    const plan = planAnimation(dictionary, phones, pcm, { recordedPauses });
+    const plan = planAnimation(dictionary, phones, pcm, { recordedPauses, visemePairs:extendedVisemes?RECOMMENDED_VISEME_PAIRS:DEFAULT_VISEME_PAIRS });
     const frames = bakeAnimation(dictionary, plan);
+    const approximateUsage={};
+    for(const match of plan.approximateMatches)approximateUsage[match.pair]=(approximateUsage[match.pair]??0)+1;
     self.postMessage({ id, value: {
       frames, phonemeCount: phones.length, coverage: plan.coverage, usage: plan.usage, joins: plan.joins.length,
+      approximateUsage, extendedVisemes,
       alignmentMs, samplingMs: performance.now() - samplingStarted,
       lookupMs: performance.now() - started, corpus: dictionary.corpus,
       pauseUsage: plan.pauseDiagnostics ? { used: plan.pauseDiagnostics.usedPauses, detected: plan.pauseDiagnostics.detectedPauses } : undefined,

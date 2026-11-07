@@ -1,20 +1,25 @@
 import assert from 'node:assert/strict';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { bakeAnimation, planAnimation } from '../src/lib/dictionary/animate.mjs';
 import { CHANNELS, FPS } from '../src/lib/dictionary/index.mjs';
 import { checkAdvanceClosures, summarizeAdvanceClosures, validateClosureProfile } from './lib/closure-quality.mjs';
+import { ALL_VISEME_PAIRS, substitutionMap } from '../src/lib/dictionary/viseme-pairs.mjs';
 
 const testSet = process.argv.includes('--test-set');
 const developmentSet = process.argv.includes('--development-set');
-assert.ok(!(testSet && developmentSet), 'Choose one evaluation split');
+const challengeSet = process.argv.includes('--challenge-set');
+assert.ok([testSet,developmentSet,challengeSet].filter(Boolean).length<=1, 'Choose one evaluation split');
 const optimizationComparison = process.argv.includes('--optimization');
 const visemeComparison = process.argv.includes('--viseme-fallback');
 const advanceComparison = process.argv.includes('--advance-closures');
 const openingComparison = process.argv.includes('--opening-context');
 const boundedComparison = process.argv.includes('--bounded-context');
-assert.ok([optimizationComparison, visemeComparison, advanceComparison, openingComparison, boundedComparison].filter(Boolean).length <= 1, 'Compare one feature at a time');
+const extendedComparison = process.argv.includes('--extended-visemes');
+const saveTracks = process.argv.includes('--save-tracks');
+assert.ok(!saveTracks || extendedComparison, '--save-tracks requires --extended-visemes');
+assert.ok([optimizationComparison, visemeComparison, advanceComparison, openingComparison, boundedComparison, extendedComparison].filter(Boolean).length <= 1, 'Compare one feature at a time');
 const acousticOnly = process.argv.includes('--acoustic-only');
 const retimingOnly = process.argv.includes('--retiming-only');
 assert.ok(!(acousticOnly && retimingOnly), 'Choose one ablation');
@@ -28,6 +33,14 @@ const argument = (name) => {
 };
 const baselinePath = argument('--baseline');
 const outputPath = argument('--output');
+const additionalPairs = argument('--substitution-pairs');
+assert.ok(!additionalPairs || extendedComparison, '--substitution-pairs requires --extended-visemes');
+const extendedPairs = additionalPairs ? [...new Set(['P/B',...additionalPairs.split(',')])] : ALL_VISEME_PAIRS;
+substitutionMap(extendedPairs);
+const joinReferenceArgument=argument('--join-reference-pairs');
+assert.ok(!joinReferenceArgument||extendedComparison,'--join-reference-pairs requires --extended-visemes');
+const joinReferencePairs=joinReferenceArgument?(joinReferenceArgument==='all'?ALL_VISEME_PAIRS:[...new Set(['P/B',...joinReferenceArgument.split(',')])]):undefined;
+if(joinReferencePairs)substitutionMap(joinReferencePairs);
 const acousticMode = argument('--acoustic-mode') ?? 'predicted';
 const contextStrength = Number(argument('--context-strength') ?? '.25');
 const contextPhones = argument('--context-phones')?.split(',');
@@ -36,8 +49,8 @@ assert.ok(['absolute','anchored'].includes(contextBlend), 'Unknown context blend
 assert.ok(!contextPhones || boundedComparison, '--context-phones requires --bounded-context');
 assert.ok(Number.isFinite(contextStrength) && contextStrength > 0 && contextStrength <= .5, 'Context strength must be in (0, 0.5]');
 assert.ok(['predicted', 'similarity'].includes(acousticMode), 'Unknown acoustic mode');
-const corpusComparison = Boolean(baselinePath) || optimizationComparison || visemeComparison || advanceComparison || openingComparison || boundedComparison;
-const local = new URL(testSet || developmentSet ? '../.local/full/' : '../.local/fresh/', import.meta.url);
+const corpusComparison = Boolean(baselinePath) || optimizationComparison || visemeComparison || advanceComparison || openingComparison || boundedComparison || extendedComparison;
+const local = new URL(challengeSet ? '../.local/viseme-challenge/' : testSet || developmentSet ? '../.local/full/' : '../.local/fresh/', import.meta.url);
 const packed = new URL('../static/dictionary/', import.meta.url);
 const json = async (url) => JSON.parse(await readFile(url));
 const floats = async (url) => {
@@ -60,7 +73,7 @@ if (baselinePath) {
   assert.deepEqual(baseline.lipRig, dictionary.lipRig);
   assert.deepEqual(baseline.closureModel, dictionary.closureModel, 'Keep the closure model fixed for corpus comparison');
 }
-if (optimizationComparison || visemeComparison || advanceComparison || openingComparison || boundedComparison) {
+if (optimizationComparison || visemeComparison || advanceComparison || openingComparison || boundedComparison || extendedComparison) {
   if (optimizationComparison && !retimingOnly) assert.ok(dictionary.clips.every((clip) => clip.acoustics) && (acousticMode === 'similarity' || dictionary.selectionModel), 'Pack with --acoustics and prepare the selection model first');
   baseline ??= dictionary;
   assert.deepEqual(baseline.clips.map(({ id }) => id), dictionary.clips.map(({ id }) => id), 'Optimization comparison must keep the corpus fixed');
@@ -75,7 +88,7 @@ const landmarks = rig.neutral.length;
 const center = Math.floor(landmarks / 2);
 const closureComparison = process.argv.includes('--closures');
 const joinComparison = corpusComparison || closureComparison || process.argv.includes('--join-aware');
-const variants = boundedComparison ? ['baseline', 'boundedContext'] : openingComparison ? ['baseline', 'openingContext'] : advanceComparison ? ['baseline', 'advanceClosures'] : visemeComparison ? ['baseline', 'visemeFallback'] : optimizationComparison ? ['baseline', 'optimized'] : corpusComparison ? ['baseline', 'expanded'] : closureComparison ? ['current', 'closureAware'] : joinComparison ? ['timingOnly', 'joinAware'] : ['without', 'with'];
+const variants = extendedComparison ? ['baseline','extendedVisemes'] : boundedComparison ? ['baseline', 'boundedContext'] : openingComparison ? ['baseline', 'openingContext'] : advanceComparison ? ['baseline', 'advanceClosures'] : visemeComparison ? ['baseline', 'visemeFallback'] : optimizationComparison ? ['baseline', 'optimized'] : corpusComparison ? ['baseline', 'expanded'] : closureComparison ? ['current', 'closureAware'] : joinComparison ? ['timingOnly', 'joinAware'] : ['without', 'with'];
 const dictionaries = corpusComparison ? [baseline, dictionary] : [dictionary, dictionary];
 const references = ['geometry', 'fitted'];
 const fitExtension = dictionary.fit === 'lip' ? 'lip.arkit' : 'arkit';
@@ -200,20 +213,25 @@ for (const row of rows) {
       acousticAware: optimizationComparison && variant === 'optimized' && !retimingOnly,
       closureRetiming: optimizationComparison && variant === 'optimized' && !acousticOnly,
       acousticMode,
-      visemeFallback: boundedComparison || openingComparison || advanceComparison || (visemeComparison && variant === 'visemeFallback'),
-      advanceClosures: boundedComparison || openingComparison || (advanceComparison && variant === 'advanceClosures'),
-      openingContext: boundedComparison || (openingComparison && variant === 'openingContext'),
+      visemeFallback: extendedComparison || boundedComparison || openingComparison || advanceComparison || (visemeComparison && variant === 'visemeFallback'),
+      visemePairs: extendedComparison && variant === 'extendedVisemes' ? extendedPairs : ['P/B'],
+      advanceClosures: extendedComparison || boundedComparison || openingComparison || (advanceComparison && variant === 'advanceClosures'),
+      openingContext: extendedComparison || boundedComparison || (openingComparison && variant === 'openingContext'),
       boundedContext: boundedComparison && variant === 'boundedContext', contextStrength, contextBlend,
-      smoothNeutral: false, // Historical comparisons retain the original neutral transition.
+      smoothNeutral: extendedComparison, // Older comparisons retain their original neutral transition.
     });
     if (contextPhones) plan.contexts = plan.contexts.filter(context => contextPhones.includes(context.phone));
     selectionMs[variant] += performance.now() - start;
     for (const kind of Object.keys(coverage[variant])) coverage[variant][kind] += plan.coverage[kind];
     for (const kind of Object.keys(usage[variant])) usage[variant][kind] += plan.usage[kind];
-    if ((visemeComparison || advanceComparison) && variant !== 'baseline') approximateMatches.push(...plan.approximateMatches.map((match) => ({ ...match, text: row.text })));
+    if ((extendedComparison || visemeComparison || advanceComparison) && variant !== 'baseline') approximateMatches.push(...plan.approximateMatches.map((match) => ({ ...match, text: row.text })));
     return plan;
   });
   const [beforePlan, afterPlan] = plans;
+  const joinPlans=joinReferencePairs?[...plans,planAnimation(dictionary,row.phones,pcm,{
+    visemePairs:joinReferencePairs,boundedContext:false,recordedPauses:false,
+    smoothNeutral:true,advanceClosures:true,openingContext:true,
+  })]:plans;
   if (optimizationComparison || boundedComparison) assert.deepEqual(beforePlan.coverage, afterPlan.coverage, 'Optimization must not change coverage');
   if (boundedComparison) assert.deepEqual(beforePlan.usage, afterPlan.usage, 'Blending must not change selected match counts');
   if (!corpusComparison && joinComparison) {
@@ -226,8 +244,15 @@ for (const row of rows) {
   const spans = [...new Map((corpusComparison ? plans.flatMap((plan) => plan.segments) : afterPlan.segments)
     .filter(({ kind }) => kind === 'fallback').map((span) => [span.start + ':' + span.end, span])).values()];
   fallbackIntervals += spans.length;
+  const motions = plans.map((plan,i)=>bakeAnimation(dictionaries[i],plan));
+  if(saveTracks) {
+    const directory=new URL('../.local/extended-visemes/review/',import.meta.url);await mkdir(directory,{recursive:true});
+    for(const [name,values] of [[variants[0],motions[0]],[variants[1],motions[1]],['native-fit',weights],['pcm',pcm]]) {
+      await writeFile(new URL(row.id+'.'+name+'.f32',directory),Buffer.from(values.buffer,values.byteOffset,values.byteLength));
+    }
+  }
   const tracks = {
-    ...Object.fromEntries(variants.map((variant, i) => [variant, gaps(bakeAnimation(dictionaries[i], plans[i]))])),
+    ...Object.fromEntries(variants.map((variant, i) => [variant, gaps(motions[i])])),
     geometry, fitted: gaps(weights),
   };
   const frameCount = geometry.length / landmarks;
@@ -252,7 +277,7 @@ for (const row of rows) {
     // Both variants use identical measurement windows. Corpus comparison uses
     // the union of their joins; algorithm comparisons use the baseline joins.
     // Include the middle of each triple overlap.
-    for (const plan of corpusComparison ? plans : [beforePlan]) {
+    for (const plan of corpusComparison ? joinPlans : [beforePlan]) {
       for (const [i, { start, end, kind, pieces }] of plan.segments.entries()) {
         if ((kind === 'triple' || kind === 'approximate') && pieces.length === 2) anchors.push((start + end) / 2);
         const previous = plan.segments[i - 1];
@@ -288,11 +313,12 @@ for (const row of rows) {
     });
   }
 
-  const clipReport = { id: row.id, text: row.text, group: row.split, coverage: Object.fromEntries(variants.map((variant, i) => [variant, plans[i].coverage])), fallbackIntervals: spans.length, affectedLipGapRms: {}, lipGapRms: {}, wholeSpeechContacts: {},
+  const clipReport = { id: row.id, text: row.text, group: row.split, ...(row.intendedPair?{intendedPair:row.intendedPair}:{}), coverage: Object.fromEntries(variants.map((variant, i) => [variant, plans[i].coverage])), fallbackIntervals: spans.length, affectedLipGapRms: {}, lipGapRms: {}, wholeSpeechContacts: {},
     ...(boundedComparison ? { context: plans[1].contextDiagnostics,
       contextRegions: plans[1].contexts.map((c) => ({ phone: c.phone, side: c.side, start: c.start, end: c.end, sourceClip: c.match.clip.id,
         sourceStart: c.sourceAnchor + (c.start - c.targetAnchor) * c.slope, sourceEnd: c.sourceAnchor + (c.end - c.targetAnchor) * c.slope, strength: c.strength,
         attribution: c.attribution, targetNeighbor: c.targetNeighbor, sourceNeighbor: c.sourceNeighbor })) } : {}),
+    ...(extendedComparison ? {approximateMatches:Object.fromEntries(variants.map((variant,i)=>[variant,plans[i].approximateMatches]))} : {}),
     ...(openingComparison ? { openingContext: plans[1].leadingContext ? { sourceClip: plans[1].leadingContext.match.clip.id, sourceFrom: plans[1].leadingContext.sourceFrom, sourceTo: plans[1].leadingContext.sourceTo, targetEnd: plans[1].leadingContext.targetEnd } : null } : {}) };
   for (const reference of references) {
     for (const variant of variants) {
@@ -355,6 +381,18 @@ for (const row of rows) {
         .map((check) => ({ id: row.id, text: row.text, ...check })));
     }
   }
+  if(extendedComparison) {
+    const before=clipReport.wholeSpeechContacts.baseline,after=clipReport.wholeSpeechContacts.extendedVisemes;
+    const key=e=>e.first+':'+e.last;
+    const kept=new Set(after.matched.map(e=>key(e.expected)));
+    const oldExtras=[...before.extra],newExtras=[];
+    for(const event of after.extra) {
+      const at=oldExtras.findIndex(old=>old.first<=event.last+1.2&&event.first<=old.last+1.2);
+      if(at<0)newExtras.push(event);else oldExtras.splice(at,1);
+    }
+    clipReport.closureAudit={lostReferenceContacts:before.matched.filter(e=>!kept.has(key(e.expected))).map(e=>e.expected),
+      newExtraContactEpisodes:newExtras,extraCountIncreased:after.extra.length>before.extra.length};
+  }
   if (corpusComparison || spans.length) clipReports.push(clipReport);
 }
 
@@ -390,6 +428,10 @@ const report = {
     uniquePairs: Object.keys(dictionaries[i].index).filter((key) => key.split(' ').length === 2).length,
   }])) } : {}),
   coverage, usage, approximateMatches,
+  ...(extendedComparison ? { approximateUsageByPair: {
+    baseline: {'P/B':usage.baseline.approximate},
+    extendedVisemes: Object.fromEntries(extendedPairs.map(pair=>[pair,approximateMatches.filter(m=>m.pair===pair).length])),
+  } } : {}),
   directFitVsGeometry: {
     lipGapRms: rms(directFit.squares, directFit.values),
     closures: summarizeClosure(directFit.closure),
@@ -399,8 +441,12 @@ const report = {
   sentences: rows.length, fallbackIntervals, evaluatedJoins, evaluatedClosures, affectedClosures,
   meanSelectionMs: Object.fromEntries(variants.map((key) => [key, selectionMs[key] / rows.length])),
   settings: { fps: FPS, landmarks, threshold, padding, joinRadius,
-    primaryClosureMetric: advanceComparison || openingComparison || boundedComparison ? 'closuresAcrossSpeech' : 'advanceWindowClosures', legacyClosureMetric: 'closures uses the former +/-20ms phoneme window',
+    primaryClosureMetric: extendedComparison || advanceComparison || openingComparison || boundedComparison ? 'closuresAcrossSpeech' : 'advanceWindowClosures', legacyClosureMetric: 'closures uses the former +/-20ms phoneme window',
     closureProfile,
+    ...(extendedComparison ? {substitutionPairs:extendedPairs,oneSubstitutionPerTriple:true,substitutionsSymmetric:true,
+      ...(joinReferencePairs?{additionalJoinReferencePairs:joinReferencePairs}:{}),
+      exactTriplesFirst:true,exactDoublesCompete:true,smoothNeutral:true,advanceClosures:true,openingContext:true,
+      recordedPauses:false,acousticAware:false,closureRetiming:false,baselineSubstitutionPairs:['P/B']} : {}),
     ...(boundedComparison ? { boundedContext: true, contextStrength, contactMaskPreserved: true,
       contextPhones: contextPhones ?? 'all', contextBlend,
       contextProfile: await json(new URL('../data/phoneme-context-candidates.json', import.meta.url)),
@@ -418,6 +464,6 @@ const report = {
   advanceClosureDetails: advanceChecks.geometry,
   closureChanges, clipReports,
 };
-const reportFile = outputPath ? pathToFileURL(resolve(outputPath)) : new URL(`${boundedComparison ? 'bounded-context' : openingComparison ? 'opening-context' : advanceComparison ? 'advance-motion' : visemeComparison ? 'viseme' : optimizationComparison ? 'optimization' : corpusComparison ? 'subtitle' : closureComparison ? 'closure' : joinComparison ? 'join' : 'fallback'}-quality${dictionary.fit === 'lip' ? '-lip' : ''}.json`, local);
+const reportFile = outputPath ? pathToFileURL(resolve(outputPath)) : new URL(`${extendedComparison ? 'extended-visemes' : boundedComparison ? 'bounded-context' : openingComparison ? 'opening-context' : advanceComparison ? 'advance-motion' : visemeComparison ? 'viseme' : optimizationComparison ? 'optimization' : corpusComparison ? 'subtitle' : closureComparison ? 'closure' : joinComparison ? 'join' : 'fallback'}-quality${dictionary.fit === 'lip' ? '-lip' : ''}.json`, local);
 await writeFile(reportFile, JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify(report, null, 2));

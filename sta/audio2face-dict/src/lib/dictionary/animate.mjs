@@ -9,6 +9,7 @@ import { makeOpeningContext, openingSourceTime } from './opening-context.mjs';
 import { boundedContextEnabled, makeBoundedContexts, applyBoundedContexts } from './bounded-context.mjs';
 import { applyRecordedPauses } from './recorded-pauses.mjs';
 import { applySmoothNeutral } from './neutral-transition.mjs';
+import { DEFAULT_VISEME_PAIRS, substitutionMap } from './viseme-pairs.mjs';
 
 const midpoint = (phone) => (phone.start + phone.end) / 2;
 const mix = (a, b, amount) => a + (b - a) * amount;
@@ -52,17 +53,18 @@ function rankMatches(dictionary, phones, start, count, limit, guide, optimizatio
   return ranked;
 }
 
-function similarTriples(dictionary, phones, start) {
+function similarTriples(dictionary, phones, start, substitutions) {
   const target = phones.slice(start, start + 3).map(({ phone }) => phone);
   const alternatives = [];
   for (let position = 0; position < 3; position++) {
     const from = target[position];
-    if (from !== 'P' && from !== 'B') continue;
-    const to = from === 'P' ? 'B' : 'P';
+    const substitution = substitutions.get(from);
+    if (!substitution) continue;
+    const {to,pair} = substitution;
     const source = [...target];
     source[position] = to;
     for (const occurrence of dictionary.index[source.join(' ')] ?? []) {
-      alternatives.push({ ...occurrence, approximate: { position, from, to, target: target.join(' '), source: source.join(' ') } });
+      alternatives.push({ ...occurrence, approximate: { position, from, to, pair, target: target.join(' '), source: source.join(' ') } });
     }
   }
   return alternatives;
@@ -123,7 +125,7 @@ function runSegments(dictionary, phones, { from, to }, singleFallback, joinAware
     } else if (!coveredByTriple[i - from]) {
       const pairs = rankMatches(dictionary, phones, i, 2, limit, guide, optimization);
       const approximate = optimization.visemeFallback && i + 2 < to
-        ? rankMatches(dictionary, phones, i, 3, limit, guide, optimization, similarTriples(dictionary, phones, i)) : [];
+        ? rankMatches(dictionary, phones, i, 3, limit, guide, optimization, similarTriples(dictionary, phones, i, optimization.substitutions)) : [];
       const choices = [...approximate, ...pairs];
       // Compare the cost per contributed interval. The substitution penalty
       // lets an exact double win when its timing/joins are a better fit.
@@ -182,13 +184,13 @@ function matchUsage(segments) {
 
 export function planAnimation(dictionary, phones, pcm, { singleFallback = true, joinAware = true, closureAware = true, acousticAware = false, closureRetiming = false, acousticWeight = 0.25, acousticMode = 'predicted', visemeFallback = true,
   advanceClosures = true, advanceSelection = advanceClosures, advanceBlending = advanceClosures, openingContext = true,
-  boundedContext = boundedContextEnabled, contextStrength = .25, contextBlend = 'anchored', recordedPauses = false, smoothNeutral = true, neutralFadeSeconds = .2 } = {}) {
+  boundedContext = boundedContextEnabled, contextStrength = .25, contextBlend = 'anchored', recordedPauses = false, smoothNeutral = true, neutralFadeSeconds = .2, visemePairs = DEFAULT_VISEME_PAIRS } = {}) {
   const duration = pcm.length / SAMPLE_RATE;
   validatePhones(phones, duration);
   const guide = closureAware ? makeClosureGuide(dictionary, phones, pcm, advanceBlending) : undefined;
   const matchGuide = advanceSelection === advanceBlending ? guide : closureAware ? makeClosureGuide(dictionary, phones, pcm, advanceSelection) : undefined;
   const useAcoustics = acousticAware && (acousticMode === 'similarity' || dictionary.selectionModel) && dictionary.clips.some((clip) => clip.acoustics);
-  const optimization = { acoustics: useAcoustics ? describeSpeech(pcm, phones) : undefined, closureRetiming, acousticWeight, visemeFallback };
+  const optimization = { acoustics: useAcoustics ? describeSpeech(pcm, phones) : undefined, closureRetiming, acousticWeight, visemeFallback, substitutions:substitutionMap(visemePairs) };
   if (optimization.acoustics && acousticMode === 'predicted' && dictionary.selectionModel) optimization.targets = predictLipTargets(dictionary.selectionModel, phones, optimization.acoustics);
   const segments = [];
   const joins = [];
@@ -229,7 +231,7 @@ export function planAnimation(dictionary, phones, pcm, { singleFallback = true, 
   const approximateMatches = [...new Set(segments.flatMap(({ pieces }) => pieces.map(({ match }) => match)).filter((match) => match.approximate))]
     .map(({ approximate, clip }) => ({ ...approximate, clip: clip.id }));
   const baselinePlan = guide?.advance ? planAnimation(dictionary, phones, pcm, {
-    singleFallback, joinAware, closureAware, acousticAware, closureRetiming, acousticWeight, acousticMode, visemeFallback, openingContext,
+    singleFallback, joinAware, closureAware, acousticAware, closureRetiming, acousticWeight, acousticMode, visemeFallback, visemePairs, openingContext,
     advanceClosures: false, advanceSelection: false, advanceBlending: false, boundedContext: false, smoothNeutral: false,
   }) : undefined;
   const leadingContext = openingContext ? makeOpeningContext(dictionary, phones, segments) : undefined;

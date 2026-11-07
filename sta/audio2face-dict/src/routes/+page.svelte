@@ -22,6 +22,8 @@
     samplingMs: number;
     corpus: 'pilot' | 'full' | 'targeted' | 'subtitles';
     pauseUsage?: { used: number; detected: number };
+    approximateUsage: Record<string,number>;
+    extendedVisemes: boolean;
   }
 
   let sampleIndex = $state(0);
@@ -32,7 +34,8 @@
   let inputError = $state('');
   let strength = $state(60);
   let closeup = $state(false);
-  let recordedPauses = $state(false);
+  let recordedPauses = $state(true);
+  let extendedVisemes = $state(true);
   let ready = $state(false);
   let busy = $state(false);
   let details = $state<(Omit<AnimationResult, 'frames'> & { ttsMs: number }) | null>(null);
@@ -71,7 +74,7 @@
         worker = undefined;
         reject(new Error(event.message || 'Could not start the alignment worker.'));
       };
-      activeWorker.postMessage({ id, type, text, pcm, recordedPauses }, pcm ? [pcm.buffer] : []);
+      activeWorker.postMessage({ id, type, text, pcm, recordedPauses, extendedVisemes }, pcm ? [pcm.buffer] : []);
     });
   }
 
@@ -259,6 +262,7 @@
       {#if inputError}<p id="dialogue-error" class="status error" role="alert">{inputError}</p>{/if}
       <div class="input-meta"><span>Easton · generated in this browser</span><span>{dialogue.length} / 500</span></div>
       <label class="pause-pilot"><input type="checkbox" bind:checked={recordedPauses} disabled={busy} /> Recorded pauses (pilot)</label>
+      <label class="pause-pilot"><input type="checkbox" bind:checked={extendedVisemes} disabled={busy} /> S/Z, SH/ZH and K/G fallbacks (pilot)</label>
       <div class="head-motion-control">
         <label for="head-motion">Head motion</label>
         <span aria-hidden="true">{strength}%</span>
@@ -279,7 +283,8 @@
     {#if details}
       <div class="coverage" role="status" aria-live="polite">
         <p>{details.phonemeCount} phonemes in the speech</p>
-        <p>{details.usage.triple} exact triples · {details.usage.approximate} approximate triples (P ↔ B) · {details.usage.pair} doubles · {details.usage.single} single phonemes</p>
+        <p>{details.usage.triple} exact triples · {details.usage.approximate} approximate triples ({details.extendedVisemes ? 'extended pairs' : 'P ↔ B'}) · {details.usage.pair} doubles · {details.usage.single} single phonemes</p>
+        {#if details.usage.approximate}<p>{Object.entries(details.approximateUsage).map(([pair,count])=>`${pair.replace('/', ' ↔ ')}: ${count}`).join(' · ')}</p>{/if}
         <p>Dictionary matches selected before blending.</p>
         <ol aria-label="Processing times">
           <li>Text to speech · {elapsed(details.ttsMs)}</li>
