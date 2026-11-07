@@ -76,7 +76,9 @@ epoch 19; three-seed fresh confirmation improved mean lip-gap error by 5.4%.
 See [validation results](docs/plans/compact-v4-validation-results.md).
 Open `?model=compact-v4&sta=webgpu` to test v4, then select v3 to compare the
 same dialogue. Switching reloads the page and retains the text, engine and view.
-On iPhone and iPad, the demo opens with **Compact ARKit v2**. **Animation
+The demo opens with **Compact ARKit v4 candidate** selected in the model
+dropdown on desktop, iPhone and iPad. Explicit `?model=` links still select
+the requested version. **Animation
 runtime** defaults to WebGPU, with a CPU fallback on Apple mobile browsers
 that lack WebGPU. On-device testing found CPU too slow for iPhone playback,
 so memory improvements must be verified with WebGPU enabled.

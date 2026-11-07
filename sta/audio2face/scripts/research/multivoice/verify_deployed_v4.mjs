@@ -23,14 +23,15 @@ try {
     window.qa = () => ({ poses, pipelines, audio });
   });
   const ready = () => page.waitForFunction(() => !document.querySelector('#generate').disabled, null, { timeout: 60000 });
-  await page.goto(base + '/?model=compact-v4'); await ready();
+  await page.goto(base + '/'); await ready();
+  assert.equal(await page.locator('select[name=animation]').inputValue(), 'compact-v4');
   assert.equal(await page.locator('input[name=runtime]:checked').inputValue(), 'webgpu');
   const text = 'Please bring my blue bag before we leave. We should check the map together.';
   await page.locator('#speech').fill(text);
   for (const model of ['compact-v4', 'compact-v3', 'compact-v4']) {
-    if (await page.locator('input[name=animation]:checked').inputValue() !== model) {
-      await page.locator('input[name=animation][value=' + model + ']').check();
-      await page.waitForURL(u => u.searchParams.get('model') === model); await ready();
+    if (await page.locator('select[name=animation]').inputValue() !== model) {
+      await page.locator('select[name=animation]').selectOption(model);
+      await page.waitForURL(u => u.searchParams.get('model') === (model === 'compact-v4' ? null : model)); await ready();
     }
     assert.equal(await page.locator('#speech').inputValue(), text);
     assert.equal(await page.locator('input[name=runtime]:checked').inputValue(), 'webgpu');

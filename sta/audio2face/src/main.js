@@ -41,7 +41,7 @@ const appleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent)
 const params = new URLSearchParams(location.search);
 const staMode = params.get('sta');
 const requestedModel = params.get('model');
-const defaultModel = appleMobile ? 'compact-v2' : 'geometry';
+const defaultModel = 'compact-v4';
 const model = ['geometry', 'compact', 'compact-v2', 'compact-v3', 'compact-v4'].includes(requestedModel) ? requestedModel : defaultModel;
 const compact = model !== 'geometry';
 const cpuOnly = staMode === 'cpu' || (appleMobile && staMode !== 'webgpu' && !navigator.gpu);
