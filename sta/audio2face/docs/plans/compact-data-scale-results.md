@@ -181,3 +181,13 @@ license/notice files and checksum manifest, and downloads each to verify bytes.
 The old coverage-r2 URL remains available. The hosted v4 redirect now uses
 scale-r3; the UI retains v4 and WebGPU as defaults, with idle animation unchanged.
 Physical iPhone testing is the purpose of this release, not a completed claim.
+
+Deployment `dpl_4QxPSr3ZTowV1oWPXwjx7B9Lv8bU` was built from release commit
+`2876a76`, staged as production without domains, then promoted after desktop
+WebKit checks passed for Phonon, Supertonic and Pocket speech/audio playback.
+The tested build is live at https://james-audio2face.vercel.app/ on Liforma.
+Checks verified the exact model SHA and size through the hosted asset redirect,
+v4/WebGPU/Phonon defaults, animated idle canvas changes and no page errors.
+Local v4 weights also match scale-r3. Prior immutable research baselines remain
+unchanged. Browser fixtures emulate an iPhone user agent; physical iPhone memory
+and repeated-generation stability still require on-device testing.
