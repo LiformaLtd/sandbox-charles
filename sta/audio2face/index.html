@@ -49,6 +49,11 @@
                 <option value="cpu">CPU</option>
               </select>
             </fieldset>
+            <div class="head-motion-control">
+              <label for="head-motion">Head motion</label>
+              <span id="head-motion-value" aria-hidden="true">60%</span>
+              <input type="range" id="head-motion" min="0" max="100" step="1" value="60" aria-valuetext="60%">
+            </div>
           </div>
           <div class="dialogue-heading">
             <label for="speech">Dialogue</label>
@@ -61,11 +66,6 @@
           <p class="dialogue-sample" id="dialogue-sample" aria-live="polite"></p>
           <textarea id="speech" rows="5" maxlength="500" required aria-describedby="dialogue-sample"></textarea>
           <div class="input-meta"><span id="voice-description">Easton · generated in this browser</span><span id="count"></span></div>
-          <div class="head-motion-control">
-            <label for="head-motion">Head motion</label>
-            <span id="head-motion-value" aria-hidden="true">60%</span>
-            <input type="range" id="head-motion" min="0" max="100" step="1" value="60" aria-valuetext="60%">
-          </div>
           <button type="submit" class="generate" id="generate" disabled>Generate &amp; play <span aria-hidden="true">↗</span></button>
         </form>
         <p id="status" class="status" role="status" aria-live="polite">Loading the James rig…</p>

@@ -90,6 +90,8 @@ audio { display: block; width: 100%; height: 42px; margin-top: 9px; }
 .voice-switch select { width: 100%; min-height: 44px; padding: 9px 12px; border: 1px solid #383a47; border-radius: 10px; background: #11131b; color: #e9e9ee; font: inherit; font-size: 13px; }
 .animation-settings { display: grid; grid-template-columns: minmax(0, 1fr) 96px; align-items: end; gap: 8px; }
 .animation-settings select { padding-inline: 8px; }
+.animation-settings .voice-switch { margin-bottom: 0; }
+.animation-settings .head-motion-control { grid-column: 1 / -1; margin: 4px 0 16px; }
 .voice-switch select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .voice-switch:disabled select { opacity: .6; cursor: wait; }
 .head-motion-control { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px; margin: 14px 0; }
