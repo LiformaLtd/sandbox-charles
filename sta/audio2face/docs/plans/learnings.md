@@ -1170,3 +1170,32 @@ in the evidence. Publish a new immutable revision and change the demo's model
 pointer, preserving the predecessor for rollback. Do not overwrite a cached
 model URL or attribute the original v4's three-seed confirmation to a later
 single-seed fine-tune. V4 gain-r1 retains the 2.25 MB label and original topology.
+
+## 25. More transcript variety is not the same as missing phonetic coverage
+
+The [distinct-speech experiment](compact-coverage-results.md) replaced 32 shared
+primary training texts with 128 new texts, keeping 256 base / 768 gain-conditioned
+primary recordings, eight balanced training voices, historical replay, the v4
+gain-r1 initialization and the same maximum 744-update budget. Each new text had
+two voices rather than eight; each voice still had 32 base recordings. Both arms
+selected checkpoints on identical old/new development data before test scoring.
+
+On 96 fresh recordings / 384 gain variants, original-level RMS improved only
+1.2% versus the matched control. Phonon improved 3.9%, Supertonic regressed 1.2%
+and contact F1 declined slightly versus control. Historical Easton improved
+about 3.8% versus live v4, but the broader cross-engine screen failed. Lower
+opening error and aggregate gap RMS did not guarantee better quiet-speech
+closures. Keep those dimensions separate; no broad accuracy breakthrough was
+established, and published v4 gain-r1 was not changed by this experiment.
+
+The primary text pair-coverage figure rose 74.3% → 93.0%, but including clean
+historical replay it was already 99.69% and rose only to 99.76%. Distinct triples
+with replay rose 5,921 → 6,522. Audit the complete sampled corpus before arguing
+that missing common phone pairs explain errors. Text statistics also count
+transitions across punctuation that may contain pauses in generated speech.
+
+This result does not prove more data cannot help: a fixed recording/update budget
+also reduces voice repetitions per text and changes sampling exposure. It tests
+one bounded distribution change. Preserve the fresh-recording versus previously
+studied-voice distinction, use per-engine and closure regressions, and test
+independent representation capacity next without adding a heavy runtime encoder.
