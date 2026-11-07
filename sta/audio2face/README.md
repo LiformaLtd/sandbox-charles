@@ -197,3 +197,10 @@ at runtime.
 
 - [James v3 Maya sample scene and geometry](https://github.com/NVIDIA/Maya-ACE/tree/release/2.0/sample_project)
 - [Model bundle and terms](https://huggingface.co/nvidia/Audio2Face-3D-v3.0)
+
+## Compact model data-scale research
+
+The unchanged compact network was tested with a larger independently synthesized
+corpus and a matched training-budget grid. See [results and limitations](docs/plans/compact-data-scale-results.md)
+and [reproduction instructions](scripts/research/data_scale/README.md). The study
+does not change the published v4 model or browser defaults.

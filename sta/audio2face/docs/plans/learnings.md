@@ -1306,3 +1306,63 @@ original parameter names/layout cannot be assumed by a custom GPU packer. Resolv
 the graph's matrix inputs, transpose deliberately, lock hashes and require full
 parity. Preserve failed setup evidence without changing trained weights or test
 labels merely to make a runtime adapter pass.
+
+## 29. Test learnability before adding runtime complexity
+
+The [data-scale study](compact-data-scale-results.md) first asked whether the
+unchanged 331,047-parameter student could memorize four existing training clips.
+It could: fitted-target gap RMS fell from 2.149 mm to 0.374 mm with the existing
+mixed loss and 0.175 mm with pure fitted-coefficient MSE. Raw-teacher error reached
+about 0.42 mm, near this subset's 0.372 mm fitted-target discrepancy. This supports
+trying data and optimization before adding an expensive speech encoder. It does
+not prove global capacity, and diagnostic training fits must never be presented
+as held-out quality. The lower-MSE arm had worse closure F1 than the mixed arm;
+representation error, physical contact and timing remain separate measurements.
+
+## 30. Scale independent recordings and compute together, with matched controls
+
+Increasing primary originals 256→3,328 and gain-conditioned examples 768→3,840,
+while retaining clean replay, produced a larger gain than recent tiny decoder
+experiments without increasing browser cost. Across three fixed seeds, long
+expanded-data training improved RMS 7.22% versus deployed v4 and 5.31% versus a
+matched long-training control. Both engines, authored speech and broad ARCTIC
+speech improved. Keep the denominator explicit: primary original count is 13×,
+primary labelled examples 5×, and total including replay has a different ratio.
+The expansion also changed linguistic distribution, so this is not proof that
+recording count alone caused the improvement. Changed-gain audio needs its own
+teacher labels. Audit retained prior development and confirmation texts too.
+
+Short and long budgets can share one exact trajectory prefix, avoiding an
+additional learning-rate-schedule confound. Here short=744 and long=3,720 updates;
+both use the same long cosine schedule. Select only on development, preserve
+optimizer/RNG state and freeze all candidate exports before confirmation scoring.
+
+The original pilot improved 4.45% versus control, missing its predeclared 5%
+screen. Preserve that failure. The subsequent fixed-seed stability extension was
+explicitly post-pilot; a better three-seed mean does not retrospectively pass the
+pilot or create an independent test population. Report all seeds, not just the
+best. Well-timed closure gains were 10.37% versus the control but only 4.14%
+versus v4; a comparator error would substantially overstate the visible benefit.
+
+## 31. Validate accelerated training gradients and keep runtime claims separate
+
+Torch MPS on the installed stack had stride-sensitive geometry errors and bad
+optimization behavior even after a forward-contiguity fix. Matching one forward
+pass is insufficient: compare the complete loss, gradients, first optimizer
+update and descent against CPU. Native MLX training passed after disabling TF32
+before import. Float32 forward max difference was 3.58e-7, gradient relative L2
+1.03e-6 and first-update parameter difference 2.00e-6. This is a validated backend
+for this experiment, not a claim that all Torch MPS versions are incorrect.
+Export through the unchanged waveform graph and verify complete browser tracks.
+
+Read-only memory-mapped training caches avoid loading unused speech features;
+verify cached windows against the original loader, including repeated indices
+and source boundaries. Lock source and array hashes before training.
+
+A better weight set can preserve download size and GPU buffers exactly. Here
+all exports remain 2,251,827 bytes and allocate 1,492,236 explicit GPU bytes.
+Desktop warm blocks remain about 1.3 ms per 500 ms emitted audio, with overlapping
+run variability. Wait for rig startup and warm the runner before timing. Sampled
+prerecorded STA+idle-renderer footprints around 520–535 MiB exclude TTS and do
+not guarantee physical-iPhone peak memory. Keep James animating throughout these
+checks; suppressing idle animation is not an acceptable memory optimization.
