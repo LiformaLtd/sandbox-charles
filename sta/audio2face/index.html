@@ -46,10 +46,10 @@
           </fieldset>
           <fieldset class="voice-switch" id="runtime-switch">
             <legend>Animation runtime</legend>
-            <div class="voice-options runtime-options">
-              <label><input type="radio" name="runtime" value="cpu"><span>CPU</span></label>
-              <label><input type="radio" name="runtime" value="webgpu" checked><span>WebGPU</span></label>
-            </div>
+            <select name="runtime" aria-label="Animation runtime">
+              <option value="webgpu" selected>WebGPU</option>
+              <option value="cpu">CPU</option>
+            </select>
           </fieldset>
           <div class="dialogue-heading">
             <label for="speech">Dialogue</label>

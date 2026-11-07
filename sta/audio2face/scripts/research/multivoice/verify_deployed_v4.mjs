@@ -25,7 +25,7 @@ try {
   const ready = () => page.waitForFunction(() => !document.querySelector('#generate').disabled, null, { timeout: 60000 });
   await page.goto(base + '/'); await ready();
   assert.equal(await page.locator('select[name=animation]').inputValue(), 'compact-v4');
-  assert.equal(await page.locator('input[name=runtime]:checked').inputValue(), 'webgpu');
+  assert.equal(await page.locator('select[name=runtime]').inputValue(), 'webgpu');
   const text = 'Please bring my blue bag before we leave. We should check the map together.';
   await page.locator('#speech').fill(text);
   for (const model of ['compact-v4', 'compact-v3', 'compact-v4']) {
@@ -34,7 +34,7 @@ try {
       await page.waitForURL(u => u.searchParams.get('model') === (model === 'compact-v4' ? null : model)); await ready();
     }
     assert.equal(await page.locator('#speech').inputValue(), text);
-    assert.equal(await page.locator('input[name=runtime]:checked').inputValue(), 'webgpu');
+    assert.equal(await page.locator('select[name=runtime]').inputValue(), 'webgpu');
     const at = requests.length;
     await page.locator('#generate').click();
     await page.waitForFunction(() => document.querySelector('#status').textContent === 'Animation ready to replay.'
@@ -54,6 +54,20 @@ try {
       || document.querySelector('#status').classList.contains('error'), null, { timeout: 120000 });
     await ready(); assert.equal(await page.locator('#status').textContent(), 'Animation ready to replay.');
     runs.push({ model: 'compact-v4', engine: 'supertonic', duration: await page.locator('#duration').textContent() });
+  }
+  if (process.env.TEST_CPU === '1') {
+    for (const model of ['compact-v3', 'compact-v4']) {
+      await page.goto(`${base}/?model=${model}&sta=cpu`); await ready();
+      assert.equal(await page.locator('select[name=runtime]').inputValue(), 'cpu');
+      await page.locator('#speech').fill('Please bring my blue bag.');
+      await page.locator('#generate').click();
+      await page.waitForFunction(() => document.querySelector('#status').textContent === 'Animation ready to replay.'
+        || document.querySelector('#status').classList.contains('error'), null, { timeout: 120000 });
+      assert.equal(await page.locator('#status').textContent(), 'Animation ready to replay.');
+      const stats = await page.evaluate(() => qa());
+      assert.equal(stats.pipelines, 0); assert.ok(stats.audio > 0);
+      runs.push({ model, runtime: 'cpu', stats, duration: await page.locator('#duration').textContent() });
+    }
   }
   assert.deepEqual(errors, []);
   await page.screenshot({ path: join(output, 'deployed-v4-iphone.png'), fullPage: true });

@@ -79,8 +79,10 @@ same dialogue. Switching reloads the page and retains the text, engine and view.
 The demo opens with **Compact ARKit v4 candidate** selected in the model
 dropdown on desktop, iPhone and iPad. Explicit `?model=` links still select
 the requested version. **Animation
-runtime** defaults to WebGPU, with a CPU fallback on Apple mobile browsers
-that lack WebGPU. On-device testing found CPU too slow for iPhone playback,
+runtime** defaults to WebGPU. Its dropdown also offers an explicit CPU
+option, using ONNX Runtime WASM; there is no automatic switch to CPU.
+Browser playback checks cover both compact v3 and the v4 candidate on CPU.
+On-device testing found CPU too slow for iPhone playback,
 so memory improvements must be verified with WebGPU enabled.
 Compact ARKit v2, v3 and v4 use a dedicated WebGPU runner with their ONNX weights.
 It computes the log-mel features with an FFT and reuses GPU buffers for the

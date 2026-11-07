@@ -44,7 +44,7 @@ const requestedModel = params.get('model');
 const defaultModel = 'compact-v4';
 const model = ['geometry', 'compact', 'compact-v2', 'compact-v3', 'compact-v4'].includes(requestedModel) ? requestedModel : defaultModel;
 const compact = model !== 'geometry';
-const cpuOnly = staMode === 'cpu' || (appleMobile && staMode !== 'webgpu' && !navigator.gpu);
+const cpuOnly = staMode === 'cpu';
 const draftKey = 'james-model-switch-draft';
 form.elements.animation.value = model;
 form.elements.runtime.value = cpuOnly ? 'cpu' : 'webgpu';

@@ -31,7 +31,7 @@ try {
     try {
       await page.goto(`${base}/?model=${model}&sta=webgpu`);
       await page.waitForFunction(() => !document.querySelector('#generate').disabled);
-      assert.equal(await page.locator('input[name=runtime]:checked').inputValue(), 'webgpu');
+      assert.equal(await page.locator('select[name=runtime]').inputValue(), 'webgpu');
       await page.locator(`input[name=engine][value=${engine}]`).check();
       await page.locator('#speech').fill(text);
       await page.locator('#generate').click();
