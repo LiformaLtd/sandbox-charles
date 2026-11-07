@@ -1,6 +1,7 @@
 # Targeted difficult speech, with matched broad-data and compute controls
 
-Read the [frozen plan](../../../docs/plans/compact-targeted-speech.md).
+Read the [frozen plan](../../../docs/plans/compact-targeted-speech.md) and
+[results](../../../docs/plans/compact-targeted-speech-results.md).
 This experiment starts from released v4 finetune-r4. It does not alter the
 browser graph, ship phoneme timings, use teacher-feature supervision or deploy
 an experimental model. All synthesis, alignment, mining and teacher work is
@@ -68,7 +69,7 @@ reserved evaluation pool, broad/targeted enrichment and sentence lengths.
 Broad texts are hash-selected first. Targeted texts are selected from the
 remaining training pool, matching word count within one when possible. Both
 arms use paired voice/gain assignments. The final 72-text schedule has exactly
-36 recordings per voice and12 per voice/gain, for288 independent recordings per
+36 recordings per voice and 12 per voice/gain, for 288 independent recordings per
 addition. A pre-synthesis preparation draft caught an imbalance in an eight-step
 voice cycle; it was archived locally and corrected to the final balanced
 schedule before any audio was synthesized. The archived draft is not an input.
@@ -79,13 +80,13 @@ unused speech features for provenance but this experiment trains only the
 existing animation objective. Dataset assembly verifies waveform hashes,
 complete target tracks and identical teacher recipes across shards.
 
-Original-data control keeps48 historical-primary windows per update. Broad and
-targeted retain the identical32 historical-primary windows and replace16 others
-with voice-balanced novel examples. Replay is the same16 clean windows. Separate
+Original-data control keeps 48 historical-primary windows per update. Broad and
+targeted retain the identical 32 historical-primary windows and replace 16 others
+with voice-balanced novel examples. Replay is the same 16 clean windows. Separate
 old/replay/new random streams avoid changing replay when novel pool lengths
-differ. Only control uses the final16 old draws; shared draw hashes are audited
+differ. Only control uses the final 16 old draws; shared draw hashes are audited
 before scoring. New-data windows are intentionally oversampled, not uniformly
-mixed with the old corpus. All arms keep seed37,3,720 updates and development-only
+mixed with the old corpus. All arms keep seed 37, 3,720 updates and development-only
 selection. Complete checkpoint/optimizer/RNG states support resume.
 
 ## Lock scoring and browser comparisons
@@ -103,7 +104,9 @@ engine/gain/voice/closure/opening/timing slices, and inspected historical/featur
 regression sets. Keep failed screens intact; no confirmation-driven prompt,
 coefficient, seed, threshold or checkpoint adjustment.
 
-Start the app's hosted-mode source Vite server and use its printed free port.
+Prepare or link the `.local/rig.bin` and `.local/rig.json` files as well as the
+model directories; check `/assets/rig.json` returns 200. Start the app's hosted-mode
+source Vite server and use its printed free port.
 Run benchmarks after synthesis, training and native reference generation end:
 
 ```sh
@@ -121,7 +124,7 @@ export A2F_MEMORY_SAMPLER="$A2F_TARGET_OUTPUT/sample-footprint"
 
 Preserve three fresh settled timing/parity runs, waiting for the rig and five
 warm-up calls. Explicit GPU bytes do not include driver allocations. The macOS
-physical-footprint sampler sums new WebContent/GPU processes at20ms during
+physical-footprint sampler sums new WebContent/GPU processes at 20 ms during
 short/long/repeated prerecorded STA with normal idle animation. TTS, browser and
 network processes are excluded; brief peaks can be missed. Neither desktop
 process measurements nor an emulated iPhone UA guarantee physical-iPhone memory.

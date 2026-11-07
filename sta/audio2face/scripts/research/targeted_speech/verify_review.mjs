@@ -10,7 +10,7 @@ try {
   page.on('pageerror', e => errors.push(e.message));
   await page.goto(base);
   const ready = () => page.waitForFunction(() => document.querySelector('#status').textContent.startsWith('Ready.'), null, { timeout: 30000 });
-  await ready(); assert.equal(await page.locator('canvas').count(), 4);
+  await ready(); assert.equal(await page.locator('canvas').count(), 5);
   assert.equal(await page.locator('#clip option').count(), 16);
   for (let i = 0; i < 16; i++) {
     await page.locator('#clip').selectOption(String(i)); await ready();

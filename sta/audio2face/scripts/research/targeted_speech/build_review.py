@@ -32,7 +32,7 @@ def main():
     sys.path.insert(0, str(APP / 'scripts/research/multivoice'))
     import closure_metrics
     models = [dict(id='teacher', title='Full teacher fitted to James')]
-    for name, title in [('v4', 'Current v4 finetune-r4'), ('broad', 'Broad speech addition'), ('targeted', 'Difficult-context speech addition')]:
+    for name, title in [('v4', 'Current v4 finetune-r4'), ('control', 'Original data fine-tuning'), ('broad', 'Broad speech addition'), ('targeted', 'Difficult-context speech addition')]:
         result = json.loads((OUT / ('evaluation-' + name + '.json')).read_text())
         models.append(dict(id=name, title=title, sha256=result['model_sha256']))
     rig = np.load(os.environ['A2F_RESEARCH_WORK'] + '/arkit-student/rig-metrics.npz')
@@ -75,7 +75,7 @@ def main():
     prefix = '/' + str(OUT.relative_to(APP)) + '/review/'
     script = (reference / 'review.js').read_text().replace("'./src/rig.js'", "'/src/rig.js'").replace("'./src/idle-motion.js'", "'/src/idle-motion.js'").replace('/review/', prefix)
     (OUT / 'review.js').write_text(script)
-    page = (reference / 'review.html').read_text().replace('repeat(5,minmax(0,1fr))', 'repeat(4,minmax(0,1fr))')
+    page = (reference / 'review.html').read_text()
     (OUT / 'review.html').write_text(page.replace('Matched mouth comparison', 'Targeted difficult speech · matched comparison'))
     print('Open /' + str(OUT.relative_to(APP)) + '/review.html')
 

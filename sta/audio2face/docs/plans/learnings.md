@@ -1408,3 +1408,48 @@ useful extra ingredient at this setting. Preserve the negative result instead
 of combining it with another intervention or sweeping against the inspected
 confirmation set. Target rendered-mouth residuals and difficult acoustic
 coverage independently next.
+
+## 33. Context-enriched text did not produce an acoustic hard-example win
+
+The [targeted-speech pilot](compact-targeted-speech-results.md) starts from the
+newly requested v4 finetune-r4 release, the ordinary fine-tuned control from the
+feature study. That release retains WebGPU defaults, the exact browser graph and
+continuous idle motion. The subsequent targeting experiment was not deployed.
+
+Mining high residual phoneme triples from TRAINING windows and selecting unseen
+sentences containing them gave a 2.46× context-score enrichment at similar word
+lengths. Supported contexts used at least eight distinct texts/100 frames and
+appeared in at least three candidate sentences. Both additions had 72 texts ×
+four presets = 288 recordings, paired voice/gain schedules and exact eight-voice /
+three-gain balance. Keep a separate broad-data addition as well as an original-
+data control: otherwise extra examples or training can masquerade as targeting.
+
+Reserve fresh evaluation candidates before selecting training examples; exclude
+all retained training/dev/test texts. Separate old/replay/new RNG streams keep
+shared examples stable when novel pools have different window counts. Here both
+new-data arms intentionally replaced 16 of 48 primary windows per update; that
+is an oversampling policy, not uniform training on the enlarged corpus. Lock
+all checkpoint selections before fresh scores and retain complete sample hashes.
+
+On 128 fresh recordings / 512 labelled levels, targeted RMS was 2.73863 mm versus
+broad 2.73757 and original-data control 2.73106. This is no meaningful RMS win.
+Well-timed closure hits improved 105→107 versus broad, but contact F1 fell
+.76908→.76788 and broad-stratum RMS worsened. Phonon improved 0.598% while
+Supertonic worsened 0.613%. A higher event count alone is not better overall lip
+sync. The predeclared 3% screen failed; retain the negative result.
+
+The context-enriched evaluation sentences were actually easier for the released
+model in gap RMS than the broad sentences. Text-level phoneme difficulty is an
+imperfect proxy for acoustic difficulty, even when mined from model errors.
+A separate future study could score actual candidate audio with the teacher and
+student before selecting training examples, retaining coverage/voice quotas and
+outlier controls. Do not tune that new strategy on this inspected confirmation.
+
+All exports stayed 2,251,827 bytes / 331,047 parameters / 1,492,236 explicit GPU
+bytes. Warm desktop WebKit blocks stayed about 1 ms per 500 ms emitted audio.
+An initial targeted WebContent+GPU peak of 544.5 MiB versus 521.8 for release fell
+to 524.2 on a bounded repeat (release 521.7); preserve both runs instead of choosing
+the lower result. This did not establish a repeatable weight-dependent memory
+increase or saving. TTS was excluded and idle animation continued; these are
+not physical-iPhone full-pipeline guarantees. A missing local rig-file setup
+error was fixed before collecting valid browser measurements.

@@ -222,3 +222,8 @@ kept the same browser graph and found no meaningful gain beyond matched ordinary
 fine-tuning. Its [reproduction instructions](scripts/research/feature_distillation/README.md)
 and synchronized local research review are separate from the published demo;
 the subsequent requested release uses the fine-tuned control as v4 finetune-r4.
+
+The [targeted difficult-speech pilot](docs/plans/compact-targeted-speech-results.md)
+compared context-enriched speech with matched broad speech and ordinary
+fine-tuning. It found no meaningful extra lip-gap gain; production remains
+finetune-r4. See its [reproduction instructions](scripts/research/targeted_speech/README.md).
