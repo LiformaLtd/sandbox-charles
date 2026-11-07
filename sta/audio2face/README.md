@@ -48,7 +48,9 @@ sh scripts/setup_head_motion.sh
 npm run dev
 ```
 
-Open [http://127.0.0.1:5178](http://127.0.0.1:5178/). Enter up to 500 characters
+Open the URL printed by Vite. The dev server starts at port 5173 and preview
+starts at 4173, moving to the next available port when needed.
+Enter up to 500 characters
 and select **Generate & play**. Use **Mouth close-up** to inspect lip contact,
 or drag and scroll to change the camera. Use the audio controls to pause,
 seek, or replay. The **Head motion** slider adjusts the pose during playback
@@ -56,6 +58,34 @@ or while paused. It defaults to 60%, with 0% holding the head steady and
 100% restoring the original speech motion strength. James blinks and shifts
 his head subtly while idle, including while playback is paused. Blinks follow
 the viewer clock so they continue across clips.
+
+**Animation model** switches between the original geometry model and
+**Compact ARKit v1**, **v2** and **v3**. All compact versions predict 52 coefficients,
+with 39 active channels, and use the same James targets for the skin, tongue
+and jaw. V2 improves lip closure at the same 2.25 MB model size.
+V3 adds subtitle-selected training speech at the same size, improving general
+lip sync with a small contact-F1 tradeoff on the older closure-focused test set.
+On iPhone and iPad, the demo opens with **Compact ARKit v2**. **Animation
+runtime** defaults to WebGPU, with a CPU fallback on Apple mobile browsers
+that lack WebGPU. On-device testing found CPU too slow for iPhone playback,
+so memory improvements must be verified with WebGPU enabled.
+Compact ARKit v2 and v3 use a dedicated WebGPU runner with their ONNX weights.
+It computes the log-mel features with an FFT and reuses GPU buffers for the
+animation network. The other model and runtime combinations use ONNX Runtime.
+Switching either setting reloads the page to release the previous model and
+restores the dialogue, speech engine, camera preset and head motion setting.
+For local use, fetch the models and their shared rig:
+
+```sh
+mkdir -p .local/arkit-student
+arkit_assets=https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v1
+curl -fL "$arkit_assets/james-arkit-student.onnx" -o .local/arkit-student/james-arkit-student.onnx
+curl -fL "$arkit_assets/james-blendshapes.bin" -o .local/arkit-student/james-blendshapes.bin
+curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v2/james-arkit-student-v2.onnx \
+  -o .local/arkit-student/james-arkit-student-v2.onnx
+curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v3/james-arkit-student-v3.onnx \
+  -o .local/arkit-student/james-arkit-student-v3.onnx
+```
 
 The speech engines synthesize English locally in browser workers. Phonon
 is the default and uses Easton. The ONNX alternatives run on WebAssembly

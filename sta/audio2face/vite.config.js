@@ -9,6 +9,10 @@ import { createHeadPoseServer } from './scripts/head-pose-server.js';
 const root = fileURLToPath(new URL('.', import.meta.url));
 const assets = {
   '/assets/model.onnx': ['model.onnx', 'application/octet-stream'],
+  '/assets/james-arkit-student.onnx': ['arkit-student/james-arkit-student.onnx', 'application/octet-stream'],
+  '/assets/james-arkit-student-v2.onnx': ['arkit-student/james-arkit-student-v2.onnx', 'application/octet-stream'],
+  '/assets/james-arkit-student-v3.onnx': ['arkit-student/james-arkit-student-v3.onnx', 'application/octet-stream'],
+  '/assets/james-blendshapes.bin': ['arkit-student/james-blendshapes.bin', 'application/octet-stream'],
   '/assets/rig.bin': ['rig.bin', 'application/octet-stream'],
   '/assets/rig.json': ['rig.json', 'application/json'],
   '/assets/phonon/model.q8.gguf': ['phonon/model.q8.gguf', 'application/octet-stream'],
@@ -105,8 +109,8 @@ export default defineConfig(() => {
   };
   return {
     plugins: [localStudio()],
-    server: { host: '127.0.0.1', port: 5178, strictPort: true, headers },
-    preview: { host: '127.0.0.1', port: 5178, strictPort: true, headers },
+    server: { host: '127.0.0.1', headers },
+    preview: { host: '127.0.0.1', headers },
     worker: { format: 'es' },
     optimizeDeps: { exclude: ['onnxruntime-web/webgpu', 'onnxruntime-web/wasm'] },
     build: {

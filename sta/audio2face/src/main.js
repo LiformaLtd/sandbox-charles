@@ -1,4 +1,5 @@
 import './style.css';
+import { dialogueSamples } from './dialogue-samples.js';
 import { createJames } from './rig.js';
 import { createStreamPlayback } from './stream-playback.js';
 import { concatPcm, encodeWav } from 'phonon-tts';
@@ -9,6 +10,12 @@ const viewport = document.querySelector('#viewport');
 const form = document.querySelector('#speech-form');
 const input = document.querySelector('#speech');
 const generate = document.querySelector('#generate');
+const dialoguePrev = document.querySelector('#dialogue-prev');
+const dialogueNext = document.querySelector('#dialogue-next');
+const dialogueCounter = document.querySelector('#dialogue-counter');
+const dialogueTitle = document.querySelector('#dialogue-sample');
+let sampleIndex = 0;
+input.value = dialogueSamples[sampleIndex].text;
 const prepareTts = document.querySelector('#prepare-tts');
 const prepareSta = document.querySelector('#prepare-sta');
 const status = document.querySelector('#status');
@@ -19,6 +26,8 @@ const face = document.querySelector('#face');
 const mouth = document.querySelector('#mouth');
 const count = document.querySelector('#count');
 const voiceSwitch = document.querySelector('#voice-switch');
+const animationSwitch = document.querySelector('#animation-switch');
+const runtimeSwitch = document.querySelector('#runtime-switch');
 const voiceDescription = document.querySelector('#voice-description');
 const playbackEngine = document.querySelector('#playback-engine');
 const stopStream = document.querySelector('#stop-stream');
@@ -29,9 +38,63 @@ const headMotionValue = document.querySelector('#head-motion-value');
 // iPad Safari can send a desktop user agent.
 const appleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent)
   || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const staMode = new URLSearchParams(location.search).get('sta');
+const params = new URLSearchParams(location.search);
+const staMode = params.get('sta');
+const requestedModel = params.get('model');
+const defaultModel = appleMobile ? 'compact-v2' : 'geometry';
+const model = ['geometry', 'compact', 'compact-v2', 'compact-v3'].includes(requestedModel) ? requestedModel : defaultModel;
+const compact = model !== 'geometry';
 const cpuOnly = staMode === 'cpu' || (appleMobile && staMode !== 'webgpu' && !navigator.gpu);
+const draftKey = 'james-model-switch-draft';
+form.elements.animation.value = model;
+form.elements.runtime.value = cpuOnly ? 'cpu' : 'webgpu';
+animationSwitch.disabled = runtimeSwitch.disabled = true;
 if (cpuOnly) document.querySelector('#sta-runtime').textContent = '60 fps · CPU';
+let startInCloseup = false;
+try {
+  const draft = sessionStorage.getItem(draftKey);
+  sessionStorage.removeItem(draftKey);
+  if (draft) {
+    const { dialogue, engine, motion, closeup, sample } = JSON.parse(draft);
+    if (Number.isInteger(sample) && sample >= 0 && sample < dialogueSamples.length) sampleIndex = sample;
+    input.value = dialogue;
+    form.elements.engine.value = engine;
+    headMotion.value = motion;
+    startInCloseup = closeup === true;
+  }
+} catch {
+  // Switching models also works when browser storage is unavailable.
+}
+async function switchAnimationSettings(event) {
+  try {
+    sessionStorage.setItem(draftKey, JSON.stringify({
+      dialogue: input.value,
+      sample: sampleIndex,
+      engine: form.elements.engine.value,
+      motion: headMotion.value,
+      closeup: mouth.getAttribute('aria-pressed') === 'true',
+    }));
+  } catch {
+    // Keep the selector usable when browser storage is unavailable.
+  }
+  const url = new URL(location.href);
+  if (event.currentTarget === runtimeSwitch) {
+    url.searchParams.set('sta', form.elements.runtime.value);
+  } else {
+    const choice = form.elements.animation.value;
+    if (choice === defaultModel) url.searchParams.delete('model');
+    else url.searchParams.set('model', choice);
+  }
+  setBusy(true);
+  try {
+    await selectedTts?.release();
+  } finally {
+    // Reload so the previous model's WASM heap and GPU device can be reclaimed.
+    location.replace(url);
+  }
+}
+animationSwitch.addEventListener('change', switchAnimationSettings);
+runtimeSwitch.addEventListener('change', switchAnimationSettings);
 
 let rig;
 let frames = [];
@@ -44,6 +107,7 @@ let idleStarted;
 let speechWeight = 0;
 let lastSpeechRotation = [0, 0, 0];
 let sourceUrl;
+let lastClip;
 let livePlayback;
 let liveRun;
 let selectedTts;
@@ -80,9 +144,32 @@ function report(message, error = false) {
 
 function updateCount() {
   count.textContent = `${input.value.length} / ${input.maxLength}`;
+  dialogueCounter.textContent = `${sampleIndex + 1} / ${dialogueSamples.length}`;
+  dialogueTitle.textContent = input.value === dialogueSamples[sampleIndex].text
+    ? dialogueSamples[sampleIndex].title : 'Custom dialogue';
 }
 input.addEventListener('input', updateCount);
 updateCount();
+
+function stepDialogue(direction) {
+  if (generate.disabled) return;
+  sampleIndex = (sampleIndex + direction + dialogueSamples.length) % dialogueSamples.length;
+  input.value = dialogueSamples[sampleIndex].text;
+  updateCount();
+  audio.pause();
+  audio.removeAttribute('src');
+  audio.load();
+  if (sourceUrl) URL.revokeObjectURL(sourceUrl);
+  sourceUrl = undefined;
+  lastClip = undefined;
+  frames = [];
+  headRotations = [];
+  activeFrame = -1;
+  playback.hidden = true;
+  report('Ready to generate speech.');
+}
+dialoguePrev.addEventListener('click', () => stepDialogue(-1));
+dialogueNext.addEventListener('click', () => stepDialogue(1));
 
 const engines = {
   phonon: { label: 'Phonon', voice: 'Easton' },
@@ -147,8 +234,9 @@ function draw(now) {
   rig.draw();
 }
 
-createJames(viewport).then((viewer) => {
+createJames(viewport, { compact }).then((viewer) => {
   rig = viewer;
+  if (startInCloseup) setView(true);
   setBusy(false);
   report(previousStage
     ? `The previous run was interrupted at “${previousStage}”`
@@ -200,6 +288,7 @@ async function streamSpeech(text, engine) {
     playbackEngine.textContent = `Live playback · ${label}`;
     duration.textContent = '';
     const prepareModel = () => loadModel({
+      model,
       cpuOnly,
       mobile: appleMobile,
       report: appleMobile ? (message) => {
@@ -217,11 +306,11 @@ async function streamSpeech(text, engine) {
     // On mobile, avoid overlapping cold startup allocations. Both sessions
     // stay loaded, so preparing them separately skips startup here.
     const loadingSpeech = appleMobile ? loadingModel.then(startSpeech) : startSpeech();
-    const [model, speech] = await Promise.all([loadingModel, loadingSpeech, resumed]);
+    const [loadedModel, speech] = await Promise.all([loadingModel, loadingSpeech, resumed]);
     signal.throwIfAborted();
     const blocks = [];
     let samples = 0;
-    for await (const block of animationBlocks(model, speech.chunks, signal)) {
+    for await (const block of animationBlocks(loadedModel, speech.chunks, signal)) {
       signal.throwIfAborted();
       headRotations.push(...block.rotations);
       frames.push(...block.frames);
@@ -243,6 +332,7 @@ async function streamSpeech(text, engine) {
     report('Finishing playback…');
     await livePlayback.finish(signal);
     setReplay(encodeWav(pcm, 16000), samples, label);
+    lastClip = { text, engine };
     complete = true;
     report('Animation ready to replay.');
   } catch (error) {
@@ -267,9 +357,12 @@ async function streamSpeech(text, engine) {
 
 function setBusy(busy) {
   generate.disabled = busy;
+  dialoguePrev.disabled = dialogueNext.disabled = busy;
   prepareTts.disabled = busy;
   prepareSta.disabled = busy;
   voiceSwitch.disabled = busy;
+  animationSwitch.disabled = busy;
+  runtimeSwitch.disabled = busy;
 }
 
 async function runWithProgress(message, action) {
@@ -327,7 +420,7 @@ prepareTts.addEventListener('click', () => {
 
 prepareSta.addEventListener('click', () => {
   runWithProgress('Preparing the STA model…', async () => {
-    await loadModel({ cpuOnly, mobile: appleMobile, report });
+    await loadModel({ model, cpuOnly, mobile: appleMobile, report });
     report('STA is ready.');
   });
 });
@@ -337,10 +430,22 @@ form.addEventListener('submit', (event) => {
   const text = input.value.trim();
   if (!text) return;
   const engine = form.elements.engine.value;
+  if (generate.disabled) return;
+  if (appleMobile && compact && engine === 'phonon'
+      && lastClip?.text === text && lastClip.engine === engine) {
+    audio.currentTime = 0;
+    report('Replaying animation…');
+    audio.play().catch((error) => report(`Could not replay the clip. ${error.message}`, true));
+    return;
+  }
   runWithProgress(`Preparing ${engines[engine].label} in your browser…`, () => {
     audio.pause();
     return streamSpeech(text, engine);
   });
+});
+
+audio.addEventListener('ended', () => {
+  if (status.textContent === 'Replaying animation…') report('Animation ready to replay.');
 });
 
 window.addEventListener('pagehide', () => {

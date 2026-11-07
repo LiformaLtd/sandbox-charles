@@ -1,9 +1,9 @@
 import { modelAssetUrl } from './model-assets.js';
-import { geometryBlocks } from './geometry.mjs';
+import { audioWindows, geometryBlocks } from './geometry.mjs';
 import { joinHeadWindow, predictHead } from './head-motion.js';
 
 async function downloadFaceModel(url, report) {
-  report('Downloading the STA model…');
+  report?.('Downloading the STA model…');
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Could not download the face model (HTTP ${response.status}).`);
   const length = Number(response.headers.get('content-length'));
@@ -23,7 +23,7 @@ async function downloadFaceModel(url, report) {
       const next = Math.floor(100 * offset / length);
       if (next !== percent) {
         percent = next;
-        report(`Downloading the STA model… ${percent}%`);
+        report?.(`Downloading the STA model… ${percent}%`);
       }
     }
   } finally {
@@ -33,19 +33,38 @@ async function downloadFaceModel(url, report) {
   return bytes;
 }
 
+const modelPaths = {
+  geometry: '/assets/model.onnx',
+  compact: '/assets/james-arkit-student.onnx',
+  'compact-v2': '/assets/james-arkit-student-v2.onnx',
+  'compact-v3': '/assets/james-arkit-student-v3.onnx',
+};
+
 let modelSession;
-export async function loadModel({ cpuOnly = false, mobile = false, report } = {}) {
+export async function loadModel({ model = 'geometry', cpuOnly = false, mobile = false, report } = {}) {
   if (!modelSession) {
     modelSession = (async () => {
-      if (!cpuOnly && !await navigator.gpu?.requestAdapter()) {
+      const adapter = cpuOnly ? null : await navigator.gpu?.requestAdapter();
+      if (!cpuOnly && !adapter) {
         throw new Error('WebGPU is unavailable. Open this app in a browser with WebGPU enabled.');
+      }
+      const url = modelAssetUrl(modelPaths[model]);
+      if (!cpuOnly && (model === 'compact-v2' || model === 'compact-v3')) {
+        const { createCompactWebGpu } = await import('./compact-webgpu.js');
+        const data = await downloadFaceModel(url, report);
+        report?.('Starting the STA model with WebGPU…');
+        try {
+          const run = await createCompactWebGpu(adapter, data, () => { modelSession = undefined; });
+          return { compact: true, runCompact: async (samples) => ({ data: await run(samples) }) };
+        } finally {
+          (data.buffer ?? data).transfer?.(0);
+        }
       }
       const ort = cpuOnly
         ? await import('onnxruntime-web/wasm')
         : await import('onnxruntime-web/webgpu');
       ort.env.wasm.numThreads = mobile || cpuOnly ? 1 : Math.min(4, navigator.hardwareConcurrency || 1);
-      const url = modelAssetUrl('/assets/model.onnx');
-      const model = report ? await downloadFaceModel(url, report) : url;
+      const modelData = report ? await downloadFaceModel(url, report) : url;
       report?.(`Starting the STA model with ${cpuOnly ? 'CPU' : 'WebGPU'}…`);
       const executionProviders = cpuOnly ? ['wasm'] : ['webgpu', 'wasm'];
       const options = { executionProviders };
@@ -62,13 +81,24 @@ export async function loadModel({ cpuOnly = false, mobile = false, report } = {}
         }
       }
       try {
-        const session = await ort.InferenceSession.create(model, options);
-        return { ort, session };
+        const session = await ort.InferenceSession.create(modelData, options);
+        if (model === 'geometry') return { ort, session, compact: false };
+        return {
+          compact: true,
+          async runCompact(samples) {
+            const input = new ort.Tensor('float32', samples, [1, 16000]);
+            try {
+              return (await session.run({ pcm: input })).blendshapes;
+            } finally {
+              input.dispose();
+            }
+          },
+        };
       } finally {
         // ORT copies the download into its own memory during create(). Drop
         // our backing store before reporting ready, without waiting for GC.
-        if (typeof model !== 'string') {
-          const buffer = ArrayBuffer.isView(model) ? model.buffer : model;
+        if (typeof modelData !== 'string') {
+          const buffer = ArrayBuffer.isView(modelData) ? modelData.buffer : modelData;
           buffer.transfer?.(0);
         }
       }
@@ -98,15 +128,43 @@ function diffusionNoise() {
 }
 
 let noise;
-export async function* animationBlocks({ ort, session }, audio, signal) {
-  noise ??= diffusionNoise();
+async function* blendshapeBlocks(runCompact, audio, signal, inferHead) {
+  for await (const window of audioWindows(audio instanceof Float32Array ? [audio] : audio)) {
+    const { samples, sampleIndices, first, pcm, headWindow, headStart } = window;
+    if (!sampleIndices.length) continue;
+    signal.throwIfAborted();
+    const pendingHead = inferHead?.(headWindow, headStart).then(
+      (track) => ({ track }), (error) => ({ error }),
+    );
+    let output;
+    try {
+      output = await runCompact(samples);
+      const head = await pendingHead;
+      if (head?.error) throw head.error;
+      yield {
+        sampleIndices,
+        pcm,
+        head: head?.track,
+        geometry: output.data.subarray(first * 52, (first + sampleIndices.length) * 52),
+      };
+    } finally {
+      output?.dispose?.();
+    }
+  }
+}
+
+export async function* animationBlocks({ ort, session, compact, runCompact }, audio, signal) {
   let previous;
   const inferHead = import.meta.env.MODE === 'hosted'
     ? undefined
     : (pcm, start) => predictHead(pcm, start, signal);
-  for await (const { sampleIndices, geometry, pcm, head } of geometryBlocks(ort, session, audio, noise, 1, inferHead)) {
+  const source = compact
+    ? blendshapeBlocks(runCompact, audio, signal, inferHead)
+    : geometryBlocks(ort, session, audio, noise ??= diffusionNoise(), 1, inferHead);
+  const width = compact ? 52 : 88831;
+  for await (const { sampleIndices, geometry, pcm, head } of source) {
     const block = geometry.slice();
-    const frames = sampleIndices.map((_, i) => block.subarray(i * 88831, (i + 1) * 88831));
+    const frames = sampleIndices.map((_, i) => block.subarray(i * width, (i + 1) * width));
     const rotations = head ? joinHeadWindow(head, previous, sampleIndices) : sampleIndices.map(() => undefined);
     previous = head;
     yield { frames, pcm, rotations };

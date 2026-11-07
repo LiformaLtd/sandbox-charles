@@ -3,7 +3,7 @@ const hop = 8000;
 const fps = 60;
 const outputSize = 88831;
 
-async function* audioWindows(source) {
+export async function* audioWindows(source) {
   const chunks = (source[Symbol.asyncIterator] ?? source[Symbol.iterator]).call(source);
   let audio = new Float32Array(sampleRate);
   let length = 0;

@@ -11,6 +11,7 @@
   "dependencies": {
     "onnxruntime-web": "1.31.1",
     "phonon-tts": "0.6.0",
+    "protobufjs": "7.6.6",
     "three": "^0.182.0"
   },
   "devDependencies": {

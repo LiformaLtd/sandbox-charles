@@ -19,6 +19,26 @@
   ],
   "redirects": [
     {
+      "source": "/assets/james-arkit-student-v3.onnx",
+      "destination": "https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v3/james-arkit-student-v3.onnx",
+      "permanent": false
+    },
+    {
+      "source": "/assets/james-arkit-student-v2.onnx",
+      "destination": "https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v2/james-arkit-student-v2.onnx",
+      "permanent": false
+    },
+    {
+      "source": "/assets/james-arkit-student.onnx",
+      "destination": "https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v1/james-arkit-student.onnx",
+      "permanent": false
+    },
+    {
+      "source": "/assets/james-blendshapes.bin",
+      "destination": "https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v1/james-blendshapes.bin",
+      "permanent": false
+    },
+    {
       "source": "/assets/model.onnx",
       "destination": "https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/geometry-compact-v1/model-v1.onnx",
       "permanent": false

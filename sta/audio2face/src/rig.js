@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { loadBlendshapeRig } from './blendshape-rig.js';
 
 const teeth = new THREE.MeshStandardMaterial({ color: 0xd9c9b3, roughness: 0.43 });
 const materials = {
@@ -50,13 +51,16 @@ function makeEyeGeometry(geometry, positions, pivot) {
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 }
 
-export async function createJames(viewport) {
+export async function createJames(viewport, { compact = false } = {}) {
   const [rig, binary] = await Promise.all([asset('/assets/rig.json', 'json'), asset('/assets/rig.bin', 'arrayBuffer')]);
   const skinLength = rig.meshes.skin.vertexCount * 3;
   if (!Number.isInteger(rig.eyeCloseOffset) || rig.eyeCloseOffset + skinLength * 4 > binary.byteLength) {
     throw new Error('The James rig is missing its eye-close pose. Regenerate it with scripts/prepare_rig.py.');
   }
   const eyeClose = new Float32Array(binary, rig.eyeCloseOffset, skinLength);
+  const blend = compact && await loadBlendshapeRig([
+    skinLength, rig.meshes.tongue.vertexCount * 3, rig.jaw.length * 3,
+  ]);
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 300);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -179,6 +183,7 @@ export async function createJames(viewport) {
   let previousFrame = null;
   let previousBlink = 0;
   let previousRotation;
+  let blendDeltas;
 
   function pose(frame, blink = 0, rotation) {
     const faceChanged = frame !== previousFrame;
@@ -188,7 +193,9 @@ export async function createJames(viewport) {
     if (!faceChanged && !headChanged && blink === previousBlink) return;
 
     setHeadPose(rotation);
-    drawPart('skin', frame, 0, blink, Boolean(rotation));
+    if (blend && (faceChanged || !blendDeltas)) blendDeltas = blend(frame);
+    const blinkStrength = blend ? blink * (1 - Math.max(frame?.[0] ?? 0, frame?.[7] ?? 0)) : blink;
+    drawPart('skin', blend ? blendDeltas[0] : frame, 0, blinkStrength, Boolean(rotation));
     previousBlink = blink;
     previousRotation = rotation;
     if (faceChanged) {
@@ -199,8 +206,8 @@ export async function createJames(viewport) {
     inverseHeadRotation.copy(faceParts.quaternion).invert();
     for (const { mesh, rotation, offset } of eyes) {
       mesh.rotation.set(
-        (rotation[0] + (frame?.[offset] ?? 0)) * degree,
-        (rotation[1] + (frame?.[offset + 1] ?? 0)) * degree,
+        (rotation[0] + (blend ? 0 : frame?.[offset] ?? 0)) * degree,
+        (rotation[1] + (blend ? 0 : frame?.[offset + 1] ?? 0)) * degree,
         rotation[2] * degree,
       );
       // The eye pivots travel with the head, but gaze stays in scene space.
@@ -209,14 +216,16 @@ export async function createJames(viewport) {
   }
 
   function updateJaw(frame) {
-    drawPart('tongue', frame, 72006);
+    drawPart('tongue', blend ? blendDeltas[1] : frame, blend ? 0 : 72006);
+    const motion = blend ? blendDeltas[2] : frame;
+    const offset = blend ? 0 : 88812;
     for (let i = 0; i < jaw.length; i++) {
-      const k = 88812 + i * 3;
+      const k = offset + i * 3;
       jaw[i].copy(neutralJaw[i]);
-      if (frame) {
-        jaw[i].x += frame[k];
-        jaw[i].y += frame[k + 1];
-        jaw[i].z += frame[k + 2];
+      if (motion) {
+        jaw[i].x += motion[k];
+        jaw[i].y += motion[k + 1];
+        jaw[i].z += motion[k + 2];
       }
     }
     lower.quaternion.copy(basis(jaw).multiply(neutralInverse));

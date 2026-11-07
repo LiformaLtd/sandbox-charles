@@ -9,6 +9,9 @@ import { to16k } from './pcm.js';
 let loading;
 
 export function preparePhonon(report, mobile) {
+  const pageWorkerUrl = new URL(workerUrl, location.href);
+  // WebKit can reject a cached module worker script after a same-tab navigation.
+  pageWorkerUrl.searchParams.set('page', String(performance.timeOrigin));
   loading ??= PhononTTS.load({
     model: {
       weights: { q8: modelAssetUrl('/assets/phonon/model.q8.gguf') },
@@ -24,7 +27,7 @@ export function preparePhonon(report, mobile) {
     // The SDK otherwise sends the downloaded weights back to the page and
     // copies them into a cache response while the worker model is live.
     cache: !mobile,
-    workerUrl,
+    workerUrl: pageWorkerUrl.href,
     wasmUrl,
     simdWasmUrl,
     onProgress: ({ total, loaded, cached }) => {
