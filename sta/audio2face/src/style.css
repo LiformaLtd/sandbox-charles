@@ -45,7 +45,6 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent);
 .view-hint { bottom: 25px; left: 23px; color: var(--muted); font-size: 12px; pointer-events: none; }
 .control-panel { border: 1px solid var(--border); border-radius: 20px; background: #191b24; padding: clamp(19px, 3vw, 32px); }
 h1 { font-size: clamp(31px, 3.4vw, 49px); line-height: 1.04; letter-spacing: -.065em; margin: 13px 0 12px; }
-.intro { color: var(--muted); line-height: 1.6; font-size: 14px; margin: 0 0 28px; }
 label { display: block; font-size: 13px; font-weight: 650; margin-bottom: 9px; }
 textarea {
   width: 100%; resize: vertical; min-height: 110px; max-height: 360px;
@@ -60,13 +59,7 @@ textarea {
   padding: 12px 15px; font-size: 14px; font-weight: 750;
 }
 .generate:hover { background: #ffdac1; }
-.prepare-buttons { display: flex; gap: 8px; margin-top: 8px; }
-.prepare-buttons button {
-  flex: 1; min-height: 44px; padding: 8px 12px; border: 1px solid #383a47;
-  border-radius: 10px; background: #242633; color: #e9e9ee; font-size: 13px;
-}
-.prepare-buttons button:hover:enabled { background: #363642; }
-.generate:disabled, .prepare-buttons button:disabled { opacity: .55; cursor: wait; }
+.generate:disabled { opacity: .55; cursor: wait; }
 .status { color: var(--muted); font-size: 13px; line-height: 1.45; min-height: 38px; margin: 14px 0 0; }
 .status.error { color: #ffa7a0; }
 progress { width: 100%; height: 8px; accent-color: var(--accent); margin-bottom: 10px; }
@@ -97,7 +90,6 @@ audio { display: block; width: 100%; height: 42px; margin-top: 9px; }
 .voice-switch select { width: 100%; min-height: 44px; padding: 9px 12px; border: 1px solid #383a47; border-radius: 10px; background: #11131b; color: #e9e9ee; font: inherit; font-size: 13px; }
 .voice-switch select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .voice-switch:disabled select { opacity: .6; cursor: wait; }
-.animation-hint { margin: 5px 0 0; font-size: 11px; color: var(--muted); }
 .head-motion-control { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 12px; margin: 14px 0; }
 .head-motion-control label { margin: 0; }
 .head-motion-control span { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }

@@ -23,7 +23,6 @@
       <aside class="control-panel">
         <div class="eyebrow">TEXT TO ANIMATION</div>
         <h1>Make James speak.</h1>
-        <p class="intro">Type a line and watch the original James face move in sync with the generated speech.</p>
         <form id="speech-form">
           <fieldset class="voice-switch" id="voice-switch">
             <legend>Speech engine</legend>
@@ -33,19 +32,17 @@
               <label><input type="radio" name="engine" value="pocket"><span>Pocket TTS</span></label>
             </div>
           </fieldset>
-          <fieldset class="voice-switch" id="animation-switch" aria-describedby="animation-hint">
+          <fieldset class="voice-switch" id="animation-switch">
             <legend>Animation model</legend>
-            <select name="animation" aria-label="Animation model" aria-describedby="animation-hint">
+            <select name="animation" aria-label="Animation model">
               <option value="compact-v4" selected>Compact ARKit v4 (2.25 MB)</option>
               <option value="compact-v3">Compact ARKit v3 (2.25 MB)</option>
               <option value="compact-v2">Compact ARKit v2 (2.25 MB)</option>
               <option value="compact">Compact ARKit v1 (2.25 MB)</option>
               <option value="geometry">Original geometry (72.16 MB)</option>
             </select>
-            <p class="animation-hint" id="animation-hint">Changing the model or runtime reloads the page to free memory.</p>
           </fieldset>
           <fieldset class="voice-switch" id="runtime-switch">
-            <legend>Animation runtime</legend>
             <select name="runtime" aria-label="Animation runtime">
               <option value="webgpu" selected>WebGPU</option>
               <option value="cpu">CPU</option>
@@ -68,10 +65,6 @@
             <input type="range" id="head-motion" min="0" max="100" step="1" value="60" aria-valuetext="60%">
           </div>
           <button type="submit" class="generate" id="generate" disabled>Generate &amp; play <span aria-hidden="true">↗</span></button>
-          <div class="prepare-buttons">
-            <button type="button" id="prepare-tts" disabled>Prepare TTS</button>
-            <button type="button" id="prepare-sta" disabled>Prepare STA</button>
-          </div>
         </form>
         <p id="status" class="status" role="status" aria-live="polite">Loading the James rig…</p>
         <progress id="progress" aria-label="Model preparation or generation progress" hidden></progress>

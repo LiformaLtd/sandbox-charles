@@ -16,8 +16,6 @@ const dialogueCounter = document.querySelector('#dialogue-counter');
 const dialogueTitle = document.querySelector('#dialogue-sample');
 let sampleIndex = 0;
 input.value = dialogueSamples[sampleIndex].text;
-const prepareTts = document.querySelector('#prepare-tts');
-const prepareSta = document.querySelector('#prepare-sta');
 const status = document.querySelector('#status');
 const progress = document.querySelector('#progress');
 const audio = document.querySelector('#audio');
@@ -358,8 +356,6 @@ async function streamSpeech(text, engine) {
 function setBusy(busy) {
   generate.disabled = busy;
   dialoguePrev.disabled = dialogueNext.disabled = busy;
-  prepareTts.disabled = busy;
-  prepareSta.disabled = busy;
   voiceSwitch.disabled = busy;
   animationSwitch.disabled = busy;
   runtimeSwitch.disabled = busy;
@@ -403,27 +399,6 @@ async function selectSpeechEngine(engine) {
   }
   return tts;
 }
-
-prepareTts.addEventListener('click', () => {
-  const engine = form.elements.engine.value;
-  const { label } = engines[engine];
-  runWithProgress(`Preparing ${label} in your browser…`, async () => {
-    const tts = await selectSpeechEngine(engine);
-    if (engine === 'phonon') {
-      await tts.preparePhonon(report, appleMobile);
-    } else {
-      await tts.prepareOnnxTts(engine, report);
-    }
-    report(`${label} is ready.`);
-  });
-});
-
-prepareSta.addEventListener('click', () => {
-  runWithProgress('Preparing the STA model…', async () => {
-    await loadModel({ model, cpuOnly, mobile: appleMobile, report });
-    report('STA is ready.');
-  });
-});
 
 form.addEventListener('submit', (event) => {
   event.preventDefault();
