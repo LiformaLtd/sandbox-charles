@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { bakeAnimation, planAnimation } from '../src/lib/dictionary/animate.mjs';
 import { CHANNELS, FPS } from '../src/lib/dictionary/index.mjs';
 import { checkAdvanceClosures, summarizeAdvanceClosures, validateClosureProfile } from './lib/closure-quality.mjs';
-import { ALL_VISEME_PAIRS, substitutionMap } from '../src/lib/dictionary/viseme-pairs.mjs';
+import { ALL_VISEME_PAIRS, RECOMMENDED_VISEME_PAIRS, substitutionMap } from '../src/lib/dictionary/viseme-pairs.mjs';
 
 const testSet = process.argv.includes('--test-set');
 const developmentSet = process.argv.includes('--development-set');
@@ -16,7 +16,8 @@ const visemeComparison = process.argv.includes('--viseme-fallback');
 const advanceComparison = process.argv.includes('--advance-closures');
 const openingComparison = process.argv.includes('--opening-context');
 const boundedComparison = process.argv.includes('--bounded-context');
-const extendedComparison = process.argv.includes('--extended-visemes');
+const szComparison = process.argv.includes('--sz-shape-selection');
+const extendedComparison = process.argv.includes('--extended-visemes') || szComparison;
 const saveTracks = process.argv.includes('--save-tracks');
 assert.ok(!saveTracks || extendedComparison, '--save-tracks requires --extended-visemes');
 assert.ok([optimizationComparison, visemeComparison, advanceComparison, openingComparison, boundedComparison, extendedComparison].filter(Boolean).length <= 1, 'Compare one feature at a time');
@@ -35,7 +36,7 @@ const baselinePath = argument('--baseline');
 const outputPath = argument('--output');
 const additionalPairs = argument('--substitution-pairs');
 assert.ok(!additionalPairs || extendedComparison, '--substitution-pairs requires --extended-visemes');
-const extendedPairs = additionalPairs ? [...new Set(['P/B',...additionalPairs.split(',')])] : ALL_VISEME_PAIRS;
+const extendedPairs = szComparison ? RECOMMENDED_VISEME_PAIRS : additionalPairs ? [...new Set(['P/B',...additionalPairs.split(',')])] : ALL_VISEME_PAIRS;
 substitutionMap(extendedPairs);
 const joinReferenceArgument=argument('--join-reference-pairs');
 assert.ok(!joinReferenceArgument||extendedComparison,'--join-reference-pairs requires --extended-visemes');
@@ -214,7 +215,9 @@ for (const row of rows) {
       closureRetiming: optimizationComparison && variant === 'optimized' && !acousticOnly,
       acousticMode,
       visemeFallback: extendedComparison || boundedComparison || openingComparison || advanceComparison || (visemeComparison && variant === 'visemeFallback'),
-      visemePairs: extendedComparison && variant === 'extendedVisemes' ? extendedPairs : ['P/B'],
+      visemePairs: szComparison || extendedComparison && variant === 'extendedVisemes' ? extendedPairs : ['P/B'],
+      szShapeSelection:szComparison&&variant==='extendedVisemes',
+      recordedPauses:szComparison,
       advanceClosures: extendedComparison || boundedComparison || openingComparison || (advanceComparison && variant === 'advanceClosures'),
       openingContext: extendedComparison || boundedComparison || (openingComparison && variant === 'openingContext'),
       boundedContext: boundedComparison && variant === 'boundedContext', contextStrength, contextBlend,
@@ -314,6 +317,7 @@ for (const row of rows) {
   }
 
   const clipReport = { id: row.id, text: row.text, group: row.split, ...(row.intendedPair?{intendedPair:row.intendedPair}:{}), coverage: Object.fromEntries(variants.map((variant, i) => [variant, plans[i].coverage])), fallbackIntervals: spans.length, affectedLipGapRms: {}, lipGapRms: {}, wholeSpeechContacts: {},
+    ...(szComparison?{szShapeRegions:plans[1].szShapeRegions??[],szShapeDiagnostics:plans[1].szShapeDiagnostics??null}:{}),
     ...(boundedComparison ? { context: plans[1].contextDiagnostics,
       contextRegions: plans[1].contexts.map((c) => ({ phone: c.phone, side: c.side, start: c.start, end: c.end, sourceClip: c.match.clip.id,
         sourceStart: c.sourceAnchor + (c.start - c.targetAnchor) * c.slope, sourceEnd: c.sourceAnchor + (c.end - c.targetAnchor) * c.slope, strength: c.strength,
@@ -429,7 +433,7 @@ const report = {
   }])) } : {}),
   coverage, usage, approximateMatches,
   ...(extendedComparison ? { approximateUsageByPair: {
-    baseline: {'P/B':usage.baseline.approximate},
+    baseline: Object.fromEntries((szComparison?RECOMMENDED_VISEME_PAIRS:['P/B']).map(pair=>[pair,clipReports.reduce((sum,c)=>sum+c.approximateMatches.baseline.filter(m=>m.pair===pair).length,0)])),
     extendedVisemes: Object.fromEntries(extendedPairs.map(pair=>[pair,approximateMatches.filter(m=>m.pair===pair).length])),
   } } : {}),
   directFitVsGeometry: {
@@ -446,7 +450,8 @@ const report = {
     ...(extendedComparison ? {substitutionPairs:extendedPairs,oneSubstitutionPerTriple:true,substitutionsSymmetric:true,
       ...(joinReferencePairs?{additionalJoinReferencePairs:joinReferencePairs}:{}),
       exactTriplesFirst:true,exactDoublesCompete:true,smoothNeutral:true,advanceClosures:true,openingContext:true,
-      recordedPauses:false,acousticAware:false,closureRetiming:false,baselineSubstitutionPairs:['P/B']} : {}),
+      recordedPauses:szComparison,acousticAware:false,closureRetiming:false,baselineSubstitutionPairs:szComparison?RECOMMENDED_VISEME_PAIRS:['P/B'],
+      ...(szComparison?{szShapeSelection:true,policy:'Exact-triple shape anchors dominate when S/Z changes an exact donor; S/Z confidence at most 0.25/(1+shape distance). Current pre-pause contact mask retained.'}: {})} : {}),
     ...(boundedComparison ? { boundedContext: true, contextStrength, contactMaskPreserved: true,
       contextPhones: contextPhones ?? 'all', contextBlend,
       contextProfile: await json(new URL('../data/phoneme-context-candidates.json', import.meta.url)),
@@ -464,6 +469,6 @@ const report = {
   advanceClosureDetails: advanceChecks.geometry,
   closureChanges, clipReports,
 };
-const reportFile = outputPath ? pathToFileURL(resolve(outputPath)) : new URL(`${extendedComparison ? 'extended-visemes' : boundedComparison ? 'bounded-context' : openingComparison ? 'opening-context' : advanceComparison ? 'advance-motion' : visemeComparison ? 'viseme' : optimizationComparison ? 'optimization' : corpusComparison ? 'subtitle' : closureComparison ? 'closure' : joinComparison ? 'join' : 'fallback'}-quality${dictionary.fit === 'lip' ? '-lip' : ''}.json`, local);
+const reportFile = outputPath ? pathToFileURL(resolve(outputPath)) : new URL(`${szComparison ? 'sz-shape-selection' : extendedComparison ? 'extended-visemes' : boundedComparison ? 'bounded-context' : openingComparison ? 'opening-context' : advanceComparison ? 'advance-motion' : visemeComparison ? 'viseme' : optimizationComparison ? 'optimization' : corpusComparison ? 'subtitle' : closureComparison ? 'closure' : joinComparison ? 'join' : 'fallback'}-quality${dictionary.fit === 'lip' ? '-lip' : ''}.json`, local);
 await writeFile(reportFile, JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify(report, null, 2));

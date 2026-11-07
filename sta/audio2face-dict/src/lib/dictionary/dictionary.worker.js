@@ -65,6 +65,7 @@ self.onmessage = async ({ data: { id, type, text, pcm, recordedPauses = false, e
     self.postMessage({ id, value: {
       frames, phonemeCount: phones.length, coverage: plan.coverage, usage: plan.usage, joins: plan.joins.length,
       approximateUsage, extendedVisemes,
+      szShapeGuards:plan.szShapeRegions?.filter(region=>region.confidence<1).length??0,
       alignmentMs, samplingMs: performance.now() - samplingStarted,
       lookupMs: performance.now() - started, corpus: dictionary.corpus,
       pauseUsage: plan.pauseDiagnostics ? { used: plan.pauseDiagnostics.usedPauses, detected: plan.pauseDiagnostics.detectedPauses } : undefined,

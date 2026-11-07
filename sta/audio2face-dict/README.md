@@ -443,3 +443,31 @@ Across all 28 split/pair comparisons, the per-sentence event audit retains every
 Side-by-side rendered reviews include “Please leave the keys beside the sink.” (a substantial measured improvement with S/Z and K/G selected) and “Wafers fell from the silver tray.” (an F/V regression). The full native reference is rendered through its ARKit fit. Browser generation with the additional-pair checkbox enabled was verified, including the per-pair match counts. The browser now exposes the narrower recommended subset; the full six-pair trial remains reproducible through the CLI/API.
 
 Comparing just S/Z + SH/ZH + K/G with all six additional pairs gives identical output on the fixed fresh/test sentences because F/V, TH/DH and T/D are not selected there. On the challenge set, the three-pair subset reduces lip-gap error by 1.03% and join error by 3.52%, versus 0.17% and 2.99% for all six. Both retain P/B, and all closure-event audits pass. For a fair cross-configuration join comparison, add `--join-reference-pairs all` to the subset run and `--join-reference-pairs S/Z,SH/ZH,K/G` to the full run. That measures both over the same union of baseline/subset/full join anchors; otherwise each two-way comparison can use slightly different join windows.
+
+## Protect exact shapes when an S/Z fallback changes neighboring clip choices
+
+The S/Z regression in “The quick fox jumped across the stream” came from more than the S→Z substitution. Join-aware selection also switched the preceding exact AA/K/S donor to make the new path cheaper. The added shape error lay in that preceding context and the S→JH interval. Raising the substitution/shape penalty could restore the original exact-double path, but lost its join improvement.
+
+Current playback instead uses confidence-weighted clip contributions. If S/Z is selected, it computes a reference path with S/Z disabled, retaining P/B, SH/ZH, K/G and all other options. It compares exact-triple choices between those paths. If exact choices stay the same, S/Z retains its full contribution. If an exact donor changes, the affected context is anchored to the reference trajectory, with S/Z confidence `0.25 / (1 + shapeDistance)`. Shape distance uses the existing jaw/mouth features and three lip-gap landmarks, sampled at source phoneme onsets, midpoints and releases. No native evaluation reference is read at runtime.
+
+The original candidate selection remains available; this safeguard changes the confidence of its contribution rather than claiming a different S/Z donor is universally better. It runs before recorded pauses and neutral relaxation. Changed exact units are associated with the nearest selected S/Z match in the same speech run. Overlapping regions use the lower confidence, with two-frame easing outside their bounds. Convex blending and a Float32 threshold check preserve the current pre-pause center-contact mask at every frame. Leading/source phoneme timings, dictionary weights, selected approximate-match counts and the existing checkbox defaults remain unchanged. Match coverage details show the number of guarded S/Z matches.
+
+The safeguard is enabled by default (`szShapeSelection: true`); set it to false to reproduce the previous S/Z playback. It builds the extra reference only if S/Z was actually selected, and bakes that reference only when an exact donor changed. P/B-only playback has no additional reference work. A comparison with shared P/B/current/new join windows is:
+
+```sh
+node scripts/compare-fallback.mjs --sz-shape-selection --join-reference-pairs P/B --output .local/sz-selection/fresh.json
+node scripts/compare-fallback.mjs --sz-shape-selection --join-reference-pairs P/B --test-set --output .local/sz-selection/test.json
+node scripts/compare-fallback.mjs --sz-shape-selection --join-reference-pairs P/B --challenge-set --output .local/sz-selection/challenge.json
+```
+
+Both sides retain the recommended pairs, advance guidance, opening fix, recorded-pause pilot and 200 ms neutral relaxation. The baseline disables only this new confidence safeguard. Historical `--extended-visemes` comparisons continue to disable it explicitly.
+
+| Fixed benchmark | P/B-only shape RMS | Previous recommended shape RMS | Guarded shape RMS | P/B-only join error | Previous recommended join error | Guarded join error |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Fresh 24 | 0.356957 | 0.354472 | 0.354823 | 0.129216 | 0.126573 | 0.127004 |
+| Test 12 | 0.294547 | 0.294953 | 0.294529 | 0.127994 | 0.127507 | 0.127814 |
+| Challenge 12 | 0.342209 | 0.338676 | 0.338676 | 0.117823 | 0.113661 | 0.113661 |
+
+The failing sentence's whole-track shape RMS falls from 0.241106 to 0.235142, compared with 0.235399 for P/B-only playback. Its selected S/Z contribution is limited to 15.9% in the guarded context. This removes the test-set shape regression while retaining part of the join benefit: test join error remains 0.14% below P/B-only, versus 0.38% before. The tradeoff is a small fresh-set regression against previous recommended playback: shape error rises 0.10% and join error 0.34%, while both remain better than P/B-only by 0.60% and 1.71%. “A young horse stood behind the gate” is the other guarded sentence; the larger gain on “Please leave the keys beside the sink” stays bit-identical. The challenge set and development set are unchanged.
+
+No sentence in the 48 fresh/test/challenge recordings now has higher shape RMS than its P/B-only reference. Across all evaluation groups, every previously matched native closure is retained, no new extra-contact episode appears, and P/B/M advance-window classifications and exclusions remain unchanged. This does not eliminate pre-existing misses or extras. It is a conservative tradeoff, not a claim that every metric improves over the previous recommended version. The known test failure was inspected during development; these reused benchmarks are regression evidence rather than independent validation on unseen speech. Numerical checks still use nine lip gaps, not all aspects of tooth/tongue visibility.

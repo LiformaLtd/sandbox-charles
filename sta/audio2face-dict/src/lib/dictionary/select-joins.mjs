@@ -117,3 +117,12 @@ export function chooseJoinedMatches(units, weights, lipRig, intervalEnd) {
   }
   return selected;
 }
+
+export function matchShapeDistance(weights,lipRig,left,right) {
+  const basis=lipRig?gapLandmarks.map(j=>lipRig.deltas.flatMap((row,index)=>row[j]?[{index,delta:row[j]}]:[])):[];
+  const featureWeights=mouthChannels.map(({weight})=>weight/(channelWeight*.10**2));
+  if(lipRig)featureWeights.push(...[1,2,1].map(weight=>weight/(4*.60**2)));
+  const count=Math.min(left.count,right.count);let sum=0;
+  for(let i=0;i<count;i++)sum+=transitionCost(signature(weights,left,i,1,basis),signature(weights,right,i,1,basis),featureWeights);
+  return sum/count;
+}

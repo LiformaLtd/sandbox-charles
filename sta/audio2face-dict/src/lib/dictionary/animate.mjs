@@ -10,6 +10,7 @@ import { boundedContextEnabled, makeBoundedContexts, applyBoundedContexts } from
 import { applyRecordedPauses } from './recorded-pauses.mjs';
 import { applySmoothNeutral } from './neutral-transition.mjs';
 import { DEFAULT_VISEME_PAIRS, substitutionMap } from './viseme-pairs.mjs';
+import { makeSZShapeRegions, applySZShapeConfidence } from './sz-shape-confidence.mjs';
 
 const midpoint = (phone) => (phone.start + phone.end) / 2;
 const mix = (a, b, amount) => a + (b - a) * amount;
@@ -184,7 +185,7 @@ function matchUsage(segments) {
 
 export function planAnimation(dictionary, phones, pcm, { singleFallback = true, joinAware = true, closureAware = true, acousticAware = false, closureRetiming = false, acousticWeight = 0.25, acousticMode = 'predicted', visemeFallback = true,
   advanceClosures = true, advanceSelection = advanceClosures, advanceBlending = advanceClosures, openingContext = true,
-  boundedContext = boundedContextEnabled, contextStrength = .25, contextBlend = 'anchored', recordedPauses = false, smoothNeutral = true, neutralFadeSeconds = .2, visemePairs = DEFAULT_VISEME_PAIRS } = {}) {
+  boundedContext = boundedContextEnabled, contextStrength = .25, contextBlend = 'anchored', recordedPauses = false, smoothNeutral = true, neutralFadeSeconds = .2, visemePairs = DEFAULT_VISEME_PAIRS, szShapeSelection = true } = {}) {
   const duration = pcm.length / SAMPLE_RATE;
   validatePhones(phones, duration);
   const guide = closureAware ? makeClosureGuide(dictionary, phones, pcm, advanceBlending) : undefined;
@@ -231,7 +232,7 @@ export function planAnimation(dictionary, phones, pcm, { singleFallback = true, 
   const approximateMatches = [...new Set(segments.flatMap(({ pieces }) => pieces.map(({ match }) => match)).filter((match) => match.approximate))]
     .map(({ approximate, clip }) => ({ ...approximate, clip: clip.id }));
   const baselinePlan = guide?.advance ? planAnimation(dictionary, phones, pcm, {
-    singleFallback, joinAware, closureAware, acousticAware, closureRetiming, acousticWeight, acousticMode, visemeFallback, visemePairs, openingContext,
+    singleFallback, joinAware, closureAware, acousticAware, closureRetiming, acousticWeight, acousticMode, visemeFallback, visemePairs, openingContext, szShapeSelection: false,
     advanceClosures: false, advanceSelection: false, advanceBlending: false, boundedContext: false, smoothNeutral: false,
   }) : undefined;
   const leadingContext = openingContext ? makeOpeningContext(dictionary, phones, segments) : undefined;
@@ -242,6 +243,12 @@ export function planAnimation(dictionary, phones, pcm, { singleFallback = true, 
   plan.frameCount = Math.ceil(pcm.length * FPS / SAMPLE_RATE);
   plan.smoothNeutral = smoothNeutral;
   plan.neutralFadeSeconds = neutralFadeSeconds;
+  if(szShapeSelection && approximateMatches.some(m=>m.pair==='S/Z')) {
+    plan.szReferencePlan=planAnimation(dictionary,phones,pcm,{singleFallback,joinAware,closureAware,acousticAware,closureRetiming,acousticWeight,acousticMode,visemeFallback,
+      visemePairs:visemePairs.filter(pair=>pair!=='S/Z'),szShapeSelection:false,advanceClosures,advanceSelection,advanceBlending,openingContext,
+      boundedContext,contextStrength,contextBlend,recordedPauses,smoothNeutral,neutralFadeSeconds});
+    plan.szShapeRegions=makeSZShapeRegions(dictionary,plan,plan.szReferencePlan);
+  }
   return plan;
 }
 
@@ -331,7 +338,7 @@ function preserveClosures(dictionary, guide, frames) {
   }
 }
 
-export function bakeAnimation(dictionary, plan) {
+export function bakeAnimation(dictionary, plan, {postprocess=true}={}) {
   const frames = new Float32Array((plan.frameCount ?? Math.ceil(plan.duration * FPS)) * CHANNELS);
   const { joins, segments, guide } = plan;
   function blend(out, time, scale, left, leftTime, right, rightTime, amount) {
@@ -411,6 +418,10 @@ export function bakeAnimation(dictionary, plan) {
   if (guide) preserveClosures(dictionary, guide, frames);
   if (plan.baselinePlan && guide?.advance) retainAdvanceContacts(frames, bakeAnimation(dictionary, plan.baselinePlan), guide);
   plan.contextDiagnostics = applyBoundedContexts(dictionary, frames, plan.contexts ?? [], { mode: plan.contextBlend });
+  if(plan.szShapeRegions?.some(region=>region.confidence<1)) {
+    plan.szShapeDiagnostics=applySZShapeConfidence(dictionary,frames,bakeAnimation(dictionary,plan.szReferencePlan,{postprocess:false}),plan.szShapeRegions);
+  }
+  if (!postprocess) return frames;
   if (plan.recordedPauses) plan.pauseDiagnostics = applyRecordedPauses(dictionary,frames,plan);
   if (plan.smoothNeutral) plan.neutralDiagnostics = applySmoothNeutral(dictionary,frames,plan,{seconds:plan.neutralFadeSeconds});
   return frames;

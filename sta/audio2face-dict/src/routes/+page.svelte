@@ -24,6 +24,7 @@
     pauseUsage?: { used: number; detected: number };
     approximateUsage: Record<string,number>;
     extendedVisemes: boolean;
+    szShapeGuards: number;
   }
 
   let sampleIndex = $state(0);
@@ -299,6 +300,7 @@
         {#if details.coverage.single}<p>{details.coverage.single} isolated phoneme matches</p>{/if}
         <p>{details.joins} extended joins · {details.lookupMs.toFixed(1)} ms lookup and blend · {details.corpus} corpus</p>
         {#if details.pauseUsage}<p>Recorded pauses: {details.pauseUsage.used} of {details.pauseUsage.detected} used.</p>{/if}
+        {#if details.szShapeGuards}<p>S/Z shape anchors: {details.szShapeGuards} guarded matches.</p>{/if}
       </details>
     {/if}
     <div class="notes"><span>James v3 mesh</span><span>60 fps · Dictionary</span></div>
