@@ -212,3 +212,9 @@ corpus and a matched training-budget grid. See [results and limitations](docs/pl
 and [reproduction instructions](scripts/research/data_scale/README.md). The study
 initially left production unchanged; the subsequently requested scale-r3 release
 uses its seed-37 model, retaining WebGPU as the browser default.
+
+The follow-up [teacher-feature distillation experiment](docs/plans/compact-feature-distillation-results.md)
+kept the same browser graph and found no meaningful gain beyond matched ordinary
+fine-tuning. Its [reproduction instructions](scripts/research/feature_distillation/README.md)
+and synchronized local research review are separate from the published demo;
+production remains v4 scale-r3.

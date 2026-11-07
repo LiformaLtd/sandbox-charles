@@ -1366,3 +1366,45 @@ run variability. Wait for rig startup and warm the runner before timing. Sampled
 prerecorded STA+idle-renderer footprints around 520–535 MiB exclude TTS and do
 not guarantee physical-iPhone peak memory. Keep James animating throughout these
 checks; suppressing idle animation is not an acceptable memory optimization.
+
+## 32. Better teacher-feature reconstruction did not improve mouth animation
+
+The [expanded-corpus distillation trial](compact-feature-distillation-results.md)
+revisited the earlier small-corpus feature-MSE pilot using current v4 scale-r3,
+the larger speech corpus and a normalized cosine objective. A training-only
+96→768 affine head matched the full teacher's last audio-encoder features from
+the student's final interpolated hidden states. The head was removed at export;
+no new browser encoder, phoneme timings or additional lookahead were introduced.
+
+Both arms instantiated identical heads and shared seed, initialization, sampled
+windows, replay, update budget and development-only checkpoint selection. Only
+the hint coefficient differed: zero versus a ramp to 0.1 over 372 updates.
+Features were aligned to exactly the existing waveform, crop and validity mask.
+CPU/MLX auxiliary loss matched exactly and gradient relative L2 was 3.85e-7.
+Hint gradients reached the backbone; the control's hint gradients were zero.
+The trained head's cosine loss fell to 0.382. Successful auxiliary learning is
+not evidence that the learned information improves the target animation task.
+
+On 96 new recordings / 384 gain cases with disjoint texts, original-level RMS
+was 2.42607 mm for control and 2.42576 mm for distillation: only 0.0126% extra
+improvement. Contact F1 declined slightly and well-timed /m b p/ hits fell from
+156 to 153. Current v4 scored 2.48979 mm on this new cohort; both trained arms
+improved about 2.56%, so that shared gain belongs to ordinary fine-tuning. Do
+not compare this cohort's baseline directly with the old 352-recording score
+of 2.72455 mm or attribute their difference to a model update. The predeclared
+3% control-relative screen failed; keep deployed v4 unchanged.
+
+All exports retained 331,047 parameters, 2,251,827 bytes, identical topology and
+1,492,236 explicit GPU bytes. Three settled desktop WebKit runs measured roughly
+1 ms per 500 ms emitted block for every arm, with full-track native/GPU agreement
+within 7.01e-7 and byte-identical repeat output. Sampled active-idle-renderer/GPU
+peaks were about 533 MiB (v4), 525 MiB (control) and 535 MiB (distillation), with
+TTS excluded. These single bounded process measurements do not establish a
+memory regression/saving or physical-iPhone peak guarantee.
+
+This fixed seed/layer/coefficient experiment does not rule out all distillation.
+It does show that normalized last-layer speech-feature imitation is not a
+useful extra ingredient at this setting. Preserve the negative result instead
+of combining it with another intervention or sweeping against the inspected
+confirmation set. Target rendered-mouth residuals and difficult acoustic
+coverage independently next.
