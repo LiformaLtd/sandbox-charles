@@ -28,6 +28,7 @@
   let contact=$state(true);
   let cavity=$state(true);
   let strength=$state(1);
+  let cheekStrength=$state(1);
   let fps=$state(0);
   let track=$state<Track|null>(null);
   let playing=$state(false);
@@ -130,7 +131,7 @@
       if(sampler&&renderer){
         if(track&&!neutralHold)sampleTrack(track.frames,audio.currentTime,weights);
         else weights.set(sampler.map.sourceReference);
-        const points=sampler.sample(weights,strength,contact);
+        const points=sampler.sample(weights,strength,contact,cheekStrength);
         renderer.draw(points,{wireframe,closeup,cavity});
         count++;
       }
@@ -223,6 +224,9 @@
           <select id="mapping-select" value={mapping} onchange={event=>loadAvatar(avatarId,event.currentTarget.value as 'linear'|'local')} disabled={busy}><option value="linear">Geometry + robust linear</option><option value="local">Local nonlinear residual</option></select>
           <div class="range-label"><label for="strength">Shape strength</label><span>{Math.round(strength*100)}%</span></div>
           <input id="strength" type="range" min="0" max="1.5" step="0.01" bind:value={strength} />
+          <div class="range-label"><label for="cheek-strength">Cheek transfer</label><span>{Math.round(cheekStrength*100)}%</span></div>
+          <input id="cheek-strength" type="range" min="0" max="1" step="0.01" bind:value={cheekStrength} />
+          <p class="quiet-note">Restores source-rig cheek motion to this face. Set to zero to compare the previous mapping.</p>
           <label class="toggle-row"><span>Show mesh</span><input type="checkbox" bind:checked={wireframe} /><span class="switch" aria-hidden="true"></span></label>
           <label class="toggle-row"><span>Lip contact correction</span><input type="checkbox" bind:checked={contact} /><span class="switch" aria-hidden="true"></span></label>
           <label class="toggle-row"><span>Dark mouth cavity</span><input type="checkbox" bind:checked={cavity} /><span class="switch" aria-hidden="true"></span></label>

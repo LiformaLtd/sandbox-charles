@@ -41,3 +41,24 @@ test('inference PCM equals WAV playback samples including clipping',async()=>{
  for(let i=0;i<sound.pcm.length;i++)assert.equal(sound.pcm[i],view.getInt16(44+i*2,true)/32768);
  assert.throws(()=>playbackWav(Float32Array.of(NaN)),/invalid/);
 });
+
+for(const kind of ['linear','local'])test(`${kind} cheek transfer moves cheeks while preserving reference, lips and upper face on every fit`,()=>{
+ const catalog=read('catalog.json');
+ const protectedPoints=[78,191,80,81,82,13,312,311,310,415,308,95,88,178,87,14,317,402,318,324,61,185,40,39,37,0,267,269,270,409,291,146,91,181,84,17,314,405,321,375,33,133,263,362,145,374,10];
+ for(const avatar of catalog.avatars){
+  const mesh=read(`avatars/${avatar.id}/mesh.json`) as AvatarMesh;
+  const map=parseMapping(read(`avatars/${avatar.id}/${kind}.json`));const sampler=new ShapeSampler(mesh,map,catalog.contact);
+  const neutral=sampler.sample(map.sourceReference,1,true,0).slice();
+  assert.deepEqual(sampler.sample(map.sourceReference,1,true,1),neutral,avatar.id+' neutral');
+  const weights=Float32Array.from(map.sourceReference,(_,i)=>i>=14&&i<=40?0.35:map.sourceReference[i]);
+  const old=sampler.sample(weights,1,true,0).slice();const next=sampler.sample(weights,1,true,1).slice();
+  for(const i of protectedPoints){assert.equal(next[i*2],old[i*2],`${avatar.id} protected x ${i}`);assert.equal(next[i*2+1],old[i*2+1],`${avatar.id} protected y ${i}`);}
+  assert.ok([205,425].some(i=>Math.hypot(next[i*2]-old[i*2],next[i*2+1]-old[i*2+1])>1e-4),`${avatar.id} moving cheeks`);
+  assert.ok(next.every(Number.isFinite));assert.deepEqual(sampler.sample(weights,0,true,1),neutral);
+  const tri=mesh.triangles;const area=(p:Float32Array,a:number,b:number,c:number)=>(p[b*2]-p[a*2])*(p[c*2+1]-p[a*2+1])-(p[b*2+1]-p[a*2+1])*(p[c*2]-p[a*2]);
+  for(let j=0;j<tri.length;j+=3){const [a,b,c]=tri.slice(j,j+3);if(Math.max(a,b,c)>=478)continue;
+   const before=area(old,a,b,c),after=area(next,a,b,c);
+   if(Math.abs(before)>1e-9)assert.ok(after*Math.sign(before)>=Math.abs(before)*.095-1e-8,`${avatar.id} cheek triangle ${j/3} maintains area`);
+  }
+ }
+});

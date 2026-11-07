@@ -4,6 +4,7 @@ from collections import Counter,defaultdict
 from pathlib import Path
 import numpy as np
 from PIL import Image
+from cheek_transfer import build_cheek_transfer
 
 OVAL=[10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,
       152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109]
@@ -89,6 +90,7 @@ def main():
             imageSize=size,sourceUV=np.array(neutral['landmarks'])[:,:2].ravel().tolist(),
             ring=ring.ravel().tolist(),triangles=indices,crop=crop,
             frame=dict(center=center.tolist(),width=width,rotation=rotation.ravel().tolist()),
+            cheek=build_cheek_transfer(reg,model,mesh['faceMeshEdges']),
             fitHash=sha(mesh_file),calibration='Experimental — not validated for production',
             contactGap=[.003]*9)
         write(folder/'mesh.json',data)

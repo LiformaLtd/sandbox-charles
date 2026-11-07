@@ -11,6 +11,11 @@ test('real speech inference, seek, avatar and mapping switch, upload and local t
  const before=await page.locator('canvas').screenshot();
  await page.locator('audio').evaluate((a:HTMLAudioElement)=>{a.pause();a.currentTime=0.75;});
  await page.waitForTimeout(100);const after=await page.locator('canvas').screenshot();expect(before.equals(after)).toBe(false);
+ await page.locator('#cheek-strength').focus();await page.locator('#cheek-strength').press('Home');await page.waitForTimeout(100);
+ const cheeksOff=await page.locator('canvas').screenshot();
+ await page.locator('#cheek-strength').press('End');await page.waitForTimeout(100);
+ const cheeksOn=await page.locator('canvas').screenshot();expect(cheeksOff.equals(cheeksOn)).toBe(false);
+ await page.screenshot({path:'../../../../outputs/audio2face-2d-cheeks.png',fullPage:true});
  await page.getByText('Show mesh',{exact:true}).click();
  await page.getByRole('button',{name:'Mouth close-up',exact:true}).click();
  await page.screenshot({path:'../../../../outputs/audio2face-2d-mesh.png',fullPage:true});

@@ -43,6 +43,11 @@ export function sampleTrack(frames: Float32Array, time: number, result: Float32A
 export class ShapeSampler {
   readonly local = new Float32Array(POINTS * 2);
   readonly image = new Float32Array((POINTS + 36) * 2);
+  private beforeCheeks = new Float32Array(POINTS*2);
+  private cheekTriangles: number[]=[];
+  cheekGain=1;
+  private cheekBasis: Float32Array;
+  private cheekBlend: Float32Array;
   private delta = new Float32Array(CHANNELS);
   private gaps = new Float32Array(9);
   private features: Float32Array;
@@ -50,6 +55,13 @@ export class ShapeSampler {
   readonly mesh: AvatarMesh; readonly map: Mapping; readonly contact: ContactRig;
   constructor(mesh: AvatarMesh, map: Mapping, contact: ContactRig) {
     this.mesh=mesh;this.map=map;this.contact=contact;
+    this.cheekBasis=Float32Array.from(mesh.cheek?.basis??[]);
+    this.cheekBlend=Float32Array.from(mesh.cheek?.blend??[]);
+    if(mesh.cheek && (this.cheekBasis.length!==POINTS*2*CHANNELS || this.cheekBlend.length!==POINTS || !this.cheekBasis.every(Number.isFinite) || !this.cheekBlend.every(v=>Number.isFinite(v)&&v>=0&&v<=1)))throw new Error("Invalid cheek transfer data.");
+    for(let t=0;t<mesh.triangles.length;t+=3){
+      const a=mesh.triangles[t],b=mesh.triangles[t+1],c=mesh.triangles[t+2];
+      if(a<POINTS&&b<POINTS&&c<POINTS&&(this.cheekBlend[a]>0||this.cheekBlend[b]>0||this.cheekBlend[c]>0))this.cheekTriangles.push(a,b,c);
+    }
     this.features = new Float32Array(map.featureCount);
     this.zeroKernels = new Float64Array(map.exampleCount);
     for (let e = 0; e < map.exampleCount; e++) {
@@ -58,7 +70,7 @@ export class ShapeSampler {
       this.zeroKernels[e] = Math.exp(-squared / (2 * map.bandwidth ** 2));
     }
   }
-  sample(weights: Float32Array, strength: number, correctContact: boolean) {
+  sample(weights: Float32Array, strength: number, correctContact: boolean, cheekStrength = 0) {
     const { map, mesh, local, delta } = this;
     for (let c = 0; c < CHANNELS; c++) delta[c] = weights[c] - map.sourceReference[c];
     for (let j = 0; j < local.length; j++) {
@@ -82,6 +94,20 @@ export class ShapeSampler {
       }
     }
     if (correctContact) this.applyContact(weights);
+    this.cheekGain=1;
+    if(cheekStrength>0 && this.cheekBasis.length){
+      this.beforeCheeks.set(local);
+      for(let i=0;i<POINTS;i++){
+        const amount=this.cheekBlend[i]*Math.max(0,Math.min(1,cheekStrength));
+        if(!amount)continue;
+        for(let axis=0;axis<2;axis++){
+          const j=i*2+axis;let motion=0;
+          for(let c=0;c<CHANNELS;c++)motion+=this.cheekBasis[j*CHANNELS+c]*delta[c];
+          local[j]+=(map.reference[j]+motion-local[j])*amount;
+        }
+      }
+      this.limitCheekDeformation();
+    }
     const { center, width, rotation: r } = mesh.frame;
     for (let i = 0; i < POINTS; i++) {
       const x = map.reference[2 * i] + (local[2 * i] - map.reference[2 * i]) * strength;
@@ -91,6 +117,46 @@ export class ShapeSampler {
     }
     this.image.set(mesh.ring, POINTS * 2);
     return this.image;
+  }
+  private limitCheekDeformation(){
+    const base=this.beforeCheeks;const next=this.local;
+    // Local clipping prevents one poor triangle from freezing both cheeks.
+    // A final global pass handles any remaining coupled constraints.
+    for(let pass=0;pass<13;pass++){
+    let gain=1,changed=false;
+    for(let t=0;t<this.cheekTriangles.length;t+=3){
+      const a=this.cheekTriangles[t]*2,b=this.cheekTriangles[t+1]*2,c=this.cheekTriangles[t+2]*2;
+      const ux=base[b]-base[a],uy=base[b+1]-base[a+1],vx=base[c]-base[a],vy=base[c+1]-base[a+1];
+      const dux=(next[b]-base[b])-(next[a]-base[a]),duy=(next[b+1]-base[b+1])-(next[a+1]-base[a+1]);
+      const dvx=(next[c]-base[c])-(next[a]-base[a]),dvy=(next[c+1]-base[c+1])-(next[a+1]-base[a+1]);
+      const area=ux*vy-uy*vx;if(Math.abs(area)<1e-10)continue;
+      // Area is quadratic along the deformation. Stop before its first root
+      // at 10% of the original area, including a small numerical margin.
+      const sign=Math.sign(area),constant=Math.abs(area)*.9;
+      const linear=(dux*vy+ux*dvy-duy*vx-uy*dvx)*sign;
+      const quadratic=(dux*dvy-duy*dvx)*sign;
+      let root=Infinity;
+      if(Math.abs(quadratic)<1e-14){if(linear<0)root=-constant/linear;}
+      else{
+        const discriminant=linear*linear-4*quadratic*constant;
+        if(discriminant>=0){
+          const sqrt=Math.sqrt(discriminant);const r1=(-linear-sqrt)/(2*quadratic),r2=(-linear+sqrt)/(2*quadratic);
+          if(r1>0)root=Math.min(root,r1);if(r2>0)root=Math.min(root,r2);
+        }
+      }
+      if(root<=1){
+        const factor=root*.95;gain=Math.min(gain,factor);changed=true;
+        if(pass<12)for(let corner=0;corner<3;corner++){
+          const index=this.cheekTriangles[t+corner]*2;
+          next[index]=base[index]+(next[index]-base[index])*factor;
+          next[index+1]=base[index+1]+(next[index+1]-base[index+1])*factor;
+        }
+      }
+    }
+    this.cheekGain=Math.min(this.cheekGain,gain);
+    if(!changed)break;
+    if(pass===12&&gain<1)for(let j=0;j<next.length;j++)next[j]=base[j]+(next[j]-base[j])*gain;
+    }
   }
   private applyContact(weights: Float32Array) {
     const { contact, map, local, mesh } = this;

@@ -27,3 +27,7 @@ vite.config.ts.timestamp-*
 /.local/
 /test-results/
 /playwright-report/
+
+# Python asset preparation
+__pycache__/
+*.pyc

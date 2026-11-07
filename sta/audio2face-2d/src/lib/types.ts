@@ -10,6 +10,7 @@ export type AvatarMesh = {
   id: string; name: string; image: string; imageSize: [number, number];
   sourceUV: number[]; ring: number[]; triangles: number[]; crop: Crop;
   frame: { center: number[]; width: number; rotation: number[] };
+  cheek?: { basis: number[]; blend: number[]; method: string };
   fitHash: string; calibration: string; contactGap: number[];
 };
 export type Mapping = {
