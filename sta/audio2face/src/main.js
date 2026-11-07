@@ -1,4 +1,5 @@
 import './style.css';
+import { installPreloadRecovery } from './preload-recovery.js';
 import { dialogueSamples } from './dialogue-samples.js';
 import { createJames } from './rig.js';
 import { createStreamPlayback } from './stream-playback.js';
@@ -63,16 +64,18 @@ try {
 } catch {
   // Switching models also works when browser storage is unavailable.
 }
+function saveDraft() {
+  sessionStorage.setItem(draftKey, JSON.stringify({
+    dialogue: input.value,
+    sample: sampleIndex,
+    engine: form.elements.engine.value,
+    motion: headMotion.value,
+    closeup: mouth.getAttribute('aria-pressed') === 'true',
+  }));
+}
+installPreloadRecovery({ saveDraft });
 async function switchAnimationSettings(event) {
-  try {
-    sessionStorage.setItem(draftKey, JSON.stringify({
-      dialogue: input.value,
-      sample: sampleIndex,
-      engine: form.elements.engine.value,
-      motion: headMotion.value,
-      closeup: mouth.getAttribute('aria-pressed') === 'true',
-    }));
-  } catch {
+  try { saveDraft(); } catch {
     // Keep the selector usable when browser storage is unavailable.
   }
   const url = new URL(location.href);
