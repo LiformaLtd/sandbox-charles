@@ -13,7 +13,7 @@ Vercel redirects model downloads to the pinned CDN and upstream URLs in
 `vercel.json`. All speech synthesis and facial inference run in the browser.
 
 The hosted project is **Liforma / james-audio2face**. Compare
-[v4 candidate](https://james-audio2face.vercel.app/?model=compact-v4&sta=webgpu)
+[v4](https://james-audio2face.vercel.app/?model=compact-v4&sta=webgpu)
 and [v3](https://james-audio2face.vercel.app/?model=compact-v3&sta=webgpu).
 Both links select WebGPU; the model selector retains the dialogue when switching.
 
@@ -77,18 +77,23 @@ his head subtly while idle, including while playback is paused. Blinks follow
 the viewer clock so they continue across clips.
 
 **Animation model** switches between the original geometry model and
-**Compact ARKit v1**, **v2**, **v3** and **v4 candidate**. All compact versions predict 52 coefficients,
+**Compact ARKit v1**, **v2**, **v3** and **v4**. All compact versions predict 52 coefficients,
 with 39 active channels, and use the same James targets for the skin, tongue
 and jaw. V2 improves lip closure at the same 2.25 MB model size.
 V3 adds subtitle-selected training speech at the same size, improving general
 lip sync with a small contact-F1 tradeoff on the older closure-focused test set.
-V4 candidate adds balanced Phonon/Supertonic multi-voice training and clean
-Easton replay at the same 2.25 MB size. It is the validation-selected seed 73,
-epoch 19; three-seed fresh confirmation improved mean lip-gap error by 5.4%.
+V4 adds balanced Phonon/Supertonic multi-voice training and clean
+Easton replay at the same 2.25 MB size. The initial v4 was validation-selected
+seed 73, epoch 19; three-seed fresh confirmation improved mean lip-gap error by 5.4%.
 See [validation results](docs/plans/compact-v4-validation-results.md).
+The current v4 revision is **gain-r1**, the subsequent teacher-labelled
+loudness fine-tune (seed 37, epoch 15). It retains the same 2.25 MB download,
+improving quiet/loud RMS by 3.4% and extra-quiet RMS by 7.3% versus a matched
+fine-tuning control. Those are single-seed follow-up results, separate from the
+earlier three-seed confirmation. See [gain results](docs/plans/compact-gain-robustness-results.md).
 Open `?model=compact-v4&sta=webgpu` to test v4, then select v3 to compare the
 same dialogue. Switching reloads the page and retains the text, engine and view.
-The demo opens with **Compact ARKit v4 candidate** selected in the model
+The demo opens with **Compact ARKit v4** selected in the model
 dropdown on desktop, iPhone and iPad. Explicit `?model=` links still select
 the requested version. **Animation
 runtime** defaults to WebGPU. Its dropdown also offers an explicit CPU
@@ -112,7 +117,7 @@ curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-
   -o .local/arkit-student/james-arkit-student-v2.onnx
 curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v3/james-arkit-student-v3.onnx \
   -o .local/arkit-student/james-arkit-student-v3.onnx
-curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v4-candidate/james-arkit-student-v4.onnx \
+curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v4-gain-r1/james-arkit-student-v4.onnx \
   -o .local/arkit-student/james-arkit-student-v4.onnx
 ```
 

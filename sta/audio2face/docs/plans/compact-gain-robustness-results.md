@@ -3,14 +3,15 @@
 Protocol: [compact-gain-robustness.md](compact-gain-robustness.md).
 Reproduction: [research README](../../scripts/research/gain/README.md).
 
-## Decision
+## Initial research decision
 
 The first-seed gain arm did **not** pass the predeclared 5% improvement gate.
 Its mean lip-gap RMS on half-level and boosted held-out speech improved **3.4%**
 versus a matched original-only fine-tune. Extra-quiet speech improved more,
-but ordinary-level quality changed only slightly. Keep released v4 unchanged.
-Do not present this as a substantial general-quality improvement or advance
-it to the planned independent-seed/fresh-confirmation release phase.
+but ordinary-level quality changed only slightly. The initial recommendation
+was to keep released v4 unchanged and not advance this arm to the planned
+independent-seed/fresh-confirmation phase. The later user-requested publication
+below changes the deployment decision, not these measurements.
 
 ## Controlled experiment
 
@@ -84,8 +85,8 @@ This is one seed and a previously inspected pilot voice/text cohort. A larger
 confirmation claim is not justified. Because the arm missed its initial gate,
 it was not promoted, given additional seed sweeps, or subjected to a new browser
 speed/memory release benchmark. Equal graph size/work does not constitute a new
-physical-iPhone memory measurement. Existing demo weights and idle animation
-remain unchanged.
+physical-iPhone memory measurement. The original study did not change demo
+weights or idle animation; the subsequent publication is recorded below.
 
 The next main quality experiment should broaden distinct lexical/acoustic
 coverage and test independent representation capacity, rather than keep tuning
@@ -95,3 +96,24 @@ robustness data for a later recipe, but has not explained the larger fidelity ga
 Ignored artifact root: `.local/compact-gain-v2`. It contains protocol/source
 locks, all audio/teacher labels, input audit, feature caches, complete training
 checkpoints/logs, frozen selection, per-clip evaluation and visual-review records.
+
+## User-requested v4 update
+
+After reviewing these results, the user explicitly requested that this arm
+replace the active v4 and be published. It is released as **v4 gain-r1**, still
+shown as “Compact ARKit v4 (2.25 MB)” in the demo. The initial 5% study gate
+remains recorded as failed; no additional-seed confirmation is implied.
+
+Immutable model URL:
+https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v4-gain-r1/james-arkit-student-v4.onnx
+
+SHA-256: `84da9bfe22d221075d85e8a52622fc7d31b18d12b04905e0902a7ec64eb5ab2f`.
+The prefix also contains the upstream licenses, notices and checksum manifest.
+The earlier `arkit-student-v4-candidate` prefix and its seed-73 weights are
+preserved for rollback; the new revision never overwrites the old CDN objects.
+
+Before publication, full WebGPU/native comparisons covered 279,708 coefficients
+across two engines and original/half/boost/quarter levels, plus both full recorded
+“packed” passages. Maximum absolute error was 7.75e-7 with no zeroed or non-finite
+frames. The browser graph, WebGPU default, head motion and continuous idle
+animation are unchanged. Physical iPhone review remains separate.

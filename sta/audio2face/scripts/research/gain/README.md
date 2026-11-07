@@ -54,3 +54,11 @@ is not fresh release confirmation, even though the gain conditions have new labe
 
 Setup-v1 artifacts, if present, record an aborted cache-provenance check. Setup v2
 uses newly generated labels throughout; no cache guard is weakened to resume v1.
+
+The user subsequently requested publication of the selected gain arm as updated
+v4. `publish_v4.mjs` pins its exact hash and publishes licenses, notices, model
+and a checksum manifest at the immutable `arkit-student-v4-gain-r1` CDN prefix.
+Set `A2F_CDN_ROOT` to the existing CDN checkout and `A2F_LICENSE_ROOT` to the
+earlier licensed v4 CDN-stage directory. It validates the existing staging
+bucket/origin, uses the shared resumable uploader and verifies public byte hashes.
+It does not modify the predecessor's CDN objects.

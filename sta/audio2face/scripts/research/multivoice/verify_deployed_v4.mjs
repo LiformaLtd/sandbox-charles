@@ -12,7 +12,13 @@ try {
   const errors = [], requests = [], runs = [];
   page.on('pageerror', e => errors.push(e.message)); page.on('request', r => requests.push(r.url()));
   await page.addInitScript(() => {
-    let poses = 0, pipelines = 0, audio = 0;
+    let poses = 0, pipelines = 0, audio = 0, buffers = 0, gpuBytes = 0;
+    const allocate = GPUDevice.prototype.createBuffer;
+    GPUDevice.prototype.createBuffer = function (descriptor) {
+      const buffer = allocate.call(this, descriptor);
+      buffers++; gpuBytes += buffer.size;
+      return buffer;
+    };
     const draw = WebGL2RenderingContext.prototype.bufferSubData;
     WebGL2RenderingContext.prototype.bufferSubData = function (...a) { poses++; return draw.apply(this, a); };
     for (const k of ['createComputePipeline', 'createComputePipelineAsync']) {
@@ -20,7 +26,7 @@ try {
     }
     const start = AudioBufferSourceNode.prototype.start;
     AudioBufferSourceNode.prototype.start = function (...a) { audio++; return start.apply(this, a); };
-    window.qa = () => ({ poses, pipelines, audio });
+    window.qa = () => ({ poses, pipelines, audio, buffers, gpuBytes });
   });
   const ready = () => page.waitForFunction(() => !document.querySelector('#generate').disabled, null, { timeout: 60000 });
   const timingStats = async () => {
@@ -56,9 +62,13 @@ try {
       || document.querySelector('#status').classList.contains('error'), null, { timeout: 90000 });
     await ready(); assert.equal(await page.locator('#status').textContent(), 'Animation ready to replay.');
     const stats = await page.evaluate(() => qa()); assert.equal(stats.pipelines, 2); assert.ok(stats.audio > 0);
+    assert.equal(stats.buffers, 25); assert.equal(stats.gpuBytes, 1492236);
     await page.waitForFunction(n => qa().poses > n + 10, stats.poses);
     const filename = model === 'compact-v4' ? 'james-arkit-student-v4.onnx' : 'james-arkit-student-v3.onnx';
     assert.ok(requests.slice(at).some(u => u.includes(filename)), 'Wrong model asset');
+    if (model === 'compact-v4' && process.env.EXPECTED_V4_PREFIX) {
+      assert.ok(requests.slice(at).some(u => u.includes(process.env.EXPECTED_V4_PREFIX + '/' + filename)), 'Wrong v4 revision');
+    }
     runs.push({ model, stats, timing: await timingStats(), duration: await page.locator('#duration').textContent(), idle: true });
   }
   if (process.env.TEST_SUPERTONIC === '1') {

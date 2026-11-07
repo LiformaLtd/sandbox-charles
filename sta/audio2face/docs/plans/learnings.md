@@ -1162,3 +1162,11 @@ can therefore help without adding runtime encoders or model memory, but identica
 topology is not a new peak-memory measurement. More level variants also do not
 add distinct transcripts or articulatory contexts. The larger remaining fidelity
 gap still calls for broader speech coverage and independent representation tests.
+
+After reviewing the gain-study results, the user requested publication as an
+update to v4. That deployment choice supersedes the initial recommendation to
+keep the older weights; the failed 5% study gate and one-seed limitation remain
+in the evidence. Publish a new immutable revision and change the demo's model
+pointer, preserving the predecessor for rollback. Do not overwrite a cached
+model URL or attribute the original v4's three-seed confirmation to a later
+single-seed fine-tune. V4 gain-r1 retains the 2.25 MB label and original topology.
