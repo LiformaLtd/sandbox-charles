@@ -153,3 +153,16 @@ fine-tuning improved both fresh and inspected regression sets, but do not
 attribute it to feature matching. Further experiments should target the actual
 rendered-mouth residuals or difficult speech coverage independently; do not
 combine this unsuccessful auxiliary loss merely because it costs no inference.
+
+## Requested ordinary-control release
+
+After reviewing the negative feature-distillation result, the user requested
+publishing the **ordinary fine-tuned control** as v4 finetune-r4. It is seed37,
+development-selected step2976, SHA
+`ef64e331e226ac23bbf07ad5566f818c49d5a850df4a3bb39941526883d4d4da`.
+The immutable CDN prefix is `models/speech-to-animation/lf-sta/arkit-student-v4-finetune-r4`.
+The publisher verifies downloaded checksums for the model, licenses and manifest;
+scale-r3 remains available at its preceding immutable URL. This is a requested
+release for testing, not a reinterpretation of feature distillation as useful.
+The hosted v4 redirect selects this control while keeping WebGPU as the default
+and retaining continuous idle motion. Physical-iPhone stability remains unverified.
