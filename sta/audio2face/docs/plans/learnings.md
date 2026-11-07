@@ -1199,3 +1199,11 @@ also reduces voice repetitions per text and changes sampling exposure. It tests
 one bounded distribution change. Preserve the fresh-recording versus previously
 studied-voice distinction, use per-engine and closure regressions, and test
 independent representation capacity next without adding a heavy runtime encoder.
+
+The user subsequently chose to publish the coverage result as v4 coverage-r2.
+Against the deployed gain-r1 predecessor, original-level RMS improves about
+4.7% for Phonon, 0.6% for Supertonic and 2.5% overall. Supertonic's 1.2%
+regression was against the matched extra-training control, not the deployed
+model. Report both comparisons clearly; they answer different questions. Keep
+the contact tradeoffs and study-screen outcome in the release metadata while
+preserving predecessor URLs for rollback.

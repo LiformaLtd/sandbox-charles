@@ -9,7 +9,8 @@ The broader primary corpus improved new original-level lip-gap RMS **1.2%**
 versus its matched old-corpus control, below the predeclared 5% screen.
 Phonon improved 3.9%, but Supertonic regressed 1.2% against control and overall
 contact F1 decreased slightly. The new model did not pass the engineering screen.
-Published v4 gain-r1 remains unchanged; the coverage export is a research artifact.
+The initial recommendation kept v4 gain-r1 unchanged. The user subsequently
+requested publication of this coverage export, as recorded below.
 
 This is not evidence that more data cannot help. It is an equal-clip,
 equal-maximum-update-budget experiment replacing the primary transcript
@@ -126,3 +127,19 @@ source locks, raw synthesis, teacher labels, feature caches, full checkpoints,
 frozen export selection, per-clip evaluations and synchronized review assets.
 Coverage export SHA-256:
 `5f28ddbbaf6f063ab51c90b90c711d2afff7aa1f7fffd1d813813b0a3297ebbd`.
+
+## User-requested publication
+
+After reviewing the distinction between the matched control and the deployed
+baseline, the user requested this model as the next active v4. It is published
+under the immutable `arkit-student-v4-coverage-r2` CDN prefix, with licenses,
+notices and a checksum manifest. The displayed model stays “Compact ARKit v4
+(2.25 MB)”. Earlier v4 gain-r1 and initial-v4 URLs remain intact for rollback.
+
+Model: https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v4-coverage-r2/james-arkit-student-v4.onnx
+
+Publication does not change the failed first-seed screen or closure tradeoffs.
+Before release, WebGPU/native checks covered both engines at original/half/
+boost/quarter levels and the full recorded “packed” passages, with maximum
+absolute coefficient error below 0.000001 and no zeroed frames. The browser
+architecture, WebGPU default and idle animation remain unchanged.

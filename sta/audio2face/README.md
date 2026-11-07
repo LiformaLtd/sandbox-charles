@@ -86,11 +86,15 @@ V4 adds balanced Phonon/Supertonic multi-voice training and clean
 Easton replay at the same 2.25 MB size. The initial v4 was validation-selected
 seed 73, epoch 19; three-seed fresh confirmation improved mean lip-gap error by 5.4%.
 See [validation results](docs/plans/compact-v4-validation-results.md).
-The current v4 revision is **gain-r1**, the subsequent teacher-labelled
+The prior v4 revision is **gain-r1**, the subsequent teacher-labelled
 loudness fine-tune (seed 37, epoch 15). It retains the same 2.25 MB download,
 improving quiet/loud RMS by 3.4% and extra-quiet RMS by 7.3% versus a matched
 fine-tuning control. Those are single-seed follow-up results, separate from the
 earlier three-seed confirmation. See [gain results](docs/plans/compact-gain-robustness-results.md).
+The current revision is **coverage-r2**, trained on broader distinct speech at
+the same 2.25 MB size. New original-speech RMS improved 2.5% versus gain-r1,
+with mixed closure results. The immutable gain-r1 predecessor is retained.
+See [coverage results](docs/plans/compact-coverage-results.md).
 Open `?model=compact-v4&sta=webgpu` to test v4, then select v3 to compare the
 same dialogue. Switching reloads the page and retains the text, engine and view.
 The demo opens with **Compact ARKit v4** selected in the model
@@ -117,7 +121,7 @@ curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-
   -o .local/arkit-student/james-arkit-student-v2.onnx
 curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v3/james-arkit-student-v3.onnx \
   -o .local/arkit-student/james-arkit-student-v3.onnx
-curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v4-gain-r1/james-arkit-student-v4.onnx \
+curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v4-coverage-r2/james-arkit-student-v4.onnx \
   -o .local/arkit-student/james-arkit-student-v4.onnx
 ```
 
