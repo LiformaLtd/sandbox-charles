@@ -1267,3 +1267,42 @@ network carried motion history. Test a tiny stateful temporal decoder/short
 motion prior independently next, keeping the efficient audio frontend. Its
 benefit remains a hypothesis, and state reset, streaming seams, memory and fresh
 closure behavior must be measured before any release.
+
+
+## 28. A short feature-history decoder was cheap but did not fix transient closures
+
+The [tiny temporal decoder pilot](compact-temporal-decoder-results.md) froze the
+entire v4 backbone and added eight-frame feature context, 16 GELU units and 39
+residual corrections: 12,967 parameters. The matched control had identical
+capacity/operators but repeated current-frame features instead of real history.
+It completed the same training budget but development selection retained epoch
+zero; its selected output matches v4. The temporal arm selected epoch 13.
+
+Construct contexts on full clip tracks before drawing training windows. Never
+reset at a block boundary or carry history into another recording. Export valid
+first/count and next-history inputs explicitly, and update only emitted frames.
+Zero normalized history between utterances. Here history was prior encoded
+features, not corrected poses; there was no autoregressive feedback or extra
+lookahead. Five tests and full native/WebGPU tracks verified these semantics;
+reset/repeated GPU generation was byte-identical.
+
+On 96 fresh recordings / 384 teacher-labelled levels, RMS improved only 0.52%
+(Phonon 0.82%, Supertonic 0.29%). Frame-level contact F1 rose slightly, but
+well-timed /m/, /b/ and /p/ hits fell 58→54, 75→74 and 53→52. A better aggregate
+hold/contact score does not imply more reliable transient closures. The 5%
+screen failed; keep published v4. This limited frozen-backbone residual test does
+not establish that all recurrent or jointly trained temporal models will fail.
+
+The export was 2.310 MB versus 2.252 MB, with 67,824 extra explicit GPU bytes,
+including 2,688 bytes of carried history. A third reusable WebGPU pipeline kept
+warm blocks around 1.48 ms versus 1.01 ms on desktop. Relative overhead was 47%,
+even though absolute cost stayed small. Sampled desktop renderer/GPU footprints
+with James animating and prerecorded inference were all about 523–529 MiB;
+TTS was excluded, sampling was 20 ms, and run variability is not a memory saving.
+These results make no full-pipeline or iPhone peak guarantee.
+
+ONNX may transpose Linear weights into generated MatMul initializers, so their
+original parameter names/layout cannot be assumed by a custom GPU packer. Resolve
+the graph's matrix inputs, transpose deliberately, lock hashes and require full
+parity. Preserve failed setup evidence without changing trained weights or test
+labels merely to make a runtime adapter pass.
