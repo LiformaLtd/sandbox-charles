@@ -3,6 +3,7 @@
 import * as ort from 'onnxruntime-web/wasm';
 import { configureTtsWasm } from '../tts-wasm.js';
 import { modelAssetUrl } from '../model-assets.js';
+import { bytesToBase64 } from '../base64.js';
 
 const base = '/assets/pocket';
 const CHUNK_GAP_SEC = 0.25;
@@ -44,7 +45,7 @@ async function load() {
     const { SentencePieceProcessor } = await import(/* @vite-ignore */ tokenizerUrl);
     const tokenizerBuffer = await (await asset(bundleMetadata.tokenizer_file)).arrayBuffer();
     tokenizerProcessor = new SentencePieceProcessor();
-    await tokenizerProcessor.loadFromB64StringModel(btoa(String.fromCharCode(...new Uint8Array(tokenizerBuffer))));
+    await tokenizerProcessor.loadFromB64StringModel(bytesToBase64(new Uint8Array(tokenizerBuffer)));
     const voices = parseVoiceStatesBin(await (await asset('voices.bin')).arrayBuffer());
     voiceState = stateFromVoiceRecord(voices.alba);
     precomputeFlowBuffers();
