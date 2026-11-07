@@ -1207,3 +1207,30 @@ regression was against the matched extra-training control, not the deployed
 model. Report both comparisons clearly; they answer different questions. Keep
 the contact tradeoffs and study-screen outcome in the release metadata while
 preserving predecessor URLs for rollback.
+
+
+## 26. Independent capacity can learn without improving generalization
+
+The [independent capacity study](compact-independent-capacity-results.md) widened
+96 to 128 channels while preserving the efficient frontend and initial function.
+Unlike the earlier duplicated channels, the additional encoder filters were
+independently initialized, and their weights changed by 12.45% during training.
+Both arms used identical data, replay, sampled minibatches and 744-update budgets;
+selected epoch 18 checkpoints preceded fresh test scoring.
+
+On 96 new recordings / 384 gain variants, the wider model was 0.23% worse in
+original-level lip-gap RMS than the matched 96-channel control. Phonon worsened
+0.60%, Supertonic improved 0.10%, and contact F1 slightly declined. Its 42.9%
+larger download (3.22 versus 2.25 MB), roughly 1 MB additional explicit GPU
+buffers and 15% higher warm block time bought no useful fresh quality gain.
+Small historical improvements and gains against the published initialization
+were insufficient: additional training also helped the narrow control.
+
+Keep coverage-r2 as published v4. This one-seed fine-tune does not establish a
+universal capacity limit. It does remove one practical hypothesis without
+adding runtime complexity. Preserve initialization/gradient/sampler audits;
+otherwise a negative width result can be an invalid symmetry experiment. Report
+contact hits, conditional timing and opening error separately. Model buffer
+allocation is not total browser peak memory, and desktop speed is not iPhone
+speed. Target the next independent test at representation/supervision or temporal
+state rather than buying more of the same channels without evidence.
