@@ -166,3 +166,10 @@ scale-r3 remains available at its preceding immutable URL. This is a requested
 release for testing, not a reinterpretation of feature distillation as useful.
 The hosted v4 redirect selects this control while keeping WebGPU as the default
 and retaining continuous idle motion. Physical-iPhone stability remains unverified.
+
+Release commit `78d8e31` was staged as deployment
+`dpl_53xPsaEsLQBNCZvzFbJDL6jx2T9D`, verified in desktop WebKit with all three TTS
+engines, exact CDN/model checksum, v4/WebGPU/Phonon defaults and animated idle,
+then promoted to https://james-audio2face.vercel.app/. Local v4 weights also
+match finetune-r4. The preceding feature/distillation research artifacts remain
+immutable. These browser checks do not replace physical-iPhone testing.
