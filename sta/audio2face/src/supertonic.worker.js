@@ -1,5 +1,6 @@
 import * as ort from 'onnxruntime-web/wasm';
 import { configureTtsWasm } from './tts-wasm.js';
+import { modelAssetUrl } from './model-assets.js';
 import { chunkText, loadTextToSpeech, loadVoiceStyle } from './vendor/supertonic.js';
 
 const base = '/assets/supertonic';
@@ -11,8 +12,12 @@ function report(message) {
 
 async function load() {
   configureTtsWasm(ort);
-  const style = await loadVoiceStyle([`${base}/voice_styles/M1.json`]);
-  const { textToSpeech } = await loadTextToSpeech(`${base}/onnx`, { executionProviders: ['wasm'] },
+  const style = await loadVoiceStyle([modelAssetUrl(`${base}/voice_styles/M1.json`)]);
+  // Start at the pinned upstream URL, as Phonon/STA do. WebKit can reject
+  // the credentials/CORS transition in a same-origin → upstream redirect chain.
+  const configUrl = modelAssetUrl(`${base}/onnx/tts.json`);
+  const onnxDirectory = configUrl.slice(0, configUrl.lastIndexOf('/'));
+  const { textToSpeech } = await loadTextToSpeech(onnxDirectory, { executionProviders: ['wasm'] },
     (name, index, count) => report(`Loading Supertonic 3 in your browser… ${index}/${count} · ${name}`));
   return { style, textToSpeech };
 }
@@ -40,6 +45,9 @@ self.onmessage = async ({ data: text }) => {
     }
     postMessage({ type: 'done' });
   } catch (error) {
-    postMessage({ type: 'error', message: `Supertonic 3 failed. Check its local assets with sh scripts/fetch_onnx_tts.sh. ${error.message}` });
+    const hint = import.meta.env.MODE === 'hosted'
+      ? 'Check your connection and try again.'
+      : 'Check local assets with sh scripts/fetch_onnx_tts.sh.';
+    postMessage({ type: 'error', message: `Supertonic 3 failed. ${hint} ${error.message}` });
   }
 };

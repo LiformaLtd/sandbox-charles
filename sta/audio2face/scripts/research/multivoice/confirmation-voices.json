@@ -1,0 +1,11 @@
+{
+  "phonon_revision": "8c64b55ec301728e2d1695bfea87a08a267d0c2d",
+  "phonon_voices_revision": "0ee17205f254b5abc43b266c8a0f215565c352f7",
+  "supertonic_revision": "aafc6e32416a594460b32413efc49d7fe4ce6d46",
+  "voices": [
+    {"engine":"phonon","name":"Trevor","id":"0zLApsZfVLLNaEGl","gender":"male","locale":"en-US","split":"test"},
+    {"engine":"phonon","name":"Pippa","id":"uem82D50GRv2Dwma","gender":"female","locale":"en-GB","split":"test"},
+    {"engine":"supertonic","name":"M3","gender":"male","locale":"en","split":"test"},
+    {"engine":"supertonic","name":"F3","gender":"female","locale":"en","split":"test"}
+  ]
+}

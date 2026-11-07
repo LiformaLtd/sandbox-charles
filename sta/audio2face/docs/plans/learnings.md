@@ -897,3 +897,239 @@ evaluation, folding, browser sampling and synchronized comparison tools. The
 Raw corpora, frozen historical recipes, checkpoints and traces remain local,
 ignored artifacts; exact replay still requires their archive and compatible
 teacher/dictionary dependencies. Treat a regenerated corpus as a new experiment.
+
+## 21. Train for the target engines and audit early contact separately
+
+The [multi-voice study](compact-multivoice.md) and
+[results](compact-multivoice-results.md) change the research target from mostly
+Phonon Easton to male/female voices from Phonon and Supertonic 3. The 336-clip,
+16-voice pilot reserves entire voices and texts for validation/test. All clips
+have freshly generated, consistently fitted teacher labels. Eight training
+voices are sampled equally per optimizer update; no runtime voice ID is needed.
+
+The 336 recordings contain only 52 distinct texts: 32 training prompts across
+eight voices, eight validation prompts across four other voices, and 12 test
+prompts across four further voices. All 39 English phone types occur in training,
+but neither phone-type coverage nor repeated recordings of a small prompt set
+establish broad lexical/acoustic coverage. Reserve both entire voices and
+transcripts, and report per-engine and male/female preset slices. The headline
+multi-voice metric averages voices equally; the older Easton report pools frames.
+Do not compare those aggregates as though they were the same test distribution.
+
+At the same 331,047 learned parameters and 2.25 MB export, data-only fine-tuning
+reduced unseen-voice macro lip-gap RMS from 3.140 to 2.795 mm. Adding a
+training-only phoneme head or a projection to teacher speech features produced
+essentially tied test results. This one-seed, 52-text pilot does not establish
+that those methods cannot work; it does not establish an additional gain either.
+Do not combine auxiliary tasks simply because their underlying ideas are sound.
+
+The full teacher's own last audio-encoder layer can supply offline distillation
+features. A copied backend exposing it matched the untouched teacher's geometry
+exactly over roughly four million values. Both auxiliary heads are discarded
+before ONNX export, so neither TinyAligner nor a large speech encoder is added
+to the browser. Checks confirm gradient flow into the existing encoder and the
+absence of auxiliary weights from the exported graph.
+
+Broadening data can cause forgetting. The initial pilot worsened older Easton
+RMS by 6–7%. A follow-up with 48 new windows plus 16 clean v3/v3-extra replay
+windows, and an Easton development-set term, retained the unseen-voice gain and
+brought old Easton RMS to 2.597 mm versus v3's 2.580 mm; F1 improved to 0.7696
+from 0.7618. Keep both generalization and established-voice checks. That follow-up
+was chosen after inspecting the pilot and is not fresh independent confirmation.
+
+A matched-budget Easton-only diagnostic used the same training texts and 744
+optimizer updates but sampled only Easton recordings. No trained epoch improved
+the unseen-voice validation score, so checkpoint selection retained epoch zero.
+This argues against explaining the multi-voice result merely as extra Easton
+fine-tuning. It remains a limited diagnostic: only one seed, with different
+amounts of unique acoustic data. The clean-replay follow-up also changed the
+validation cohort by adding Easton, so it is an engineering recipe rather than
+a pure one-factor estimate of replay's benefit.
+
+Closure events do not need to coincide with acoustic phoneme starts. The old
+45 ms teacher-event association could omit early contacts. The corrected audit
+uses 100 ms pre-padding, reports shared/multiple/truncated associations, and
+compares predicted onset/release with the teacher's actual, unshifted geometry.
+Keep “any overlap” hits distinct from stricter timing/IoU scores. Do not move all
+animation by a presumed 50 ms, count one contact twice for adjacent labials, or
+interpret aligner-relative offsets as biological ground truth. The complete
+exclusion counts and 45/100/150 ms sensitivity are saved. Existing gap RMS and
+framewise contact F1 are unaffected by this association correction.
+
+Make the operational definitions explicit when publishing a hit rate:
+
+- Association uses 100 ms pre-padding and 35 ms post-padding around the acoustic
+  phone interval. A contact may begin earlier if it continues into that window.
+  These tolerances associate an episode; they do not grant the prediction a
+  100 ms timing error or cap physiological anticipation at 100 ms.
+- Contact is median separation across nine lip pairs at or below 0.10 cm
+  (1 mm). The phoneme-event denominator includes only uniquely associated
+  teacher episodes lasting at least two 60fps frames. Absent, shared, multiple
+  and clip-truncated reference contacts are reported separately.
+- An overlap hit requires any temporal intersection with the actual teacher
+  contact, with one-to-one matching. A separate "well-timed" hit requires temporal
+  intersection-over-union at least 0.5 and onset error at most two frames
+  (33.3 ms). Report signed onset/release errors too. This is a benchmark criterion,
+  not a biological correctness threshold.
+
+Under that corrected policy, the replay candidate scored:
+
+| Sound | Unique teacher episodes | v3 overlap hits | Replay overlap hits | v3 / replay well-timed hits |
+| --- | ---: | ---: | ---: | ---: |
+| `/b/` | 51 | 28 | 42 | 24 / 34 |
+| `/p/` | 62 | 29 | 49 | 24 / 39 |
+| `/m/` | 43 | 22 | 28 | 19 / 25 |
+
+These counts supersede earlier greedy-association counts; changing the denominator
+is an evaluation correction, not an additional model improvement. They measure
+agreement with teacher contacts, not success on every acoustic labial. Teacher
+onsets in the uniquely associated subset had median offsets near -93 ms for
+`/b/` and -100 ms for `/p/` relative to TinyAligner starts, with earlier tails.
+Such measurements include CTC boundary uncertainty and coarticulation. Do not
+turn an assumed typical 50 ms lead into a global audio/animation correction.
+
+This timing distinction also applies during learning: phoneme auxiliary targets
+describe acoustics; the animation targets remain the teacher's original geometry
+frames. Do not replace them with closures centred on a phone timestamp. The
+student has lookahead and can learn anticipatory articulation.
+
+Do not assume a teacher is perfectly invariant to gain. In a 16-training-clip
+diagnostic, the compact student changed its predicted gaps about five to seven
+times more than the teacher under half/double gain, suggesting an acoustic
+robustness opportunity. But the teacher's largest clip-level change was 0.414 mm,
+too large for the predeclared unchanged-label tolerance. Properly regenerate
+targets for such augmentation or validate a new normalization method separately.
+
+Desktop WebKit full-page peaks for the replay candidate were approximately
+895 MB with Phonon and 1,636 MB with Supertonic 3 on the measured short/long
+clips; model GPU buffers remained 1.49 MB and idle animation continued. Those
+are summed WebContent/GPU process footprints, not physical-iPhone guarantees.
+The TTS engine materially affects the full-page budget even when STA is tiny.
+
+Warm animation blocks remained about 3 ms for 30 emitted frames (0.5 s), with
+two compute pipelines and 25 buffers. Replay CPU/WebGPU parity was within
+2.69e-7 across 9,360 coefficients. Auxiliary supervision did not increase the
+2.25 MB deployment graph. Small measured timing/memory differences between these
+identical-shape exports are not established optimizations. The measurements cover
+fresh-browser short/long playback, not a repeated-playback soak or physical
+iPhone validation; TTS startup and generation are not included in the block time.
+
+Two harness failures also matter for reproduction. NumPy/Accelerate's batched
+matrix product emitted floating-point warnings during mel preparation; use the
+explicit `einsum` reduction from the controlled ablation, check finite outputs,
+and exclude the interrupted diagnostic run. Vite does not implement Vercel's
+asset redirects, so serve the pinned Supertonic files explicitly in the isolated
+harness. Its first missing-asset attempt failed and is excluded from accepted
+memory measurements. Keep those harness failures separate from model quality or
+mobile memory failures, and retain the frozen scripts/hashes for completed runs
+when extending the trainer with new options.
+
+## 22. Confirm a candidate with new voices and repeated fresh generations
+
+The [v4 validation protocol](compact-v4-validation.md) and
+[results](compact-v4-validation-results.md) repeat the clean-replay recipe with
+fine-tuning seeds 37/73/101 and add 96 fresh clips: 24 new texts spoken by
+Phonon Trevor/Pippa and Supertonic M3/F3. Freeze the protocol and text/voice
+definitions before evaluating predictions. Select the representative using only
+development scores. Here that selected seed 73, epoch 19, even though seed 101
+later had the lowest fresh test error. Do not replace a representative after
+looking at test scores.
+
+The fresh mean lip-gap RMS improved **5.4%**, from 3.042 to 2.879 mm, versus the
+exploratory pilot's roughly 11%. That smaller confirmation gain is the stronger
+estimate to quote. All three seeds improved; their RMS values were 2.897, 2.880
+and 2.859 mm. Mean contact F1 improved from 0.7604 to 0.7828. A paired crossed
+seed/voice/text bootstrap gave an RMS-difference interval [-0.301, -0.025] mm,
+with only three seeds and two new voices per engine. These runs share released
+v3 initialization and test fine-tuning randomness, not independent full training
+histories. More clips do not remove the uncertainty from having few speakers.
+
+Report slices even when the aggregate passes. Phonon mean RMS improved 7.8%,
+Supertonic 2.9%, while F3 alone was effectively tied (+0.1% RMS). Its contact
+F1 improved. The result does not mean every voice or every aspect of articulation
+improved. Historical Easton mean RMS was within +0.34% of v3 with better F1;
+keep such regression checks separate from fresh confirmation.
+
+All predeclared desktop engineering checks passed. The representative remains
+2,251,827 bytes and 331,047 learned parameters, with no additional inference
+encoder or aligner. Its artifact hash and validation selection are frozen in
+the local candidate manifest. Passing those checks supports a v4 candidate for
+device review; it does not automatically promote the model or establish full
+teacher fidelity. See the results report for the new closure-event counts using
+the corrected association and stricter timing definitions.
+
+Repeated-playback tests must actually generate new audio and parameters. On
+Apple mobile paths, clicking Generate again with identical text can use the
+last-clip replay shortcut, hiding repeated-generation allocations. Prepare once,
+then use three different texts on the same page and verify fresh non-silent
+audio, fresh model inference, unchanged navigation count, rendered frames and
+continued idle animation. Avoid model teardown or forced garbage collection
+between plays when testing the intended persistent-session behavior.
+
+In desktop WebKit, representative candidate process peaks across three fresh
+generations declined 883 → 858 → 813 MB with Phonon and
+1575 → 1547 → 1519 MB with Supertonic. Model GPU allocation stayed exactly
+1,492,236 bytes, 25 buffers and two pipelines. This found no cumulative growth
+in three plays, not proof of no long-term leak. Sampling began after initial rig
+readiness, so it does not certify cold page/rig-loading peaks. Neither this
+desktop emulation nor a sub-2-GB process sum replaces physical iPhone testing.
+
+Finally, wait for the **rendered** frame after seeking in scientific comparisons.
+An audio seek is asynchronous: a successful snapshot-button click or updated
+slider can precede the avatar's actual pose change. The confirmation verifier
+waits until the viewer's frame equals the requested teacher contact/opening frame
+before taking screenshots. Keep every comparison lane on one audio/frame clock;
+do not interpret a screenshot captured before seeking completes as a closure
+failure or success.
+
+Hosted downloads need their own end-to-end check. During v4 deployment,
+Supertonic worked with local files but WebKit rejected the Vercel → Hugging Face
+redirect chain for its voice JSON because of the credentials/CORS transition.
+Resolve hosted style/config/model URLs directly to the pinned upstream, using
+the shared asset resolver, rather than assuming same-origin redirect paths work
+inside workers. Re-test the real deployment with both engines and model switches;
+a successful local build or CDN checksum does not establish browser fetchability.
+
+## 23. Establish numerical parity before treating browser defects as model errors
+
+A conspicuous neutral-face snap around “packed” affected both v3 and v4 in the
+shared custom WebGPU runner. On desktop WebKit/Metal, large positive arguments
+to WGSL `tanh` returned NaN. The projection/clamp turned the invalid hidden
+values into all-zero final poses. Thus a check for finite final coefficients
+passed even though animation was corrupted. Short silence/random-input parity
+fixtures had not exposed the speech-activation peaks.
+
+Bound the GELU approximation's tanh argument to [-10, 10], where float32 tanh
+is already saturated. This preserves the trained function, with no added
+buffers, pipelines or model weights. Across full browser-generated Phonon and
+Supertonic passages and three loudness stress cases, both models now agree
+with native CPU to less than 0.000001 over 492,856 coefficients. Before the
+fix, the recorded Phonon passage lost one v3 frame and nine v4 frames around
+the plosive; the fixed outputs lost none. See
+`compact-webgpu-activation-regression.md` for the detailed evidence and harness.
+
+Archive **actual browser PCM** for parity tests. A similarly configured offline
+TTS invocation may still generate different audio. Compare every emitted frame
+from the complete streaming crop, including sharp consonants and multiple
+voices/engines; include amplified audio as a separate numerical stress test.
+Inspect suspicious all-zero poses as well as NaNs. Verify an unstable primitive
+in isolation, then compare the corrected activation to an independent framework
+and the full GPU output to native inference. Fix implementation parity before
+changing training targets, capacity or losses in response to browser artifacts.
+Desktop WebKit evidence still needs confirmation on the physical target phone.
+
+The repaired hosted build also passed the complete reported paragraph in all
+four combinations: v3/v4 with Phonon/Supertonic. Inspecting GPU readbacks found
+no zeroed centre-crop frames or page errors in 56 windows per Phonon run and
+68 per Supertonic run. Separate checks verified audio playback, the WebGPU
+default, model switching and continued idle animation on the public deployment.
+Keep these implementation checks separate from teacher-fidelity measurements:
+native/GPU agreement establishes that the browser runs the trained compact
+model correctly, not that the compact model reproduces the full teacher exactly.
+
+This is a useful low-memory optimization lesson: better numerical behavior can
+recover visible quality without increasing model size or runtime allocations.
+The shader fix adds no buffers or pipelines, but that observation is not a new
+measurement of total page peak memory. Preserve the previous measured memory
+results and remeasure when changing allocation lifetimes, topology or renderer
+assets; do not infer a new phone memory result from a shader arithmetic change.

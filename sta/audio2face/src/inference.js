@@ -38,6 +38,7 @@ const modelPaths = {
   compact: '/assets/james-arkit-student.onnx',
   'compact-v2': '/assets/james-arkit-student-v2.onnx',
   'compact-v3': '/assets/james-arkit-student-v3.onnx',
+  'compact-v4': '/assets/james-arkit-student-v4.onnx',
 };
 
 let modelSession;
@@ -49,7 +50,7 @@ export async function loadModel({ model = 'geometry', cpuOnly = false, mobile = 
         throw new Error('WebGPU is unavailable. Open this app in a browser with WebGPU enabled.');
       }
       const url = modelAssetUrl(modelPaths[model]);
-      if (!cpuOnly && (model === 'compact-v2' || model === 'compact-v3')) {
+      if (!cpuOnly && ['compact-v2', 'compact-v3', 'compact-v4'].includes(model)) {
         const { createCompactWebGpu } = await import('./compact-webgpu.js');
         const data = await downloadFaceModel(url, report);
         report?.('Starting the STA model with WebGPU…');

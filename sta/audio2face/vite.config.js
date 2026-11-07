@@ -12,6 +12,7 @@ const assets = {
   '/assets/james-arkit-student.onnx': ['arkit-student/james-arkit-student.onnx', 'application/octet-stream'],
   '/assets/james-arkit-student-v2.onnx': ['arkit-student/james-arkit-student-v2.onnx', 'application/octet-stream'],
   '/assets/james-arkit-student-v3.onnx': ['arkit-student/james-arkit-student-v3.onnx', 'application/octet-stream'],
+  '/assets/james-arkit-student-v4.onnx': ['arkit-student/james-arkit-student-v4.onnx', 'application/octet-stream'],
   '/assets/james-blendshapes.bin': ['arkit-student/james-blendshapes.bin', 'application/octet-stream'],
   '/assets/rig.bin': ['rig.bin', 'application/octet-stream'],
   '/assets/rig.json': ['rig.json', 'application/json'],

@@ -19,6 +19,11 @@
   ],
   "redirects": [
     {
+      "source": "/assets/james-arkit-student-v4.onnx",
+      "destination": "https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v4-candidate/james-arkit-student-v4.onnx",
+      "permanent": false
+    },
+    {
       "source": "/assets/james-arkit-student-v3.onnx",
       "destination": "https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v3/james-arkit-student-v3.onnx",
       "permanent": false

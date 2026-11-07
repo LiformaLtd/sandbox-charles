@@ -12,6 +12,11 @@ build prepares the James rig and serves the Pocket tokenizer module locally.
 Vercel redirects model downloads to the pinned CDN and upstream URLs in
 `vercel.json`. All speech synthesis and facial inference run in the browser.
 
+The hosted project is **Liforma / james-audio2face**. Compare
+[v4 candidate](https://james-audio2face.vercel.app/?model=compact-v4&sta=webgpu)
+and [v3](https://james-audio2face.vercel.app/?model=compact-v3&sta=webgpu).
+Both links select WebGPU; the model selector retains the dialogue when switching.
+
 The hosted build plays a smoothed, precomputed DAWN idle loop during both
 idle and speech. Live speech-driven head gestures use the local DAWN service
 described below.
@@ -60,16 +65,22 @@ his head subtly while idle, including while playback is paused. Blinks follow
 the viewer clock so they continue across clips.
 
 **Animation model** switches between the original geometry model and
-**Compact ARKit v1**, **v2** and **v3**. All compact versions predict 52 coefficients,
+**Compact ARKit v1**, **v2**, **v3** and **v4 candidate**. All compact versions predict 52 coefficients,
 with 39 active channels, and use the same James targets for the skin, tongue
 and jaw. V2 improves lip closure at the same 2.25 MB model size.
 V3 adds subtitle-selected training speech at the same size, improving general
 lip sync with a small contact-F1 tradeoff on the older closure-focused test set.
+V4 candidate adds balanced Phonon/Supertonic multi-voice training and clean
+Easton replay at the same 2.25 MB size. It is the validation-selected seed 73,
+epoch 19; three-seed fresh confirmation improved mean lip-gap error by 5.4%.
+See [validation results](docs/plans/compact-v4-validation-results.md).
+Open `?model=compact-v4&sta=webgpu` to test v4, then select v3 to compare the
+same dialogue. Switching reloads the page and retains the text, engine and view.
 On iPhone and iPad, the demo opens with **Compact ARKit v2**. **Animation
 runtime** defaults to WebGPU, with a CPU fallback on Apple mobile browsers
 that lack WebGPU. On-device testing found CPU too slow for iPhone playback,
 so memory improvements must be verified with WebGPU enabled.
-Compact ARKit v2 and v3 use a dedicated WebGPU runner with their ONNX weights.
+Compact ARKit v2, v3 and v4 use a dedicated WebGPU runner with their ONNX weights.
 It computes the log-mel features with an FFT and reuses GPU buffers for the
 animation network. The other model and runtime combinations use ONNX Runtime.
 Switching either setting reloads the page to release the previous model and
@@ -85,6 +96,8 @@ curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-
   -o .local/arkit-student/james-arkit-student-v2.onnx
 curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v3/james-arkit-student-v3.onnx \
   -o .local/arkit-student/james-arkit-student-v3.onnx
+curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v4-candidate/james-arkit-student-v4.onnx \
+  -o .local/arkit-student/james-arkit-student-v4.onnx
 ```
 
 The speech engines synthesize English locally in browser workers. Phonon

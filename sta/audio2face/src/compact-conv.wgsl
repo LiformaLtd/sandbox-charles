@@ -32,7 +32,11 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
   }
   if (params.kind == 0) {
     // The encoder and dilated convolutions use the v2 GELU approximation.
-    acc = 0.5 * acc * (1 + tanh(0.7978845608 * (acc + 0.044715 * acc * acc * acc)));
+    // tanh is already saturated at +/-10 in f32. Bound its argument to avoid
+    // non-finite WebKit/Metal tanh results at large positive arguments.
+    // Without this, NaNs can reach the projection and become all-zero poses.
+    let argument = clamp(0.7978845608 * (acc + 0.044715 * acc * acc * acc), -10.0, 10.0);
+    acc = 0.5 * acc * (1 + tanh(argument));
   } else {
     // The 1x1 convolutions mix the hidden channels and add the residual.
     acc = residual[c * 101 + t] + 0.5 * acc;

@@ -1,0 +1,28 @@
+{
+  "test": [
+    ["closure-m", "Miriam remembered the missing marmalade on the kitchen shelf."],
+    ["closure-m", "The museum manager welcomed every member with a warm smile."],
+    ["closure-m", "Tom sang a mellow melody while measuring the room."],
+    ["closure-m", "We may meet Amanda near the main entrance this evening."],
+    ["closure-b", "Barbara borrowed a brown blanket before boarding the boat."],
+    ["closure-b", "The baker carried blueberry buns in a broad wooden bowl."],
+    ["closure-b", "Nobody believed that the broken bell belonged to Bernard."],
+    ["closure-b", "Bring the black book back and leave it beside the cupboard."],
+    ["closure-p", "Penelope placed the pale pink plates beneath the picnic bench."],
+    ["closure-p", "Please keep a spare paper copy of the complete proposal."],
+    ["closure-p", "The puppet popped up behind a pair of painted pumpkins."],
+    ["closure-p", "Philip unpacked the pepper pots and put them on the counter."],
+    ["vowels", "Oh wow, your beautiful blue bicycle looks unusually bright today."],
+    ["vowels", "I knew our wide open doorway would allow the cool air inside."],
+    ["vowels", "Three tiny owls watched a noisy crowd below the old tower."],
+    ["vowels", "You really ought to see how the evening light shines on the water."],
+    ["fricatives", "The cheerful chef chose fresh vegetables for the visiting judge."],
+    ["fricatives", "Victor washed five silver dishes and dried them very carefully."],
+    ["fricatives", "These thoughtful suggestions should help us finish the final version."],
+    ["fricatives", "She usually chooses a soft wool scarf when the weather changes."],
+    ["conversation", "Good afternoon, I am here to help you arrange your next appointment."],
+    ["conversation", "Before we begin, would you like me to explain the available options?"],
+    ["conversation", "Let me check that for you. Yes, we can move the booking to Thursday."],
+    ["conversation", "Thanks, that makes sense. I will send the details once everything is confirmed."]
+  ]
+}

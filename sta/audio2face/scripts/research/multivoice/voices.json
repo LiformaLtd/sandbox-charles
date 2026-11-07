@@ -1,0 +1,23 @@
+{
+  "phonon_revision": "8c64b55ec301728e2d1695bfea87a08a267d0c2d",
+  "phonon_voices_revision": "0ee17205f254b5abc43b266c8a0f215565c352f7",
+  "supertonic_revision": "aafc6e32416a594460b32413efc49d7fe4ce6d46",
+  "voices": [
+    {"engine":"phonon","name":"Easton","id":"LMDIYE0Oa377Qh6Z","gender":"male","locale":"en-US","split":"train"},
+    {"engine":"phonon","name":"Alfie","id":"X6NceqF285Gr04gb","gender":"male","locale":"en-GB","split":"train"},
+    {"engine":"phonon","name":"Zoey","id":"NbpkqMVS3CJeq2j8","gender":"female","locale":"en-US","split":"train"},
+    {"engine":"phonon","name":"Maeve","id":"6PWnV0Nq4wu7RVBT","gender":"female","locale":"en-GB","split":"train"},
+    {"engine":"phonon","name":"Micah","id":"40QrMVgAxFiUnP9f","gender":"male","locale":"en-US","split":"dev"},
+    {"engine":"phonon","name":"Juniper","id":"NIWIOv5vTi5eRMj8","gender":"female","locale":"en-US","split":"dev"},
+    {"engine":"phonon","name":"Hugh","id":"YyKcxPG7iIgS3jsK","gender":"male","locale":"en-GB","split":"test"},
+    {"engine":"phonon","name":"Freya","id":"GgfEkEJtxZR7gnpy","gender":"female","locale":"en-GB","split":"test"},
+    {"engine":"supertonic","name":"M1","gender":"male","locale":"en","split":"train"},
+    {"engine":"supertonic","name":"M2","gender":"male","locale":"en","split":"train"},
+    {"engine":"supertonic","name":"F1","gender":"female","locale":"en","split":"train"},
+    {"engine":"supertonic","name":"F2","gender":"female","locale":"en","split":"train"},
+    {"engine":"supertonic","name":"M4","gender":"male","locale":"en","split":"dev"},
+    {"engine":"supertonic","name":"F4","gender":"female","locale":"en","split":"dev"},
+    {"engine":"supertonic","name":"M5","gender":"male","locale":"en","split":"test"},
+    {"engine":"supertonic","name":"F5","gender":"female","locale":"en","split":"test"}
+  ]
+}
