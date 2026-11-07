@@ -1,11 +1,12 @@
 import { CHANNELS, FPS, SAMPLE_RATE, key, speechRuns, validatePhones } from './index.mjs';
 import { chooseJoinedMatches } from './select-joins.mjs';
+import { makeClosureGuide, closureCandidateCost, closureBlend, CONTACT_GAP } from './closures.mjs';
 
 const midpoint = (phone) => (phone.start + phone.end) / 2;
 const mix = (a, b, amount) => a + (b - a) * amount;
 const fraction = (time, from, to) => (time - from) / (to - from);
 
-function rankMatches(dictionary, phones, start, count, limit) {
+function rankMatches(dictionary, phones, start, count, limit, guide) {
   const candidates = dictionary.index[key(phones, start, count)] ?? [];
   const isolated = count === 1 && candidates.some((candidate) => candidate.isolated);
   const target = phones.slice(start, start + count);
@@ -21,6 +22,7 @@ function rankMatches(dictionary, phones, start, count, limit) {
       const targetGap = midpoint(target[i]) - midpoint(target[i - 1]);
       score += (sourceGap - targetGap) ** 2;
     }
+    if (guide) score += 4 * 0.040 ** 2 * closureCandidateCost(guide, clip, source, target);
     const position = ranked.findIndex((candidate) => score < candidate.score);
     if (position >= 0) ranked.splice(position, 0, { clip, source, count, score });
     else if (ranked.length < limit) ranked.push({ clip, source, count, score });
@@ -57,7 +59,7 @@ function fillWithSingles(dictionary, phones, intervals, from) {
   }
 }
 
-function runSegments(dictionary, phones, { from, to }, singleFallback, joinAware) {
+function runSegments(dictionary, phones, { from, to }, singleFallback, joinAware, guide) {
   const first = phones[from], last = phones[to - 1];
   if (to - from === 1) {
     const match = select(dictionary, phones, from, 1);
@@ -77,17 +79,17 @@ function runSegments(dictionary, phones, { from, to }, singleFallback, joinAware
   const units = [];
   const limit = joinAware ? 8 : 1;
   for (let i = from; i + 1 < to; i++) {
-    const matches = i + 2 < to ? rankMatches(dictionary, phones, i, 3, limit) : [];
+    const matches = i + 2 < to ? rankMatches(dictionary, phones, i, 3, limit, guide) : [];
     if (matches.length) {
       units.push({ start: i, count: 3, matches });
       coveredByTriple[i - from] = coveredByTriple[i - from + 1] = 1;
     } else if (!coveredByTriple[i - from]) {
-      const pairs = rankMatches(dictionary, phones, i, 2, limit);
+      const pairs = rankMatches(dictionary, phones, i, 2, limit, guide);
       if (pairs.length) units.push({ start: i, count: 2, matches: pairs });
     }
   }
 
-  const selected = joinAware ? chooseJoinedMatches(units, dictionary.weights) : units.map(({ matches }) => matches[0]);
+  const selected = joinAware ? chooseJoinedMatches(units, dictionary.weights, dictionary.lipRig) : units.map(({ matches }) => matches[0]);
   for (const [i, match] of selected.entries()) {
     const start = units[i].start - from;
     for (let j = 0; j + 1 < match.count; j++) {
@@ -109,9 +111,31 @@ function runSegments(dictionary, phones, { from, to }, singleFallback, joinAware
   ];
 }
 
-export function planAnimation(dictionary, phones, pcm, { singleFallback = true, joinAware = true } = {}) {
+function matchUsage(segments) {
+  const matches = new Set();
+  const singles = new Set();
+  for (const segment of segments) {
+    if (segment.kind === 'fallback') {
+      for (const [i, item] of segment.pieces.entries()) {
+        const anchor = i === 0 ? segment.start : segment.end;
+        const source = i === 0 ? item.last : item.first;
+        singles.add(`${anchor}:${item.match.clip.id}:${source.start}:${source.end}`);
+      }
+    } else if (segment.kind !== 'edge') {
+      for (const { match } of segment.pieces) matches.add(match);
+    }
+  }
+  const usage = { triple: 0, pair: 0, single: singles.size };
+  for (const { count } of matches) {
+    usage[count === 3 ? 'triple' : count === 2 ? 'pair' : 'single']++;
+  }
+  return usage;
+}
+
+export function planAnimation(dictionary, phones, pcm, { singleFallback = true, joinAware = true, closureAware = true } = {}) {
   const duration = pcm.length / SAMPLE_RATE;
   validatePhones(phones, duration);
+  const guide = closureAware ? makeClosureGuide(dictionary, phones, pcm) : undefined;
   const segments = [];
   const joins = [];
   const runs = speechRuns(phones, pcm, dictionary.silenceRms);
@@ -119,7 +143,7 @@ export function planAnimation(dictionary, phones, pcm, { singleFallback = true, 
   let end = 0;
   let pause;
   for (const run of runs) {
-    const parts = runSegments(dictionary, phones, run, singleFallback, joinAware);
+    const parts = runSegments(dictionary, phones, run, singleFallback, joinAware, guide);
     if (parts[0].start > end) segments.push({ start: end, end: parts[0].start, pieces: [], pause });
     segments.push(...parts);
     if (run.to - run.from === 1) coverage[parts[0].kind]++;
@@ -148,7 +172,7 @@ export function planAnimation(dictionary, phones, pcm, { singleFallback = true, 
     joins.push({ start, end: finish, anchor, phone, left, right, outgoing, incoming,
       outClip: outgoing.match.clip.id, inClip: incoming.match.clip.id });
   }
-  return { segments, joins, coverage, duration };
+  return { segments, joins, coverage, usage: matchUsage(segments), duration, guide };
 }
 
 function addFrame(out, weights, clip, time, weight) {
@@ -185,15 +209,69 @@ function segmentIndex(segments, time) {
   return low;
 }
 
+function preserveClosures(dictionary, guide, frames) {
+  const pose = new Float32Array(CHANNELS);
+  for (const [i, phone] of guide.phones.entries()) {
+    const points = guide.samples.get(phone);
+    if (!points?.some(({ confidence }) => confidence >= 0.85)) continue;
+    if (points.some(({ time }) => guide.frameGap(frames, Math.round(time * FPS) * CHANNELS) <= CONTACT_GAP)) continue;
+    const previous = guide.phones[i - 1]?.phone;
+    const next = guide.phones[i + 1]?.phone;
+    let best;
+    for (const { time, confidence } of points) {
+      if (confidence < 0.85) continue;
+      const frame = Math.round(time * FPS);
+      const gap = guide.frameGap(frames, frame * CHANNELS);
+      if (gap > 0.30) continue;
+      for (const occurrence of dictionary.index[phone.phone] ?? []) {
+        const clip = dictionary.clips[occurrence.clip];
+        const source = clip.phones[occurrence.start];
+        const preceding = previous && clip.phones[occurrence.start - 1]?.phone === previous;
+        const following = next && clip.phones[occurrence.start + 1]?.phone === next;
+        if (!preceding && !following) continue;
+        const start = Math.max(0, Math.ceil((source.start - 0.02) * FPS));
+        const end = Math.min(clip.frameCount, Math.ceil((source.end + 0.02) * FPS));
+        for (let sample = start; sample < end; sample++) {
+          const sourceGap = guide.gapAt(clip, sample / FPS);
+          if (sourceGap > 0.07) continue;
+          const amount = (gap - 0.095) / (gap - sourceGap);
+          if (amount > 0.8) continue;
+          const timingError = Math.abs((sample / FPS - source.start) - (time - phone.start));
+          const cost = amount + 6 * timingError - confidence - 0.15 * Number(preceding && following);
+          if (!best || cost < best.cost) best = { frame, clip, sample, amount, cost };
+        }
+      }
+    }
+    if (!best) continue;
+    // Restore contact with a recorded pose for the same sound and shared
+    // context. Ease into the pose without extrapolating the rig weights.
+    pose.fill(0);
+    addFrame(pose, dictionary.weights, best.clip, best.sample / FPS, 1);
+    for (const offset of [-1, 0, 1]) {
+      const frame = best.frame + offset;
+      if (frame < 0 || frame * CHANNELS >= frames.length) continue;
+      const amount = best.amount * (offset === 0 ? 1 : 0.35);
+      for (let channel = 0; channel < CHANNELS; channel++) {
+        const index = frame * CHANNELS + channel;
+        frames[index] = mix(frames[index], pose[channel], amount);
+      }
+    }
+  }
+}
+
 export function bakeAnimation(dictionary, plan) {
   const frames = new Float32Array(Math.ceil(plan.duration * FPS) * CHANNELS);
-  const { joins, segments } = plan;
+  const { joins, segments, guide } = plan;
+  function blend(out, time, scale, left, leftTime, right, rightTime, amount) {
+    const adjusted = closureBlend(guide, time, left, leftTime, right, rightTime, amount);
+    addFrame(out, dictionary.weights, left, leftTime, scale * (1 - adjusted));
+    addFrame(out, dictionary.weights, right, rightTime, scale * adjusted);
+  }
   function sample(out, time, scale, join) {
     if (join && time > join.start && time < join.end) {
       const [left, right] = joinSourceTimes(join, time);
       const amount = fraction(time, join.start, join.end);
-      addFrame(out, dictionary.weights, join.outgoing.match.clip, left, scale * (1 - amount));
-      addFrame(out, dictionary.weights, join.incoming.match.clip, right, scale * amount);
+      blend(out, time, scale, join.outgoing.match.clip, left, join.incoming.match.clip, right, amount);
       return;
     }
     const i = segmentIndex(segments, time);
@@ -203,16 +281,17 @@ export function bakeAnimation(dictionary, plan) {
       const amount = fraction(time, start, end);
       const outPhase = Math.min(1, fraction(time, start, first.end));
       const inPhase = Math.max(0, fraction(time, last.start, end));
-      addFrame(out, dictionary.weights, outgoing.match.clip, mix(outgoing.from, outgoing.to, outPhase), scale * (1 - amount));
-      addFrame(out, dictionary.weights, incoming.match.clip, mix(incoming.from, incoming.to, inPhase), scale * amount);
+      blend(out, time, scale, outgoing.match.clip, mix(outgoing.from, outgoing.to, outPhase),
+        incoming.match.clip, mix(incoming.from, incoming.to, inPhase), amount);
       return;
     }
     if (pieces.length) {
       const amount = fraction(time, start, end);
-      for (const [j, item] of pieces.entries()) {
-        const weight = pieces.length === 1 ? 1 : j === 0 ? 1 - amount : amount;
-        addFrame(out, dictionary.weights, item.match.clip, mix(item.from, item.to, amount), weight * scale);
-      }
+      const [left, right] = pieces;
+      const leftTime = mix(left.from, left.to, amount);
+      if (right) {
+        blend(out, time, scale, left.match.clip, leftTime, right.match.clip, mix(right.from, right.to, amount), amount);
+      } else addFrame(out, dictionary.weights, left.match.clip, leftTime, scale);
       return;
     }
     const left = segments[i - 1]?.pieces.at(-1);
@@ -250,5 +329,6 @@ export function bakeAnimation(dictionary, plan) {
       }
     } else sample(out, time, 1, join);
   }
+  if (guide) preserveClosures(dictionary, guide, frames);
   return frames;
 }

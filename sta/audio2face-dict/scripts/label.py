@@ -8,12 +8,14 @@ import sys
 import numpy as np
 
 # Nine established James lip landmarks, ordered from the left corner to the right.
+LIP_GAP_WEIGHT = 192.
+
 LIP_PAIRS = np.array([[9013, 10613], [941, 10433], [8859, 10434],
                       [2963, 3726], [1439, 1475], [5980, 7505],
                       [6093, 18810], [263, 18809], [17362, 13358]])
 
 
-def prepare_fit(rig_dir):
+def prepare_fit(rig_dir, lip_gap_weight=LIP_GAP_WEIGHT):
     with np.load(rig_dir / "bs_skin_James.npz") as rig, np.load(
         rig_dir / "model_data_James.npz"
     ) as model:
@@ -37,12 +39,21 @@ def prepare_fit(rig_dir):
         raise ValueError("Expected the 52 James ARKit channels")
     weighted_basis = basis * weights[:, None]
     gram = basis.T @ weighted_basis + np.eye(len(active), dtype=np.float32)
+    lip_basis = np.asarray(lip_rig["deltas"], dtype=np.float32)[active]
+    lip_neutral = np.asarray(lip_rig["neutral"], dtype=np.float32)
+    # Add a least-squares term for vertical lip separation while retaining
+    # the original vertex fit and bounded blendshape solve.
+    if lip_gap_weight:
+        gram += lip_gap_weight * (lip_basis @ lip_basis.T)
     inverse = np.linalg.inv(gram)
     step = np.float32(1 / np.linalg.eigvalsh(gram)[-1])
 
     def fit(geometry):
         skin_delta = geometry[:, :72006].reshape(-1, 24002, 3)
         rhs = (skin_delta[:, mask].reshape(len(geometry), -1) + offset) @ weighted_basis
+        if lip_gap_weight:
+            target_gaps = geometry_gaps(geometry) - lip_neutral
+            rhs += lip_gap_weight * (target_gaps @ lip_basis.T)
         current = np.clip(rhs @ inverse, 0, 1)
         extrapolated = current
         momentum = 1.
@@ -68,6 +79,8 @@ def main():
     parser.add_argument("--runner", type=Path, required=True)
     parser.add_argument("--model", type=Path, required=True)
     parser.add_argument("--rig", type=Path, required=True)
+    parser.add_argument("--fit", choices=("lip", "baseline"), default="lip",
+                        help="Lip gap fit (default) or the original vertex fit")
     parser.add_argument("--geometry-reference", action="store_true",
                         help="Save full geometry lip landmarks for every clip")
     args = parser.parse_args()
@@ -76,15 +89,17 @@ def main():
     from app.audio2face_v3 import animate, load_backend
 
     rows = json.loads((args.directory / "clips.json").read_text())
-    channels, fit, lip_rig, geometry_gaps = prepare_fit(args.rig)
+    lip_gap_weight = LIP_GAP_WEIGHT if args.fit == "lip" else 0.
+    channels, fit, lip_rig, geometry_gaps = prepare_fit(args.rig, lip_gap_weight)
     (args.directory / "channels.json").write_text(json.dumps(channels))
     (args.directory / "lip-rig.json").write_text(json.dumps(lip_rig))
     infer = None
     for index, clip in enumerate(rows, 1):
-        path = args.directory / (clip["id"] + ".arkit")
+        weight_suffix = ".lip.arkit" if args.fit == "lip" else ".arkit"
+        path = args.directory / (clip["id"] + weight_suffix)
         audio = np.fromfile(args.directory / (clip["id"] + ".pcm"), dtype="<f4")
         frame_count = (len(audio) * 60 + 15999) // 16000
-        gap_path = path.with_suffix(".geometry-gaps")
+        gap_path = args.directory / (clip["id"] + ".geometry-gaps")
         reference = args.geometry_reference or clip["split"] == "test"
         have_weights = path.exists() and path.stat().st_size == frame_count * 52 * 4
         have_gaps = gap_path.exists() and gap_path.stat().st_size == frame_count * len(LIP_PAIRS) * 4

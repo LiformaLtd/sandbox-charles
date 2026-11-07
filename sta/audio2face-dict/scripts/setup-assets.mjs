@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const studio = resolve(process.env.JAMES_STUDIO_DIR ?? fileURLToPath(new URL('../../../audio2face/', import.meta.url)));
+const studio = resolve(process.env.JAMES_STUDIO_DIR ?? fileURLToPath(new URL('../../audio2face/', import.meta.url)));
 const aligner = fileURLToPath(new URL('../../../model-demos/ttp/tinyaligner/static/models/', import.meta.url));
 
 async function present(path) {

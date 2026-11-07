@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildIndex, CHANNELS, FPS, speechRuns } from '../src/lib/dictionary/index.mjs';
+import { closureBlend, CONTACT_GAP } from '../src/lib/dictionary/closures.mjs';
 import { bakeAnimation, joinSourceTimes, planAnimation } from '../src/lib/dictionary/animate.mjs';
 
 const phones = (labels, start = 0.05, duration = 0.1) => labels.map((phone, i) => ({
@@ -128,4 +129,52 @@ test('join-aware matching prefers compatible motion over a slightly closer timin
     return Math.abs(frames[13 * CHANNELS + 17] - frames[12 * CHANNELS + 17]);
   };
   assert.ok(aroundJoin(joined) < aroundJoin(baseline));
+});
+
+test('lip gap features can distinguish candidates with identical pose proxies', () => {
+  const dict = dictionary([['A', 'B'], ['B', 'C'], ['B', 'C']]);
+  dict.clips[2].phones[1].end += 0.02;
+  const mouthPress = 36;
+  for (let frame = 0; frame < 60; frame++) {
+    dict.weights[(60 + frame) * CHANNELS + mouthPress] = 0.7;
+  }
+  const target = phones(['A', 'B', 'C']);
+  const pcm = new Float32Array(9000);
+  assert.equal(planAnimation(dict, target, pcm).joins[0].inClip, 'clip-1');
+
+  dict.lipRig = {
+    deltas: Array.from({ length: CHANNELS }, (_, channel) =>
+      Array(9).fill(channel === mouthPress ? -2 : 0)),
+  };
+  const plan = planAnimation(dict, target, pcm);
+  assert.equal(plan.joins[0].inClip, 'clip-2');
+  assert.equal(plan.coverage.pair, 2);
+});
+
+test('closure blending requires audio evidence and preserves crossfade endpoints', () => {
+  const left = { gap: 0.03 };
+  const right = { gap: 0.24 };
+  const guide = { probability: [1], gapAt: (clip) => clip.gap };
+  const blend = (weight) => closureBlend(guide, 0, left, 0, right, 0, weight);
+  const gap = (weight) => left.gap + weight * (right.gap - left.gap);
+  assert.ok(gap(0.5) > CONTACT_GAP);
+  assert.ok(gap(blend(0.5)) < CONTACT_GAP);
+  assert.equal(blend(0), 0);
+  assert.equal(blend(1), 1);
+  guide.probability[0] = 0.5;
+  assert.equal(blend(0.5), 0.5);
+  guide.probability[0] = 0;
+  assert.ok(gap(0.2) < CONTACT_GAP);
+  assert.ok(gap(blend(0.2)) > CONTACT_GAP);
+});
+
+test('match counts count a triple once and include single-phoneme fallback sources', () => {
+  const pcm = new Float32Array(9000);
+  const triple = planAnimation(dictionary([['A', 'B', 'C']]), phones(['A', 'B', 'C']), pcm);
+  assert.equal(triple.coverage.triple, 2);
+  assert.deepEqual(triple.usage, { triple: 1, pair: 0, single: 0 });
+  const fallback = planAnimation(dictionary([['A', 'B'], ['C', 'D']]), phones(['A', 'B', 'C', 'D']), pcm);
+  assert.deepEqual(fallback.usage, { triple: 0, pair: 2, single: 2 });
+  const isolated = planAnimation(dictionary([['A']]), phones(['A']), pcm);
+  assert.deepEqual(isolated.usage, { triple: 0, pair: 0, single: 1 });
 });

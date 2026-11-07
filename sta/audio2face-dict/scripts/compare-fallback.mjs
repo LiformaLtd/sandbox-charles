@@ -1,9 +1,22 @@
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { bakeAnimation, planAnimation } from '../src/lib/dictionary/animate.mjs';
 import { CHANNELS, FPS } from '../src/lib/dictionary/index.mjs';
 
-const local = new URL('../.local/fresh/', import.meta.url);
+const testSet = process.argv.includes('--test-set');
+const argument = (name) => {
+  const at = process.argv.indexOf(name);
+  if (at < 0) return undefined;
+  const value = process.argv[at + 1];
+  assert.ok(value && !value.startsWith('--'), name + ' requires a path');
+  return value;
+};
+const baselinePath = argument('--baseline');
+const outputPath = argument('--output');
+const corpusComparison = Boolean(baselinePath);
+const local = new URL(testSet ? '../.local/full/' : '../.local/fresh/', import.meta.url);
 const packed = new URL('../static/dictionary/', import.meta.url);
 const json = async (url) => JSON.parse(await readFile(url));
 const floats = async (url) => {
@@ -12,17 +25,32 @@ const floats = async (url) => {
 };
 
 const dictionary = await json(new URL('index.json', packed));
-assert.equal(dictionary.corpus, 'targeted', 'Pack the targeted corpus first');
+assert.ok(['targeted', 'subtitles'].includes(dictionary.corpus), 'Pack the targeted or subtitles corpus first');
 dictionary.weights = await floats(new URL(dictionary.weightsFile, packed));
-const [rows, rig] = await Promise.all([
+let baseline;
+if (baselinePath) {
+  const source = pathToFileURL(resolve(baselinePath) + '/');
+  baseline = await json(new URL('index.json', source));
+  baseline.weights = await floats(new URL(baseline.weightsFile, source));
+  assert.deepEqual(baseline.channels, dictionary.channels);
+  assert.equal(baseline.fit, dictionary.fit);
+  assert.deepEqual(baseline.lipRig, dictionary.lipRig);
+  assert.deepEqual(baseline.closureModel, dictionary.closureModel, 'Keep the closure model fixed for corpus comparison');
+}
+const [allRows, rig] = await Promise.all([
   json(new URL('clips.json', local)),
   json(new URL('lip-rig.json', local)),
 ]);
+const rows = testSet ? allRows.filter(({ split }) => split === 'test') : allRows;
 const landmarks = rig.neutral.length;
 const center = Math.floor(landmarks / 2);
-const joinComparison = process.argv.includes('--join-aware');
-const variants = joinComparison ? ['timingOnly', 'joinAware'] : ['without', 'with'];
+const closureComparison = process.argv.includes('--closures');
+const joinComparison = corpusComparison || closureComparison || process.argv.includes('--join-aware');
+const variants = corpusComparison ? ['baseline', 'expanded'] : closureComparison ? ['current', 'closureAware'] : joinComparison ? ['timingOnly', 'joinAware'] : ['without', 'with'];
+const dictionaries = corpusComparison ? [baseline, dictionary] : [dictionary, dictionary];
 const references = ['geometry', 'fitted'];
+const fitExtension = dictionary.fit === 'lip' ? 'lip.arkit' : 'arkit';
+const directFit = makeMetrics();
 const threshold = 0.1;
 const padding = 0.02;
 const joinRadius = 0.035;
@@ -80,33 +108,46 @@ let affectedClosures = 0;
 const closureChanges = [];
 const clipReports = [];
 const selectionMs = Object.fromEntries(variants.map((variant) => [variant, 0]));
+const coverage = Object.fromEntries(variants.map((variant) => [variant, { triple: 0, pair: 0, single: 0, fallback: 0, miss: 0 }]));
+const normalize = (text) => text.toLowerCase().replace(/[^a-z]+/g, ' ').trim();
+if (corpusComparison) {
+  const trainingTexts = new Set();
+  for (const name of ['full', 'targeted', 'subtitles']) {
+    const manifest = await json(new URL('../.local/' + name + '/clips.json', import.meta.url));
+    for (const row of manifest) if (row.split === 'train') trainingTexts.add(normalize(row.text));
+  }
+  for (const row of rows) assert.ok(!trainingTexts.has(normalize(row.text)), 'Evaluation transcript is in training: ' + row.text);
+}
 const secondsAt = (frame) => frame / FPS;
 const overlap = (from, to, spans) => spans.some((span) => span.start < to && from < span.end);
 
 for (const row of rows) {
-  const [pcm, weights, geometry] = await Promise.all(['pcm', 'arkit', 'geometry-gaps'].map((ext) =>
+  const [pcm, weights, geometry] = await Promise.all(['pcm', fitExtension, 'geometry-gaps'].map((ext) =>
     floats(new URL(row.id + '.' + ext, local))));
-  const plans = variants.map((variant) => {
+  const plans = variants.map((variant, i) => {
     const start = performance.now();
-    const plan = planAnimation(dictionary, row.phones, pcm, {
+    const plan = planAnimation(dictionaries[i], row.phones, pcm, {
       singleFallback: joinComparison || variant === 'with',
-      joinAware: variant === 'joinAware',
+      joinAware: corpusComparison || closureComparison || variant === 'joinAware',
+      closureAware: corpusComparison || variant === 'closureAware',
     });
     selectionMs[variant] += performance.now() - start;
+    for (const kind of Object.keys(coverage[variant])) coverage[variant][kind] += plan.coverage[kind];
     return plan;
   });
   const [beforePlan, afterPlan] = plans;
-  if (joinComparison) {
+  if (!corpusComparison && joinComparison) {
     assert.deepEqual(beforePlan.coverage, afterPlan.coverage);
-  } else {
+  } else if (!corpusComparison) {
     assert.equal(beforePlan.coverage.triple, afterPlan.coverage.triple);
     assert.equal(beforePlan.coverage.pair, afterPlan.coverage.pair);
     assert.equal(beforePlan.coverage.miss, afterPlan.coverage.fallback + afterPlan.coverage.miss);
   }
-  const spans = afterPlan.segments.filter(({ kind }) => kind === 'fallback');
+  const spans = [...new Map((corpusComparison ? plans.flatMap((plan) => plan.segments) : afterPlan.segments)
+    .filter(({ kind }) => kind === 'fallback').map((span) => [span.start + ':' + span.end, span])).values()];
   fallbackIntervals += spans.length;
   const tracks = {
-    ...Object.fromEntries(variants.map((variant, i) => [variant, gaps(bakeAnimation(dictionary, plans[i]))])),
+    ...Object.fromEntries(variants.map((variant, i) => [variant, gaps(bakeAnimation(dictionaries[i], plans[i]))])),
     geometry, fitted: gaps(weights),
   };
   const frameCount = geometry.length / landmarks;
@@ -114,20 +155,27 @@ for (const row of rows) {
     assert.equal(track.length, geometry.length);
     assert.ok(track.every(Number.isFinite));
   }
+  for (let i = 0; i < geometry.length; i++) {
+    directFit.squares += (tracks.fitted[i] - geometry[i]) ** 2;
+    directFit.values++;
+  }
   // Merge shared anchors and exclude clip-edge fades. Each join gets one peak
   // measurement even when its frame window overlaps a nearby join window.
   const anchors = spans.flatMap(({ start, end }) => [start, end]);
   if (joinComparison) {
-    // Use baseline anchor positions for both variants, independent of which
-    // source sample was chosen. Include the middle of each triple overlap.
-    for (const [i, { start, end, kind, pieces }] of beforePlan.segments.entries()) {
-      if (kind === 'triple' && pieces.length === 2) anchors.push((start + end) / 2);
-      const previous = beforePlan.segments[i - 1];
-      const outgoing = previous?.pieces.at(-1);
-      const incoming = pieces[0];
-      if (previous?.last && beforePlan.segments[i].first && outgoing && incoming &&
-          outgoing.match !== incoming.match && previous.kind !== 'fallback' && kind !== 'fallback') {
-        anchors.push(start);
+    // Both variants use identical measurement windows. Corpus comparison uses
+    // the union of their joins; algorithm comparisons use the baseline joins.
+    // Include the middle of each triple overlap.
+    for (const plan of corpusComparison ? plans : [beforePlan]) {
+      for (const [i, { start, end, kind, pieces }] of plan.segments.entries()) {
+        if (kind === 'triple' && pieces.length === 2) anchors.push((start + end) / 2);
+        const previous = plan.segments[i - 1];
+        const outgoing = previous?.pieces.at(-1);
+        const incoming = pieces[0];
+        if (previous?.last && plan.segments[i].first && outgoing && incoming &&
+            outgoing.match !== incoming.match && previous.kind !== 'fallback' && kind !== 'fallback') {
+          anchors.push(start);
+        }
       }
     }
   }
@@ -144,6 +192,7 @@ for (const row of rows) {
   evaluatedClosures += closureEvents.length;
   affectedClosures += closureEvents.filter(({ affected }) => affected).length;
   for (const { phone, affected, observations } of closureEvents) {
+    countContact(directFit.closure, observations.fitted, observations.geometry);
     const before = observations[variants[0]].first !== null;
     const after = observations[variants[1]].first !== null;
     if (before !== after) closureChanges.push({
@@ -153,11 +202,12 @@ for (const row of rows) {
     });
   }
 
-  const clipReport = { text: row.text, fallbackIntervals: spans.length, affectedLipGapRms: {} };
+  const clipReport = { id: row.id, text: row.text, group: row.split, coverage: Object.fromEntries(variants.map((variant, i) => [variant, plans[i].coverage])), fallbackIntervals: spans.length, affectedLipGapRms: {}, lipGapRms: {} };
   for (const reference of references) {
     for (const variant of variants) {
       const tally = metrics[reference][variant];
       const actual = tracks[variant], expected = tracks[reference];
+      let clipSquares = 0;
       let affectedSquares = 0, affectedValues = 0;
       for (let frame = 0; frame < frameCount; frame++) {
         const time = secondsAt(frame);
@@ -166,6 +216,7 @@ for (const row of rows) {
           const i = frame * landmarks + j;
           const squared = (actual[i] - expected[i]) ** 2;
           tally.squares += squared;
+          clipSquares += squared;
           tally.values++;
           if (affected) {
             affectedSquares += squared;
@@ -174,6 +225,7 @@ for (const row of rows) {
         }
       }
       tally.affectedSquares += affectedSquares;
+      if (reference === 'geometry') clipReport.lipGapRms[variant] = Math.sqrt(clipSquares / actual.length);
       tally.affectedValues += affectedValues;
       if (reference === 'geometry' && affectedValues) {
         clipReport.affectedLipGapRms[variant] = Math.sqrt(affectedSquares / affectedValues);
@@ -208,7 +260,7 @@ for (const row of rows) {
       }
     }
   }
-  if (spans.length) clipReports.push(clipReport);
+  if (corpusComparison || spans.length) clipReports.push(clipReport);
 }
 
 const ratio = (a, b) => b ? a / b : null;
@@ -234,12 +286,24 @@ function summarize(tally) {
 }
 
 const report = {
+  fit: dictionary.fit ?? 'baseline',
+  ...(corpusComparison ? { dictionaries: Object.fromEntries(variants.map((variant, i) => [variant, {
+    corpus: dictionaries[i].corpus, clips: dictionaries[i].clips.length,
+    weightsFile: dictionaries[i].weightsFile,
+    uniquePairs: Object.keys(dictionaries[i].index).filter((key) => key.split(' ').length === 2).length,
+  }])) } : {}),
+  coverage,
+  directFitVsGeometry: {
+    lipGapRms: rms(directFit.squares, directFit.values),
+    closures: summarizeClosure(directFit.closure),
+  },
   sentences: rows.length, fallbackIntervals, evaluatedJoins, evaluatedClosures, affectedClosures,
   meanSelectionMs: Object.fromEntries(variants.map((key) => [key, selectionMs[key] / rows.length])),
-  settings: { fps: FPS, landmarks, threshold, padding, joinRadius },
+  settings: { fps: FPS, landmarks, threshold, padding, joinRadius, ...(corpusComparison ? { singleFallback: true, joinAware: true, closureAware: true, joinWindows: 'union of baseline and expanded anchors' } : {}) },
   results: Object.fromEntries(references.map((key) =>
     [key, Object.fromEntries(variants.map((variant) => [variant, summarize(metrics[key][variant])]))])),
   closureChanges, clipReports,
 };
-await writeFile(new URL(joinComparison ? 'join-quality.json' : 'fallback-quality.json', local), JSON.stringify(report, null, 2) + '\n');
+const reportFile = outputPath ? pathToFileURL(resolve(outputPath)) : new URL(`${corpusComparison ? 'subtitle' : closureComparison ? 'closure' : joinComparison ? 'join' : 'fallback'}-quality${dictionary.fit === 'lip' ? '-lip' : ''}.json`, local);
+await writeFile(reportFile, JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify(report, null, 2));

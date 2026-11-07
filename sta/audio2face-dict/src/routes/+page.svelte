@@ -12,10 +12,14 @@
 
   interface AnimationResult {
     frames: Float32Array;
+    phonemeCount: number;
     coverage: Record<'triple' | 'pair' | 'single' | 'fallback' | 'miss', number>;
+    usage: Record<'triple' | 'pair' | 'single', number>;
     joins: number;
     lookupMs: number;
-    corpus: 'pilot' | 'full' | 'targeted';
+    alignmentMs: number;
+    samplingMs: number;
+    corpus: 'pilot' | 'full' | 'targeted' | 'subtitles';
   }
 
   let dialogue = $state('Please put the blue map back by the lamp.');
@@ -26,7 +30,7 @@
   let closeup = $state(false);
   let ready = $state(false);
   let busy = $state(false);
-  let details = $state<Omit<AnimationResult, 'frames'> | null>(null);
+  let details = $state<(Omit<AnimationResult, 'frames'> & { ttsMs: number }) | null>(null);
   let duration = $state(0);
   let viewport: HTMLDivElement;
   let audio: HTMLAudioElement;
@@ -129,6 +133,9 @@
     }
   }
 
+  const elapsed = (milliseconds: number) => milliseconds < 1000
+    ? milliseconds.toFixed(1) + ' ms' : (milliseconds / 1000).toFixed(2) + ' s';
+
   const messageOf = (cause: unknown) => cause instanceof Error ? cause.message : String(cause);
 
   async function generate(event: SubmitEvent) {
@@ -144,11 +151,14 @@
     let phase = 'input';
     try {
       status = 'Checking the transcript…';
+      const preparationStarted = performance.now();
       const transcript = await askWorker<ReturnType<typeof prepareTranscript>>('prepare', text);
+      const preparationMs = performance.now() - preparationStarted;
       signal.throwIfAborted();
       phase = 'speech';
       audio.pause();
       status = 'Preparing Phonon…';
+      const speechStarted = performance.now();
       const speech = await openPhononStream(text, (message: string) => { status = message; }, signal, mobile());
       const chunks = [];
       for await (const chunk of speech.chunks) chunks.push(chunk);
@@ -158,12 +168,13 @@
       if (pcm.length < 2) throw new Error('Phonon returned no usable audio.');
       const seconds = pcm.length / SAMPLE_RATE;
       const wav = new Blob([encodeWav(pcm, SAMPLE_RATE)], { type: 'audio/wav' });
+      const ttsMs = performance.now() - speechStarted;
       status = 'Aligning phonemes with TinyAligner…';
       const { frames, ...stats } = await askWorker<AnimationResult>('animate', transcript, pcm);
       signal.throwIfAborted();
       frameViews = Array.from({ length: frames.length / CHANNELS }, (_, i) =>
         frames.subarray(i * CHANNELS, (i + 1) * CHANNELS));
-      details = stats;
+      details = { ...stats, ttsMs, alignmentMs: preparationMs + stats.alignmentMs };
       duration = seconds;
       if (audioUrl) URL.revokeObjectURL(audioUrl);
       audioUrl = URL.createObjectURL(wav);
@@ -235,6 +246,17 @@
       <audio bind:this={audio} controls preload="auto" aria-label="Generated speech"></audio>
     </div>
     {#if details}
+      <div class="coverage" role="status" aria-live="polite">
+        <p>{details.phonemeCount} phonemes in the speech</p>
+        <p>{details.usage.triple} triples · {details.usage.pair} doubles · {details.usage.single} single phonemes</p>
+        <p>Dictionary matches selected before blending.</p>
+        <ol aria-label="Processing times">
+          <li>Text to speech · {elapsed(details.ttsMs)}</li>
+          <li>TinyAligner · {elapsed(details.alignmentMs)}</li>
+          <li>Sampling · {elapsed(details.samplingMs)}</li>
+        </ol>
+        <p>Includes model and asset loading on first use.</p>
+      </div>
       <details class="coverage">
         <summary>Match coverage</summary>
         <p>{details.coverage.triple + details.coverage.pair} exact ({details.coverage.triple} triples, {details.coverage.pair} doubles) · {details.coverage.fallback} fallback · {details.coverage.miss} misses</p>

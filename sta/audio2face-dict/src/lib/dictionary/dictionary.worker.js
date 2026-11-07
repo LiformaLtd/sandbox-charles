@@ -1,6 +1,7 @@
 import * as ort from 'onnxruntime-web/wasm';
 import { align, prepareWords, transcriptWords } from '../alignment/engine.ts';
 import { bakeAnimation, planAnimation } from './animate.mjs';
+import { validClosureModel } from './closures.mjs';
 import channels from '../studio/channels.json';
 import { CHANNELS, FPS, SAMPLE_RATE } from './index.mjs';
 
@@ -23,6 +24,9 @@ async function loadDictionary() {
       !/^weights-[0-9a-f]{16}\.f32$/.test(index.weightsFile)) {
     throw new Error('Dictionary index is incompatible with the James rig. Rebuild the bundle.');
   }
+  if (index.closureModel && (!index.lipRig || !validClosureModel(index.closureModel))) {
+    throw new Error('Invalid closure model in the dictionary. Rebuild the bundle.');
+  }
   const weights = await fetchAsset('/dictionary/' + index.weightsFile, 'arrayBuffer');
   if (weights.byteLength !== index.frameCount * CHANNELS * 4) {
     throw new Error('Dictionary animation data is incomplete. Rebuild the bundle.');
@@ -40,16 +44,20 @@ self.onmessage = async ({ data: { id, type, text, pcm } }) => {
       self.postMessage({ id, value: prepareWords(words, lexicon, predict) });
       return;
     }
+    const alignmentStarted = performance.now();
     session ??= await ort.InferenceSession.create('/models/model.onnx', { executionProviders: ['wasm'] });
-    dictionary ??= await loadDictionary();
     const words = await align(session, pcm, SAMPLE_RATE, text);
     const phones = words.flatMap((word) => word.phones.map(({ word: phone, start, end }) => ({ phone, start, end })));
+    const alignmentMs = performance.now() - alignmentStarted;
     self.postMessage({ id, status: 'Matching phonemes and blending animation…' });
+    const samplingStarted = performance.now();
+    dictionary ??= await loadDictionary();
     const started = performance.now();
     const plan = planAnimation(dictionary, phones, pcm);
     const frames = bakeAnimation(dictionary, plan);
     self.postMessage({ id, value: {
-      frames, coverage: plan.coverage, joins: plan.joins.length,
+      frames, phonemeCount: phones.length, coverage: plan.coverage, usage: plan.usage, joins: plan.joins.length,
+      alignmentMs, samplingMs: performance.now() - samplingStarted,
       lookupMs: performance.now() - started, corpus: dictionary.corpus,
     } }, [frames.buffer]);
   } catch (error) {

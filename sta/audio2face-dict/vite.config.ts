@@ -3,7 +3,7 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-	plugins: [sveltekit({ adapter: adapter(), paths: { origin: 'http://127.0.0.1:5189' } })],
+	plugins: [sveltekit({ adapter: adapter() })],
 	worker: { format: 'es' },
 	build: {
 		rolldownOptions: {
@@ -11,6 +11,6 @@ export default defineConfig({
 		}
 	},
 	optimizeDeps: { include: ['phonemize'], exclude: ['onnxruntime-web/wasm', 'phonon-tts/worker.js'] },
-	server: { host: '127.0.0.1', port: 5189, strictPort: true },
-	preview: { host: '127.0.0.1', port: 5189, strictPort: true }
+	server: { host: '127.0.0.1' },
+	preview: { host: '127.0.0.1' }
 });

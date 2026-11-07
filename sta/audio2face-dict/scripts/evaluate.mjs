@@ -5,7 +5,7 @@ import { CHANNELS, FPS } from '../src/lib/dictionary/index.mjs';
 
 const packed = new URL('../static/dictionary/', import.meta.url);
 const dictionary = JSON.parse(await readFile(new URL('index.json', packed)));
-const local = new URL('../.local/' + (dictionary.corpus === 'targeted' ? 'full' : dictionary.corpus) + '/', import.meta.url);
+const local = new URL('../.local/' + (['targeted', 'subtitles'].includes(dictionary.corpus) ? 'full' : dictionary.corpus) + '/', import.meta.url);
 const rows = JSON.parse(await readFile(new URL('clips.json', local))).filter(({ split }) => split === 'test');
 const lipRig = JSON.parse(await readFile(new URL('lip-rig.json', local)));
 const readFloats = async (url) => new Float32Array(await readFile(url).then((bytes) =>
@@ -27,7 +27,7 @@ let values = 0;
 let lookup = 0;
 let slowest = 0;
 for (const clip of rows) {
-  const [pcm, fitted, geometry] = await Promise.all(['pcm', 'arkit', 'geometry-gaps'].map((extension) =>
+  const [pcm, fitted, geometry] = await Promise.all(['pcm', dictionary.fit === 'lip' ? 'lip.arkit' : 'arkit', 'geometry-gaps'].map((extension) =>
     readFloats(new URL(clip.id + '.' + extension, local))));
   const start = performance.now();
   const plan = planAnimation(dictionary, clip.phones, pcm);
@@ -75,4 +75,4 @@ const report = {
   dictionaryBytes: dictionary.weights.byteLength + Buffer.byteLength(await readFile(new URL('index.json', packed))),
 };
 console.log(JSON.stringify(report, null, 2));
-await writeFile(new URL(dictionary.corpus === 'targeted' ? 'evaluation-targeted.json' : 'evaluation.json', local), JSON.stringify(report, null, 2) + '\n');
+await writeFile(new URL(['targeted', 'subtitles'].includes(dictionary.corpus) ? 'evaluation-' + dictionary.corpus + '.json' : 'evaluation.json', local), JSON.stringify(report, null, 2) + '\n');

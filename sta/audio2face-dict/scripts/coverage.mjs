@@ -9,7 +9,7 @@ const index = await readJson(new URL('index.json', packed));
 const readFloats = async (url) => new Float32Array(await readFile(url).then((bytes) =>
   bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)));
 index.weights = await readFloats(new URL(index.weightsFile, packed));
-const corpusSources = index.corpus === 'targeted' ? ['full', 'targeted'] : [index.corpus];
+const corpusSources = index.corpus === 'subtitles' ? ['full', 'targeted', 'subtitles'] : index.corpus === 'targeted' ? ['full', 'targeted'] : [index.corpus];
 const normalize = (text) => text.toLowerCase().replace(/[^a-z]+/g, ' ').trim();
 const seen = new Set();
 for (const source of corpusSources) {
