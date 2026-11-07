@@ -2,6 +2,7 @@
 // https://huggingface.co/spaces/KevinAHM/pocket-tts-web/tree/d0c0c79b7712256a32d691c67f20b8ae2e020d00
 import * as ort from 'onnxruntime-web/wasm';
 import { configureTtsWasm } from '../tts-wasm.js';
+import { modelAssetUrl } from '../model-assets.js';
 
 const base = '/assets/pocket';
 const CHUNK_GAP_SEC = 0.25;
@@ -21,7 +22,7 @@ let currentMaxTokenPerChunk;
 let stTensors;
 
 async function asset(name) {
-    const response = await fetch(`${base}/${name}`);
+    const response = await fetch(modelAssetUrl(`${base}/${name}`));
     if (!response.ok) throw new Error(`Missing Pocket TTS asset ${name}. Run sh scripts/fetch_onnx_tts.sh.`);
     return response;
 }
@@ -34,7 +35,7 @@ async function load() {
     currentConditioningDim = bundleMetadata.conditioning_dim;
     currentMaxTokenPerChunk = bundleMetadata.max_token_per_chunk;
     const options = { executionProviders: ['wasm'], graphOptimizationLevel: 'all' };
-    const session = (name) => ort.InferenceSession.create(`${base}/${name}_int8.onnx`, options);
+    const session = (name) => ort.InferenceSession.create(modelAssetUrl(`${base}/${name}_int8.onnx`), options);
     [textConditionerSession, flowLmMainSession, flowLmFlowSession, mimiDecoderSession] = await Promise.all([
         session('text_conditioner'), session('flow_lm_main'), session('flow_lm_flow'), session('mimi_decoder'),
     ]);
