@@ -49,11 +49,6 @@
                 <option value="cpu">CPU</option>
               </select>
             </fieldset>
-            <div class="head-motion-control">
-              <label for="head-motion">Head motion</label>
-              <span id="head-motion-value" aria-hidden="true">60%</span>
-              <input type="range" id="head-motion" min="0" max="100" step="1" value="60" aria-valuetext="60%">
-            </div>
           </div>
           <div class="dialogue-heading">
             <label for="speech">Dialogue</label>
@@ -74,6 +69,11 @@
           <div class="playback-label"><strong id="playback-engine">Playback</strong><span id="duration"></span></div>
           <button type="button" id="stop-stream" class="stop-stream" hidden>Stop streaming</button>
           <audio id="audio" controls preload="auto" aria-label="Generated speech"></audio>
+          <div class="head-motion-control">
+            <label for="head-motion">Head motion</label>
+            <span id="head-motion-value" aria-hidden="true">60%</span>
+            <input type="range" id="head-motion" min="0" max="100" step="1" value="60" aria-valuetext="60%">
+          </div>
         </div>
         <div class="notes"><span>James v3 mesh</span><span id="sta-runtime">60 fps · WebGPU</span></div>
       </aside>
