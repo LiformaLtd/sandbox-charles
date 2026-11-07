@@ -16,8 +16,9 @@ try{
  const dialogue='Please keep this custom dialogue after the update.';
  await page.locator('#speech').fill(dialogue);await page.locator('input[name=engine][value=supertonic]').check();
  await page.locator('#head-motion').evaluate(el=>{el.value='42';el.dispatchEvent(new Event('input',{bubbles:true}));});
+ const reloaded=page.waitForEvent('framenavigated',{predicate:frame=>frame===page.mainFrame()&&navigations>=2});
  await page.locator('#generate').click();
- await page.waitForURL(()=>navigations>=2,{waitUntil:'domcontentloaded'});
+ await reloaded;
  await page.waitForFunction(text=>document.querySelector('#speech')?.value===text&&!document.querySelector('#generate').disabled,dialogue);
  assert.equal(navigations,2);assert.ok(missing>0);
  assert.equal(await page.locator('input[name=engine]:checked').inputValue(),'supertonic');

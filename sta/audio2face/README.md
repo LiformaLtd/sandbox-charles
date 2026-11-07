@@ -17,6 +17,14 @@ The hosted project is **Liforma / james-audio2face**. Compare
 and [v3](https://james-audio2face.vercel.app/?model=compact-v3&sta=webgpu).
 Both links select WebGPU; the model selector retains the dialogue when switching.
 
+Tabs left open across a deployment can reference removed JavaScript chunks. The
+app confirms a missing same-origin build asset, saves the dialogue and selections,
+and refreshes once. It keeps ordinary network errors visible and avoids reload
+loops. Run `node --test scripts/test-preload-recovery.mjs scripts/test-base64.mjs`
+for the recovery and WebKit tokenizer checks. Hosted browser smoke tests are
+`scripts/verify-tts-deployment.mjs` and `scripts/verify-preload-recovery.mjs`; set
+`DEPLOYMENT_URL`, `PLAYWRIGHT_MODULE` and optionally `WEBKIT_EXECUTABLE`.
+
 The hosted build plays a smoothed, precomputed DAWN idle loop during both
 idle and speech. Live speech-driven head gestures use the local DAWN service
 described below.
