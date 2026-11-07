@@ -4,7 +4,7 @@ import wasmUrl from 'phonon-tts/wasm/phonon_tts_bg.wasm?url';
 import simdWasmUrl from 'phonon-tts/wasm/phonon_tts_simd_bg.wasm?url';
 
 import { modelAssetUrl } from './model-assets.js';
-import { to16k } from './pcm.js';
+import { to16k, observeFirstAudio } from './pcm.js';
 
 let loading;
 
@@ -54,7 +54,7 @@ export async function releasePhonon() {
   (await prepared)?.dispose();
 }
 
-export async function openPhononStream(text, report, signal, mobile) {
+export async function openPhononStream(text, report, signal, mobile, onFirstAudio) {
   const prepared = preparePhonon(report, mobile);
   const engine = await prepared;
   signal.throwIfAborted();
@@ -66,7 +66,7 @@ export async function openPhononStream(text, report, signal, mobile) {
     }
   });
   return {
-    chunks: to16k(speech, engine.sampleRate),
+    chunks: to16k(observeFirstAudio(speech, onFirstAudio), engine.sampleRate),
     done: speech.done,
   };
 }

@@ -23,6 +23,9 @@ export function createStreamPlayback(context) {
       timeline.push({ time, end: time + buffer.duration, offset: samples, length: pcm.length });
       samples += pcm.length;
       source.start(time);
+      // Scheduled output start in the page's monotonic clock; excludes unknown
+      // hardware/output latency. This includes our 20 ms scheduling lead.
+      return performance.now() + Math.max(0, time - context.currentTime) * 1000;
     },
     playhead() {
       const now = context.currentTime;

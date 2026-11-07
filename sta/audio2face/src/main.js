@@ -263,6 +263,21 @@ function setReplay(wav, samples, label) {
 }
 
 async function streamSpeech(text, engine) {
+  const started = performance.now();
+  const firstTts = document.querySelector('#tts-first-audio');
+  const firstSta = document.querySelector('#sta-first-audio');
+  const staTiming = document.querySelector('#sta-block-time');
+  for (const element of [firstTts, firstSta, staTiming]) {
+    element.textContent = '—';
+    for (const key of Object.keys(element.dataset)) delete element.dataset[key];
+  }
+  let firstAudioMs;
+  const onFirstAudio = () => {
+    if (firstAudioMs !== undefined) return;
+    firstAudioMs = performance.now() - started;
+    firstTts.dataset.ms = String(firstAudioMs);
+    firstTts.textContent = `${Math.round(firstAudioMs)} ms`;
+  };
   const { label } = engines[engine];
   const previousFrames = frames;
   const previousHeadRotations = headRotations;
@@ -297,25 +312,37 @@ async function streamSpeech(text, engine) {
       const tts = await selectSpeechEngine(engine);
       signal.throwIfAborted();
       return engine === 'phonon'
-        ? tts.openPhononStream(text, report, signal, appleMobile)
-        : tts.openOnnxStream(engine, text, report, signal);
+        ? tts.openPhononStream(text, report, signal, appleMobile, onFirstAudio)
+        : tts.openOnnxStream(engine, text, report, signal, onFirstAudio);
     };
     const loadingModel = prepareModel();
     // On mobile, avoid overlapping cold startup allocations. Both sessions
-    // stay loaded, so preparing them separately skips startup here.
+    // stay loaded for subsequent generations.
     const loadingSpeech = appleMobile ? loadingModel.then(startSpeech) : startSpeech();
     const [loadedModel, speech] = await Promise.all([loadingModel, loadingSpeech, resumed]);
     signal.throwIfAborted();
     const blocks = [];
     let samples = 0;
+    let processingMs = 0;
     for await (const block of animationBlocks(loadedModel, speech.chunks, signal)) {
       signal.throwIfAborted();
       headRotations.push(...block.rotations);
       frames.push(...block.frames);
       blocks.push(block.pcm);
       samples += block.pcm.length;
-      livePlayback.enqueue(block.pcm);
+      processingMs += block.processingMs;
+      const scheduledStart = livePlayback.enqueue(block.pcm);
+      const averageMs = processingMs / blocks.length;
+      const averageAudioMs = samples / 16 / blocks.length;
+      const realtime = processingMs > 0 ? (samples / 16 / processingMs).toFixed(1) : '—';
+      staTiming.textContent = `${averageMs.toFixed(1)} ms / ${Math.round(averageAudioMs)} ms · ${realtime}× real-time`;
+      staTiming.dataset.processingMs = String(processingMs);
+      staTiming.dataset.audioMs = String(samples / 16);
+      staTiming.dataset.blocks = String(blocks.length);
       if (blocks.length === 1) {
+        const firstPlaybackMs = scheduledStart - started;
+        firstSta.dataset.ms = String(firstPlaybackMs);
+        firstSta.textContent = `${Math.round(firstPlaybackMs)} ms`;
         progress.hidden = true;
         report('Streaming speech and animation…');
       }

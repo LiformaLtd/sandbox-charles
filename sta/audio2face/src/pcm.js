@@ -2,6 +2,32 @@
 // changing the size of a speech chunk cannot introduce an audio seam.
 const filterCache = new Map();
 
+// Observe the first producer chunk even while STA is still loading. Prefetch
+// only one chunk; subsequent reads retain the consumer's normal backpressure.
+export function observeFirstAudio(chunks, onFirstAudio) {
+  if (!onFirstAudio) return chunks;
+  const notify = () => { onFirstAudio?.(); onFirstAudio = undefined; };
+  const iterator = chunks[Symbol.asyncIterator]();
+  const first = iterator.next().then((item) => {
+    if (!item.done && item.value.length) notify();
+    return item;
+  });
+  // The consumer awaits this same promise and receives any failure below.
+  first.catch(() => {});
+  return (async function* () {
+    try {
+      let item = await first;
+      while (!item.done) {
+        if (item.value.length) notify();
+        yield item.value;
+        item = await iterator.next();
+      }
+    } finally {
+      await iterator.return?.();
+    }
+  })();
+}
+
 function makeFilters(phases, radius, cutoff) {
   if (!filterCache.has(phases)) {
     const filters = Array.from({ length: phases }, (_, phase) => {

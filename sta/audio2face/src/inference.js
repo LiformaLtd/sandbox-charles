@@ -139,12 +139,15 @@ async function* blendshapeBlocks(runCompact, audio, signal, inferHead) {
     );
     let output;
     try {
+      const started = performance.now();
       output = await runCompact(samples);
+      const processingMs = performance.now() - started;
       const head = await pendingHead;
       if (head?.error) throw head.error;
       yield {
         sampleIndices,
         pcm,
+        processingMs,
         head: head?.track,
         geometry: output.data.subarray(first * 52, (first + sampleIndices.length) * 52),
       };
@@ -163,11 +166,11 @@ export async function* animationBlocks({ ort, session, compact, runCompact }, au
     ? blendshapeBlocks(runCompact, audio, signal, inferHead)
     : geometryBlocks(ort, session, audio, noise ??= diffusionNoise(), 1, inferHead);
   const width = compact ? 52 : 88831;
-  for await (const { sampleIndices, geometry, pcm, head } of source) {
+  for await (const { sampleIndices, geometry, pcm, head, processingMs } of source) {
     const block = geometry.slice();
     const frames = sampleIndices.map((_, i) => block.subarray(i * width, (i + 1) * width));
     const rotations = head ? joinHeadWindow(head, previous, sampleIndices) : sampleIndices.map(() => undefined);
     previous = head;
-    yield { frames, pcm, rotations };
+    yield { frames, pcm, rotations, processingMs };
   }
 }

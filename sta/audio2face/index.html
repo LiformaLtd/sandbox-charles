@@ -67,6 +67,11 @@
         <progress id="progress" aria-label="Model preparation or generation progress" hidden></progress>
         <div id="playback" class="playback" hidden>
           <div class="playback-label"><strong id="playback-engine">Playback</strong><span id="duration"></span></div>
+          <dl class="performance-stats" aria-label="Last generation timings" title="First-audio timings start at Generate and include model loading. First playback is the scheduled start, before device output latency.">
+            <div><dt>First TTS audio</dt><dd id="tts-first-audio">—</dd></div>
+            <div><dt>First playback · TTS + STA</dt><dd id="sta-first-audio">—</dd></div>
+            <div title="Average STA inference time / average emitted audio duration. Real-time speed is total emitted audio divided by total inference time."><dt>STA per block (avg)</dt><dd id="sta-block-time">—</dd></div>
+          </dl>
           <button type="button" id="stop-stream" class="stop-stream" hidden>Stop streaming</button>
           <audio id="audio" controls preload="auto" aria-label="Generated speech"></audio>
           <div class="head-motion-control">

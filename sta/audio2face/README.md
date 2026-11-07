@@ -21,6 +21,18 @@ The hosted build plays a smoothed, precomputed DAWN idle loop during both
 idle and speech. Live speech-driven head gestures use the local DAWN service
 described below.
 
+Playback shows timings from the most recent generation. **First TTS audio**
+measures from Generate to the engine's first raw samples. **First playback ·
+TTS + STA** measures to the first scheduled audio start with animation ready;
+it includes scheduling lead but excludes unknown device output latency. Both
+include cold model loading. **STA per block** averages feature extraction and
+inference/readback time, excluding waits for TTS and model loading. Its audio
+duration is the emitted crop, normally 500 ms from overlapping one-second
+windows, with shorter boundary blocks. The real-time factor divides total
+emitted audio duration by total inference time. Replaying retains the original
+generation's timings. Run `node --test scripts/test-stream-timing.mjs` for the
+first-audio observation checks.
+
 ```sh
 vercel deploy --environment preview
 ```

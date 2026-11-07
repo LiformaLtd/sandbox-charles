@@ -10,8 +10,8 @@ export function releaseOnnxTts(engine) {
   workers.delete(engine);
 }
 
-export function openOnnxStream(engine, text, report, signal) {
-  const pcm = runWorker(engine, text, report, signal);
+export function openOnnxStream(engine, text, report, signal, onFirstAudio) {
+  const pcm = runWorker(engine, text, report, signal, onFirstAudio);
   return {
     chunks: to16k(pcm, engines[engine][1]),
   };
@@ -24,7 +24,7 @@ export async function prepareOnnxTts(engine, report) {
   }
 }
 
-function runWorker(engine, text, report, signal) {
+function runWorker(engine, text, report, signal, onFirstAudio) {
   signal?.throwIfAborted();
   const [SpeechWorker, rate] = engines[engine];
   const worker = workers.get(engine) ?? new SpeechWorker();
@@ -52,7 +52,10 @@ function runWorker(engine, text, report, signal) {
             report(data.message);
             break;
           case 'audio':
-            if (data.rate === rate) controller.enqueue(data.pcm);
+            if (data.rate === rate) {
+              if (data.pcm.length) { onFirstAudio?.(); onFirstAudio = undefined; }
+              controller.enqueue(data.pcm);
+            }
             else fail(new Error(`Unexpected TTS sample rate: ${data.rate} Hz.`));
             break;
           case 'done':

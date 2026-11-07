@@ -84,8 +84,11 @@ export async function* geometryBlocks(ort, session, audio, noise, identity = 1, 
         : undefined;
       const window = tensor(samples, [1, sampleRate]);
       let output;
+      const started = performance.now();
+      let processingMs;
       try {
         output = await session.run({...shared, window, input_latents: state});
+        processingMs = performance.now() - started;
       } finally {
         window.dispose();
       }
@@ -98,7 +101,7 @@ export async function* geometryBlocks(ort, session, audio, noise, identity = 1, 
           );
           const result = await head;
           if (result?.error) throw result.error;
-          yield { sampleIndices, geometry, pcm, head: result?.track };
+          yield { sampleIndices, geometry, pcm, head: result?.track, processingMs };
         }
       } finally {
         output.prediction.dispose();

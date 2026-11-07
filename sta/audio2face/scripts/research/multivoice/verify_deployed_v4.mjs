@@ -23,6 +23,21 @@ try {
     window.qa = () => ({ poses, pipelines, audio });
   });
   const ready = () => page.waitForFunction(() => !document.querySelector('#generate').disabled, null, { timeout: 60000 });
+  const timingStats = async () => {
+    const timing = await page.evaluate(() => ({
+      tts: +document.querySelector('#tts-first-audio').dataset.ms,
+      playback: +document.querySelector('#sta-first-audio').dataset.ms,
+      processing: +document.querySelector('#sta-block-time').dataset.processingMs,
+      audio: +document.querySelector('#sta-block-time').dataset.audioMs,
+      blocks: +document.querySelector('#sta-block-time').dataset.blocks,
+      display: document.querySelector('#sta-block-time').textContent,
+    }));
+    assert.ok(timing.tts > 0 && timing.playback >= timing.tts);
+    assert.ok(timing.processing > 0 && timing.blocks > 1);
+    assert.ok(timing.audio / timing.blocks <= 500);
+    assert.equal(+timing.display.match(/([\d.]+)×/)[1], +(timing.audio / timing.processing).toFixed(1));
+    return timing;
+  };
   await page.goto(base + '/'); await ready();
   assert.equal(await page.locator('select[name=animation]').inputValue(), 'compact-v4');
   assert.equal(await page.locator('select[name=runtime]').inputValue(), 'webgpu');
@@ -44,7 +59,7 @@ try {
     await page.waitForFunction(n => qa().poses > n + 10, stats.poses);
     const filename = model === 'compact-v4' ? 'james-arkit-student-v4.onnx' : 'james-arkit-student-v3.onnx';
     assert.ok(requests.slice(at).some(u => u.includes(filename)), 'Wrong model asset');
-    runs.push({ model, stats, duration: await page.locator('#duration').textContent(), idle: true });
+    runs.push({ model, stats, timing: await timingStats(), duration: await page.locator('#duration').textContent(), idle: true });
   }
   if (process.env.TEST_SUPERTONIC === '1') {
     await page.locator('input[name=engine][value=supertonic]').check();
@@ -53,7 +68,7 @@ try {
     await page.waitForFunction(() => document.querySelector('#status').textContent === 'Animation ready to replay.'
       || document.querySelector('#status').classList.contains('error'), null, { timeout: 120000 });
     await ready(); assert.equal(await page.locator('#status').textContent(), 'Animation ready to replay.');
-    runs.push({ model: 'compact-v4', engine: 'supertonic', duration: await page.locator('#duration').textContent() });
+    runs.push({ model: 'compact-v4', engine: 'supertonic', timing: await timingStats(), duration: await page.locator('#duration').textContent() });
   }
   if (process.env.TEST_CPU === '1') {
     for (const model of ['compact-v3', 'compact-v4']) {
@@ -66,7 +81,7 @@ try {
       assert.equal(await page.locator('#status').textContent(), 'Animation ready to replay.');
       const stats = await page.evaluate(() => qa());
       assert.equal(stats.pipelines, 0); assert.ok(stats.audio > 0);
-      runs.push({ model, runtime: 'cpu', stats, duration: await page.locator('#duration').textContent() });
+      runs.push({ model, runtime: 'cpu', stats, timing: await timingStats(), duration: await page.locator('#duration').textContent() });
     }
   }
   assert.deepEqual(errors, []);
