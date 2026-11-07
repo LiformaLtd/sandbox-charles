@@ -1,0 +1,8 @@
+node_modules/
+.svelte-kit/
+build/
+.local/
+static/assets/
+static/models/
+static/dictionary/
+__pycache__/
