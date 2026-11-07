@@ -1234,3 +1234,36 @@ contact hits, conditional timing and opening error separately. Model buffer
 allocation is not total browser peak memory, and desktop speed is not iPhone
 speed. Target the next independent test at representation/supervision or temporal
 state rather than buying more of the same channels without evidence.
+
+
+## 27. Training-only state supervision preserved cost but did not fix closures
+
+The [articulation-state experiment](compact-articulation-state-results.md) added
+a training-only linear closing/closed/opening/open classifier to the existing
+96-channel representation. Labels came from teacher geometry, not phoneme onset.
+Ignore frames with invalid neighbours so padding does not create artificial
+motion states. Both arms instantiated identical heads and used identical data,
+replay and sampled minibatches. The control reproduced the previous experiment's
+export byte for byte, and gradient checks showed the new loss reached the encoder.
+
+On 96 fresh recordings / 384 levels, original-level RMS improved only 0.37%
+versus control (about 0.010 mm). Both engines improved slightly in RMS, but
+contact F1 declined from 0.75151 to 0.74948, and well-timed /m b p/ hits did not
+improve. The frozen 5% quality screen failed. A smooth geometry-error reduction
+is not sufficient evidence of better articulation. Keep published coverage-r2;
+do not tune state thresholds against the now-inspected confirmation set.
+
+Removing the auxiliary head before export retained exactly 331,047 parameters,
+2,251,827 bytes, the original ONNX runtime graph, 25 explicit GPU buffers and
+1,492,236 model GPU bytes. Native/WebGPU full-track parity and sixteen synchronized
+James review cases passed. Warm block timings were effectively unchanged at
+about 1 ms on this desktop, with no new total-page or physical-iPhone peak claim.
+
+A post-hoc decomposition on these recordings measured 0.374 mm teacher-to-rig
+fitting RMS versus 2.627 mm student-to-fitted-target RMS. Prediction remains the
+larger error source here; this is not evidence that fitting quality never matters.
+A training-only classifier changes supervision without giving the deployed
+network carried motion history. Test a tiny stateful temporal decoder/short
+motion prior independently next, keeping the efficient audio frontend. Its
+benefit remains a hypothesis, and state reset, streaming seams, memory and fresh
+closure behavior must be measured before any release.
