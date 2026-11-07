@@ -99,10 +99,17 @@ loudness fine-tune (seed 37, epoch 15). It retains the same 2.25 MB download,
 improving quiet/loud RMS by 3.4% and extra-quiet RMS by 7.3% versus a matched
 fine-tuning control. Those are single-seed follow-up results, separate from the
 earlier three-seed confirmation. See [gain results](docs/plans/compact-gain-robustness-results.md).
-The current revision is **coverage-r2**, trained on broader distinct speech at
+The preceding revision is **coverage-r2**, trained on broader distinct speech at
 the same 2.25 MB size. New original-speech RMS improved 2.5% versus gain-r1,
 with mixed closure results. The immutable gain-r1 predecessor is retained.
 See [coverage results](docs/plans/compact-coverage-results.md).
+The current revision is **scale-r3**, expanded-data seed 37, development-selected
+step 2976. This exact export improves confirmation lip-gap RMS 6.52% versus
+coverage-r2, with the same 2.25 MB download and GPU buffers. The 7.22% result
+is the three-seed mean, not the score of this individual export. The initial
+control-relative screen missed its target; publication is requested for iPhone
+testing, not a claim of independent release confirmation. See
+[data-scale results](docs/plans/compact-data-scale-results.md).
 Open `?model=compact-v4&sta=webgpu` to test v4, then select v3 to compare the
 same dialogue. Switching reloads the page and retains the text, engine and view.
 The demo opens with **Compact ARKit v4** selected in the model
@@ -129,7 +136,7 @@ curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-
   -o .local/arkit-student/james-arkit-student-v2.onnx
 curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v3/james-arkit-student-v3.onnx \
   -o .local/arkit-student/james-arkit-student-v3.onnx
-curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v4-coverage-r2/james-arkit-student-v4.onnx \
+curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v4-scale-r3/james-arkit-student-v4.onnx \
   -o .local/arkit-student/james-arkit-student-v4.onnx
 ```
 
@@ -203,4 +210,5 @@ at runtime.
 The unchanged compact network was tested with a larger independently synthesized
 corpus and a matched training-budget grid. See [results and limitations](docs/plans/compact-data-scale-results.md)
 and [reproduction instructions](scripts/research/data_scale/README.md). The study
-does not change the published v4 model or browser defaults.
+initially left production unchanged; the subsequently requested scale-r3 release
+uses its seed-37 model, retaining WebGPU as the browser default.

@@ -166,3 +166,18 @@ fixes so a later release cannot accidentally revert them. The next release
 needs a documented selection rule and listening/visual checks; do not choose
 seed 101 simply because it has the lowest confirmation error. Keep current
 production v4 until a deliberate model publication step.
+
+## Requested scale-r3 release
+
+Following the research report, the user requested updating v4 and publishing it
+for iPhone testing. Retain seed **37**, the original pilot identity, with its
+**development-selected step 2976**; do not select seed 101 from confirmation.
+This individual export improves original-level RMS **6.52% versus coverage-r2**,
+not the three-seed mean of 7.22%. Its control-relative pilot screen remains failed.
+
+Immutable CDN prefix: `models/speech-to-animation/lf-sta/arkit-student-v4-scale-r3`.
+`publish_v4.mjs` pins the selected hash and step, publishes the model, existing
+license/notice files and checksum manifest, and downloads each to verify bytes.
+The old coverage-r2 URL remains available. The hosted v4 redirect now uses
+scale-r3; the UI retains v4 and WebGPU as defaults, with idle animation unchanged.
+Physical iPhone testing is the purpose of this release, not a completed claim.
