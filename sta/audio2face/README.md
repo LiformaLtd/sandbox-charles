@@ -246,3 +246,5 @@ Frozen mouth experts: [James compatibility results](docs/plans/mouth-expert-comp
 Training-only SyncNet: [matched quality, WebGPU speed and memory results](docs/plans/compact-syncnet-loss-results.md).
 
 Full-corpus fit: [training/test measurements and frozen-readout diagnostic](docs/plans/compact-training-fit-results.md).
+
+Closure-protected training: [matched quality, WebGPU speed and memory results](docs/plans/compact-closure-protected-results.md).

@@ -1883,3 +1883,38 @@ clips per model stays within1.13e-6. The new graph, total331,047 parameters and
 2,251,827-byte file stay unchanged except for two readout tensors. No new browser
 performance/memory measurement or deployment is claimed. Production WebGPU and
 continuous idle animation remain unchanged.
+
+
+## 42. Same-batch closure protection does not improve the full-corpus fit
+
+The [closure-protected experiment](compact-closure-protected-results.md) checks
+conflicting gradients before training, then compares actual AdamW-displacement
+projection and nonlinear contact/timing backtracking against ordinary updates.
+Both arms retain331,047 parameters,2,251,827 bytes, the original loss, identical
+scheduled batches and3,720 updates. It is not standard PCGrad. Accepted motion
+and time differ; attempted updates still advance Adam moments/counters.
+
+Fitting/contact gradients conflict on65.625% of64 fixed probes, fitting/timing
+on32.8125%, but only8/64 actual first Adam proposals violate the guards. Thus
+conflict is real without proving it is the dominant cause of fit error. During
+training535/3720 protected parameter steps are skipped. Recorded same-batch
+nonlinear guards pass, but this does not guarantee unseen closure quality.
+
+On the fresh96-original-clip cohort, protected/control gap RMS is2.61176/2.58937mm;
+original training RMS is1.70073/1.66929mm. Treatment is.865% worse on test and1.883%
+worse on training. Both TTS engines worsen, F1 falls.79979→.79815, and /m,b,p/
+hits tie34/64/52. Slightly better missed contacts and onset timing coexist with
+worse false closures and release timing. The predeclared screen fails. This new
+cohort has a different absolute difficulty from previous test sets. Improvement
+relative to published v4 comes largely from ordinary additional fine-tuning and
+must not be attributed to protection. Neither new arm is promoted.
+
+The unchanged production WebGPU graph stays about1ms per500ms block, with the
+same1,492,236 explicit GPU bytes. Three fresh desktop WebKit footprint trials per
+model peak524–538MiB with animated James and short/long/repeated prerecorded STA.
+TTS, initial rig loading, network and browser-parent memory are excluded. This
+is not a full-pipeline iPhone claim or a memory improvement. Export/native parity,
+reset identity and synchronized review controls pass. Keep deployed v4 and idle
+animation. Repeated loss/optimizer variants have not removed the substantial
+training residual; investigate representation and target consistency rather
+than assuming another scalar loss adjustment will produce a large gain.
