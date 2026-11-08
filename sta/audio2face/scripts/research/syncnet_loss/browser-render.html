@@ -1,0 +1,5 @@
+<!doctype html><html><head><style>body{margin:0;background:#000}#face{width:224px;height:224px}</style></head><body><div id="face"></div><script type="module">
+import {createJames} from '/src/rig.js';
+const rig=await createJames(document.querySelector('#face'),{compact:true});rig.view(false);
+window.renderClip=weights=>weights.map(w=>{rig.pose(w,0);rig.draw();return document.querySelector('canvas').toDataURL('image/png').split(',')[1];});window.ready=true;
+</script></body></html>

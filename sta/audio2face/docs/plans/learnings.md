@@ -1727,3 +1727,69 @@ useful gradients, subtle-error sensitivity, intelligibility, resistance to
 optimizer exploitation or an improvement over v4. Neither expert/student was
 trained; no browser weights/runtime/idle behaviour changed. Keep these inspected
 compatibility clips separate from any future model confirmation set.
+
+
+## 40. Training-only SyncNet: preserve the actual rendering domain and require a matched gain
+
+The [matched SyncNet pilot](compact-syncnet-loss-results.md) retains the complete
+current-v4 browser graph, audio frontend, lookahead,331,047 parameters and2,251,827
+bytes. A compatible frozen expert does not automatically provide an effective
+training objective. Validate both the images used during training and the way its
+gradient reaches the student, then test generalization against ordinary fine-tuning.
+
+An offline differentiable James renderer was not an adequate substitute for the
+actual Three face. Triangle attempts failed numerical-gradient checks; a smooth
+point renderer eventually passed derivatives, timing and reduced-opening checks,
+but preferred correct motion to missing closures on only4/8 clips. Do not accept
+correct derivatives of images that fail the intended perceptual discrimination.
+That renderer was rejected before any student update. Its sources/results remain
+available separately from the final training method.
+
+The final pilot evaluates the original frozen SyncNet on actual Three/WebKit
+images. A single-view renderer reproduces sampled compatibility images exactly.
+Sixteen Rademacher central probes at coefficient epsilon.003 estimate the visual
+loss gradient on five25fps frames. A separate max-.001 coefficient descent
+check improves actual distance on all eight first-batch training examples. This
+is a stochastic finite-scale estimate, not exact analytic rendering gradients.
+Its cotangent transfers through clipping/interpolation to MLX; the Torch/MLX
+backbone vector-product relative difference is below one part per million.
+The prior−40ms scorer alignment stays fixed; labels/playback timing do not move.
+
+Both arms run the same3,720 updates, seed37 main batches, all primary/replay data,
+optimizer and development selection. The control exactly reproduces the previous
+control's export hash. One existing five-frame primary example receives auxiliary
+supervision every four updates, rotating eight voices. The loss is positive excess
+SyncNet distance over the fitted teacher's distance, with zero gradient when the
+unperturbed student score already matches/beats the teacher. Training-only
+calibration sets mean auxiliary backbone norm to25% of ordinary-loss norm,
+with372-update ramp. Probe seeds change independently of the main sampler.
+There are930 scheduled auxiliary examples,454 active; this is sparse supervision,
+not expert loss on every frame of the full corpus. Both arms select step2976.
+
+On a new96-recording /384-gain-case confirmation, raw-teacher lip-gap RMS is
+2.47594mm for v4,2.44256 for control and2.44231 with SyncNet. The added loss gives
+only0.0103% extra improvement over control, not the1.358% seen versus release.
+Contact F1 is.80281 control versus.80209 SyncNet; /m,b,p/ well-timed hits are
+identical41/67/55. Phonon gap improves0.045% while Supertonic worsens0.018%.
+The predeclared≥3% extra-gain and no-engine-regression guards fail. Keep the
+published v4; this trial does not justify promoting the auxiliary loss.
+The24-transcript cluster-bootstrap95% interval spans−0.118% to+0.120% extra
+improvement. It supports neither a meaningful gain nor a significant degradation.
+Prior dense3D mouth RMS slightly worsens2.84445→2.84749mm versus control.
+
+All three exports retain identical operators, frontend/normalization constants
+and1,492,236 explicit GPU bytes. Warm M5 Max WebKit block medians are.98/.96/.99ms
+for v4/control/SyncNet per nominal500ms emitted audio. Three animated-James
+WebContent+GPU peak trials per model span522–532MiB across short/long/repeated
+accelerated STA. TTS and initial rig loading are excluded; this does not measure
+full-pipeline peak memory on a physical iPhone. Native/MLX parity, three browser
+parity runs and byte-identical reset repeats pass. Sixteen synchronized review
+cases pass audio/seek checks. Idle rendering continues; no runtime changes or
+weights are published.
+
+This result does not rule out a denser, lower-variance, adapted or differently
+weighted visual objective. It tests one fixed sparse numerical-gradient recipe.
+Useful local descent directions and success on conspicuous corruptions do not
+establish sensitivity to the remaining small errors, a meaningful student gain,
+or resistance to optimizer exploitation. Preserve the negative result without
+relabeling ordinary fine-tuning's gain as a successful SyncNet improvement.

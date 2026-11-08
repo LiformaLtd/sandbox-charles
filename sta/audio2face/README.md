@@ -242,3 +242,5 @@ Current-v4 learnability: [eight-clip memorisation results](docs/plans/v4-memoris
 Full-corpus loss balancing: [matched quality and browser results](docs/plans/compact-loss-balance-results.md).
 
 Frozen mouth experts: [James compatibility results](docs/plans/mouth-expert-compatibility-results.md).
+
+Training-only SyncNet: [matched quality, WebGPU speed and memory results](docs/plans/compact-syncnet-loss-results.md).
