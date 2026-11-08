@@ -236,3 +236,5 @@ and remains research-only. See its [reproduction instructions](scripts/research/
 Teacher history/noise diagnostic: [protocol and results](docs/plans/teacher-history-compatibility-results.md), with [reproduction steps](scripts/research/teacher_history/README.md).
 
 Jointly trained recurrent-state pilot: [matched quality, browser speed and memory results](docs/plans/compact-recurrent-state-results.md).
+
+Current-v4 learnability: [eight-clip memorisation results](docs/plans/v4-memorisation-results.md).

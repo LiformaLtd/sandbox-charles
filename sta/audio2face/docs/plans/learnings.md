@@ -1594,3 +1594,43 @@ footprint trials with James still animating gave v4 522.9–534.1 MiB, control
 These measure loaded idle page + model startup + accelerated prerecorded short/
 long/repeated STA, excluding initial rig loading, TTS and other browser processes.
 Twenty-ms sampling and desktop WebKit cannot guarantee physical-iPhone peaks.
+
+
+## 37. Current v4 memorises eight clips near their fitted reference; loss trades RMS for contact
+
+The [current-v4 memorisation diagnostic](v4-memorisation-results.md) repeats rather
+than invents the earlier four-clip learnability finding. Always consult previous
+controls before recommending the same experiment. Eight different hash-selected
+training recordings, one per eight Phonon/Supertonic voices, contain 57 windows /
+1,499 supervised frames. Their own fitted-reference gap RMS is 0.35045 mm pooled,
+not the 0.373 mm measured on a separate 96-clip cohort. Freeze selection before
+measuring errors; do not repurpose held-out confirmation clips for this test.
+
+With architecture/frontend/lookahead unchanged, matched 3,000-update full-batch
+training reduced raw error 1.75932→0.39533 mm under pure fitted-coefficient MSE.
+Student-to-fitted-target gap error reached 0.16314 mm. This passes the predeclared
+within-25%-of-reference screen. The existing mixed loss selected step800 at
+0.46053 mm raw / 0.45079 mm fitted-target error and failed that closeness screen;
+its final raw error was 0.46910 mm. Pure MSE selected its final step3000.
+
+The objectives trade measurements: mixed loss contact F1 is .99901 versus .97358
+for pure MSE (initial .88802; fitted reference .98083). Lower gap RMS does not
+alone establish better lip sync. This controlled small-set difference supports
+examining loss balance, but does not isolate which mixed term causes it or prove
+that a production MSE switch will help. Keep event timing/closure measures.
+
+A hard 2–3 mm representational floor from the current file size is unsupported.
+Memorisation does not prove unlimited broad capacity or general phonetic features;
+recording-specific cues can suffice. Generalization, optimization and objective
+trade-offs remain candidates, not a uniquely identified root cause. These training
+fits are not held-out gains and their weights were not published.
+
+Exports remain 2,251,827 bytes / 331,047 parameters with bit-identical frontend and
+normalization. Native complete-stream gap RMS matches training within 0.000002 mm.
+Preserve a numerical caveat: fitted-MSE failed the usual 5e-5 coefficient-parity
+threshold, with maximum delta 2.44e-4; mixed passed at 1.44e-5. Cached NumPy FFT
+versus ONNX convolution changes mel by at most 6.14e-6. Feeding the ONNX mel into
+the same MLX model reproduces nearly all the coefficient change, showing amplified
+frontend rounding sensitivity. This does not invalidate the aggregate memorisation
+result, but it is not deployment parity approval. Do not relax a threshold after
+seeing the result and call it a pass. No browser/memory/phone claim follows.
