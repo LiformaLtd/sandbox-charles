@@ -1634,3 +1634,49 @@ the same MLX model reproduces nearly all the coefficient change, showing amplifi
 frontend rounding sensitivity. This does not invalidate the aggregate memorisation
 result, but it is not deployment parity approval. Do not relax a threshold after
 seeing the result and call it a pass. No browser/memory/phone claim follows.
+
+
+## 38. A fixed fourfold coefficient weight did not transfer the memorisation benefit
+
+The [full-corpus loss-balance pilot](compact-loss-balance-results.md) changes just
+coefficient SmoothL1 weight1→4, retaining raw gap/contact/velocity/timing terms.
+It is not pure MSE and does not test every loss-balancing method. Both arms use
+released v4, the complete existing primary corpus plus historical replay,3,720
+updates and identical sampler/optimizer/development selector. Control values and
+gradients match the original objective exactly. Epoch-zero was eligible; the
+same selector chose control step2,976 and candidate1,116. Different selected
+checkpoints are not different training budgets.
+
+Fresh96-recording /384-gain-case confirmation gives gap RMS2.28384 mm for v4,
+2.24551 for control and2.25118 for candidate. The candidate is0.253% worse than
+control, despite1.430% improvement versus release. Contact F1 falls.80098→.79670.
+Well-timed /m,b,p/ hits are25/71/57 for control and23/74/58 for the candidate;
+totals153→155 conceal lost /m/ hits, and both totals trail release159. Existing
+0–100ms anticipatory scoring is retained. The3% extra-gain, no-engine-regression
+and contact-F1 guards fail. Do not promote this balance or the control from RMS
+alone. A supplementary transcript-cluster bootstrap spans−1.552% to+1.141% extra
+gain and does not support a robust improvement or a significant degradation.
+
+Phonon worsens0.618% versus control; Supertonic improves0.073%. Half/quarter audio
+improves1.01%/2.64%, while original and boost worsen. Preserve these stratified
+positives without replacing the primary endpoint after seeing results. Prior
+surface/feature/recent confirmation also favours control; prior dense3D RMS is
+2.84445 mm control versus2.86464 candidate. Historical gap favours the candidate.
+No single metric/stratum establishes overall lip-sync quality.
+
+Fourfold coefficient emphasis clips gradients on100% of updates, versus68.63%
+for control; mean preclip norms2.621 versus1.150. Same optimizer settings do not
+mean same effective update vectors/magnitudes. This is a measured consequence of
+the loss change, not proof clipping alone caused the result. Held-out coefficient
+MAE did not improve either. Small-set learnability therefore does not imply that
+simply raising coefficient weight improves generalization.
+
+All exports stay331,047 parameters /2,251,827 bytes with identical operators,
+frontend and normalization; the production WebGPU runner stays unchanged. Warm
+M5 Max WebKit block medians are1.02/1.01/1.02ms for v4/control/candidate per nominal
+500ms emitted audio. All allocate1,492,236 explicit GPU bytes. Nine animated-James
+renderer+GPU peak trials span about523–533MiB, with TTS/initial rig load excluded;
+this is not a physical-iPhone full-pipeline claim. Native/MLX and three full browser
+parity runs pass; reset repeats are byte-identical. Keep deployed v4, preserve the
+negative result and require a separate protocol for any new ratio or balancing
+algorithm. No weights were published from this experiment.

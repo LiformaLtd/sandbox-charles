@@ -238,3 +238,5 @@ Teacher history/noise diagnostic: [protocol and results](docs/plans/teacher-hist
 Jointly trained recurrent-state pilot: [matched quality, browser speed and memory results](docs/plans/compact-recurrent-state-results.md).
 
 Current-v4 learnability: [eight-clip memorisation results](docs/plans/v4-memorisation-results.md).
+
+Full-corpus loss balancing: [matched quality and browser results](docs/plans/compact-loss-balance-results.md).
