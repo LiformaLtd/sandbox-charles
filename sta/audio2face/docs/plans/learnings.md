@@ -1793,3 +1793,93 @@ Useful local descent directions and success on conspicuous corruptions do not
 establish sensitivity to the remaining small errors, a meaningful student gain,
 or resistance to optimizer exploitation. Preserve the negative result without
 relabeling ordinary fine-tuning's gain as a successful SyncNet improvement.
+
+### Practical decision after this experiment
+
+For this recipe, the answer is **no meaningful additional quality gain**. Ordinary
+fine-tuning accounts for about 1.35% improvement over released v4; adding SyncNet
+contributes only 0.01% beyond that control, with no additional bilabial hits.
+The substantial renderer engineering and roughly 52s versus 722s training cost
+did not produce a useful improvement. Keep the negative result and stop tuning
+this particular recipe. This is a prioritization decision, not proof that visual
+supervision cannot work.
+
+For subsequent work, prioritize training-data coverage and target quality over
+another small auxiliary-loss variation. Broader speech coverage previously gave
+a measured 5.31% RMS improvement over a matched control (§30). That is stronger
+evidence of a useful direction than this null result. It does not guarantee that
+another corpus expansion will give the same return, or establish data coverage
+as the sole remaining bottleneck. The tiny-set memorisation result (§37) shows
+that the current network can fit known clips closely; it does not prove adequate
+capacity for every unseen voice and phonetic context.
+
+A concrete untested direction is to mine difficult **synthesized audio** using
+the current student's measured errors against teacher targets, then collect new
+voices, contexts or renditions around those failures. Keep this distinct from
+the earlier text-context selection experiment (§33), which did not establish an
+acoustic hard-example benefit. Audit teacher targets for the selected failures
+before increasing their training weight. Compare against equally sized broad
+speech additions with matched student updates and replay, then confirm on fresh
+texts and voices. This is a proposed experiment, not a demonstrated improvement.
+
+For future complex objectives, use staged go/no-go checks: rendering and gradient
+validity first, then a small matched student-training pilot, before scaling up.
+Expert rankings on large corruptions and local descent checks are implementation
+preflights; a held-out student improvement is the evidence needed to justify
+further investment. Track offline engineering/training cost separately from
+browser file size, inference speed and memory.
+
+
+## 41. Measure full training fit and test the final readout before attributing error to generalization
+
+The [full-corpus fit diagnostic](compact-training-fit-results.md) scores every
+primary training frame and all historical replay, rather than inferring fit from
+a tiny memorisation test or a minibatch loss. There are3,840 primary labelled
+clips/751,498 frames and549 replay clips/99,188 frames. Report original-gain
+training separately (1,280 clips) for comparison with original-gain test speech;
+that condition count is different from the pre-gain independent-recording count.
+
+The SyncNet model's original-gain training RMS is1.74377mm, compared with2.44231mm
+on the previous held-out test; all-primary-gain training RMS is1.80916mm.
+The ordinary control gives1.74204mm original /1.80719mm all-primary. Thus neither
+fits the full corpus closely. Same-data fitted-James reference discrepancy is
+.36254mm original /.36193mm all-primary; SyncNet differs from fitted targets by
+1.74879mm /1.81466mm respectively. This reference is not a strict gap optimum;
+RMS values cannot be subtracted into independent error components.
+
+Higher held-out error coexists with substantial training error. Different voices,
+text distributions and condition mixes prevent interpreting the difference as a
+controlled measure of generalization alone. Tiny-set memorisation does not prove
+full-corpus learnability. This measurement does not quantify conflicting teacher
+histories, identify a unique capacity/optimization cause or show that more data
+will or will not help. Do not automatically prescribe data expansion from the
+test score without measuring the fit and auditing targets.
+
+One follow-up freezes the ordinary control's entire learned body and refits only
+its final affine readout to normalized coefficient MSE using float64 sufficient
+statistics. All96 feature directions survive the fixed1e-9 cutoff; the normal-equation
+residual is1.32e-15. Primary voices share75% frame weight, replay25%.
+This is a fixed-objective optimal-readout diagnostic, not a matched SGD-budget
+experiment or a claim about nonlinear readouts. No development/test selection
+or sweep is used. Only3,783 existing parameter values change.
+
+Unclipped normalized coefficient MSE decreases only2.72% (.257119→.250124).
+Original training gap improves1.74204→1.69868mm, and inspected test gap improves
+2.44256→2.38811mm. But test F1 falls.80281→.77553; /m,b,p/ hits fall41/67/55→
+34/51/32, totaling163→117. The scalar RMS improvement is not an acceptable
+animation improvement. Keep published v4 and reject this head. The previous test
+set is now inspected regression evidence for this new diagnostic, not a fresh
+independent confirmation. Its failure needs no further release confirmation.
+
+A simple affine recalibration does not solve the remaining error. This does not
+prove that the existing audio frontend is insufficient: useful information may
+need nonlinear decoding, different representation learning, context, cleaner
+labels or better full-network optimization. Those alternatives need separate
+experiments. Preserve closure/timing constraints when investigating RMS gains.
+
+The measurement adapter matches the existing evaluator on768 clips; all cached
+target frames and cache input fingerprints agree. Native waveform parity on29
+clips per model stays within1.13e-6. The new graph, total331,047 parameters and
+2,251,827-byte file stay unchanged except for two readout tensors. No new browser
+performance/memory measurement or deployment is claimed. Production WebGPU and
+continuous idle animation remain unchanged.

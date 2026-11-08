@@ -244,3 +244,5 @@ Full-corpus loss balancing: [matched quality and browser results](docs/plans/com
 Frozen mouth experts: [James compatibility results](docs/plans/mouth-expert-compatibility-results.md).
 
 Training-only SyncNet: [matched quality, WebGPU speed and memory results](docs/plans/compact-syncnet-loss-results.md).
+
+Full-corpus fit: [training/test measurements and frozen-readout diagnostic](docs/plans/compact-training-fit-results.md).
