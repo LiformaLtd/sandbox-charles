@@ -1502,3 +1502,42 @@ around 1 ms per 500 ms emitted audio; sampled renderer/GPU peaks were about
 525–532 MiB with idle animation active and TTS excluded. Those variations do not
 establish a memory saving or physical-iPhone full-pipeline safety. Keep published
 v4 finetune-r4; further weight/mask/representation trials need new confirmation.
+
+
+## 35. Teacher state changes lips for identical current audio; noise barely does
+
+The [teacher-history compatibility diagnostic](teacher-history-compatibility-results.md)
+ran 304 teacher tracks on 16 fixed-hash suffixes across eight Phonon/Supertonic
+voices. Natural speech/silence prefixes produce reachable recurrent states;
+corresponding current waveform windows are byte-identical after 250 ms. Native
+priming, noise reuse, half-second hops and frame crops were retained. Exact
+original-output projection parity, deterministic repeats, reset-state controls
+and identical stateless-student outputs all passed. Exclude the first 250 ms:
+there the current audio window can still contain prefix audio.
+
+Among three warm histories at seed 0, gap / dense 3D mouth RMS differences were
+1.040 / 1.276 mm during 250–750 ms, 0.148 / 0.186 during 750–1,250 ms,
+0.037 / 0.047 during 1,250–2,250 ms, and 0.007 / 0.007 during 2,250–3,250 ms.
+First-bin contact disagreement was 4.58%. Speech-prefix A versus B alone gives
+0.897 mm gap RMS; cold versus warm silence only 0.050 mm. This is a causal recent
+speech-history effect, not just cold priming. It appears in both engines, larger
+in these Supertonic examples (1.429 versus 0.350 mm first-bin gap RMS). Sixteen
+constructed suffixes are not a production distribution or a general engine rank.
+
+Noise seeds 1–3 versus 0 give just 0.0175 mm gap / 0.0256 mm surface RMS over the
+primary interval. Existing training labels already fix seed 0; do not call this
+random label noise resampled every window. It cannot plausibly explain most of
+the roughly 2–3 mm student error. We changed history only once: later convergence
+means old history decays, not that missing past can matter only at utterance
+startup. Each streaming block can again lack recent pre-window context.
+
+A supplementary uniform warm-history decomposition attributes 5.13% of first-bin
+gap MSE and 7.65% of surface MSE to teacher-history variance on this probe; pooled
+primary shares are about 1.2–1.3%. These are not production error fractions or
+expected recurrent-model gains. Most error here is still conditional-mean bias.
+The result supports a cheap jointly trained 32-unit state versus matched reset/
+stateless controls, not a promised large win or a large memory-heavy sequence
+model. Keep frontend/lookahead fixed and validate free-running speech, closures,
+speed and repeated-play memory. Earlier frozen 117 ms feature-history and longer
+input tests did not test exactly this hypothesis, but their weak gains remain
+relevant evidence. No model was trained or replaced by this diagnostic.

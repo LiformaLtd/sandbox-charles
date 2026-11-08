@@ -232,3 +232,5 @@ The [dense lip-surface experiment](docs/plans/compact-lip-surface-results.md)
 added raw-teacher 3D mouth supervision without increasing browser model size.
 It produced a small gain beyond matched fine-tuning, with a closure trade-off,
 and remains research-only. See its [reproduction instructions](scripts/research/lip_surface/README.md).
+
+Teacher history/noise diagnostic: [protocol and results](docs/plans/teacher-history-compatibility-results.md), with [reproduction steps](scripts/research/teacher_history/README.md).
