@@ -1918,3 +1918,49 @@ reset identity and synchronized review controls pass. Keep deployed v4 and idle
 animation. Repeated loss/optimizer variants have not removed the substantial
 training residual; investigate representation and target consistency rather
 than assuming another scalar loss adjustment will produce a large gain.
+
+## 43. A better offline assistant does not automatically produce a better tiny student
+
+The [jaw audit and assistant-teacher pilot](compact-assistant-teacher-results.md)
+keeps target changes separate from training changes. Regenerating24 fixed clips
+matches cached labels; no label-generation mismatch is found in that sample.
+The existing bounded skin/gap fitter is already regularized and mouth-weighted,
+but omits the separate teacher jaw anchors. A fixed soft jaw constraint improves
+development jaw RMS1.198→1.022mm with unchanged small-sample /m,b,p/ hit counts.
+Lip RMS.3743→.3763mm and weighted skin RMS.4393→.4474mm slightly worsen. Contact
+F1 improves but coefficient velocity rises. This is an anatomical tradeoff, not
+a demonstrated explanation or cure for student training error. Do not overwrite
+all labels from this small audit or assume jaw refinement improves learnability.
+
+The offline assistant has1,266,663 parameters,192 residual channels and a96-channel
+task bottleneck; final students remain331,047 parameters and2,251,827 bytes.
+Function-preserving widening needs symmetry breaking: exact duplicate channels
+can remain identical under gradient descent. Complementary bottleneck-column
+noise cancels initially but produces different encoder-half gradients. Test both
+initial function parity and gradient asymmetry. A checkpoint-loading repair and
+the initial symmetric trajectory are archived; the final pilot is rerun under
+the corrected frozen protocol. It is not an outcome-driven training sweep.
+
+The assistant receives7,440 updates, tiny arms3,720. Combined development gap
+improves5.515% with higher contact F1, passing the predeclared pilot gate. On the
+inspected regression cohort, assistant RMS2.53327mm improves on tiny control
+2.62794mm, but capacity and offline training budget both differ. Total phone hits
+improve while /m/ and /p/ each lose one against v4; this is not closure-safe proof.
+
+Tiny feature/output distillation adds only.377% regression gap improvement over
+matched control:2.62794→2.61803mm. Training RMS1.74204→1.72965mm improves.711%.
+Contact F1 slips.79797→.79763, and /m,b,p/ hits35/64/54→33/64/51 lose five events.
+Supertonic F1, missed contacts and onset timing worsen. Reject this pilot; a better
+teacher and same-family features do not guarantee useful transfer. Do not repeat
+the5.5% assistant development gain as a tiny browser-model gain. Existing cohorts
+are inspected regression evidence; no fresh release confirmation is warranted
+for this failed screen. One seed does not exhaust every distillation method.
+
+The tiny control exactly reproduces the preceding ordinary-control model hash,
+and the two tiny arms have identical scheduled samplers. Final graphs, constants,
+parameter count and bytes remain unchanged. Native/export parity, three WebGPU
+trials and reset repeats pass. STA remains about1ms per500ms block on desktop;
+GPU buffers stay1,492,236 bytes. Desktop WebKit peaks519.85–532.44MiB with animated
+James and prerecorded STA exclude TTS, initial rig loading and browser parent.
+There is no demonstrated speed/memory improvement or physical-iPhone claim.
+Preserve deployed v4 and continuous idle animation.

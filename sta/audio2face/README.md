@@ -248,3 +248,5 @@ Training-only SyncNet: [matched quality, WebGPU speed and memory results](docs/p
 Full-corpus fit: [training/test measurements and frozen-readout diagnostic](docs/plans/compact-training-fit-results.md).
 
 Closure-protected training: [matched quality, WebGPU speed and memory results](docs/plans/compact-closure-protected-results.md).
+
+Jaw targets and intermediate teacher: [audit, matched distillation and browser results](docs/plans/compact-assistant-teacher-results.md).
