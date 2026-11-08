@@ -1541,3 +1541,56 @@ model. Keep frontend/lookahead fixed and validate free-running speech, closures,
 speed and repeated-play memory. Earlier frozen 117 ms feature-history and longer
 input tests did not test exactly this hypothesis, but their weak gains remain
 relevant evidence. No model was trained or replaced by this diagnostic.
+
+
+## 36. Jointly training a small recurrent state is cheap, but gave little extra gain
+
+The [32-unit state pilot](compact-recurrent-state-results.md) retains v4's exact
+waveform filters/mel bank, normalization, interpolation, one-second windows,
+500 ms hops and lookahead. A GRU on tanh(encoded/4) adds a standardized residual;
+all backbone and decoder weights train jointly. The matched control has the same
+cell/head but resets its previous state every emitted frame. Its recurrent
+matrix is dormant; effective temporal capacity intentionally differs. Both
+zero-initialized heads reproduce v4 exactly before training.
+
+Use chronological streams, not randomly isolated windows, when training state.
+Here a shared frozen sampler used twenty slots, up to four consecutive blocks
+per update, state detachment every four blocks and resets at recording boundaries.
+Invalid padding and overlapping non-emitted rows never advance state. Complete
+ordered development clips selected checkpoints. Both arms used 1,240 updates,
+83,731 nonpadding block exposures and selected step 1,116; this bounded pilot is
+shorter in updates than prior 3,720-step trials and does not exhaust recurrent
+training. Fixed inputs, resets, optimizer and selection are essential controls.
+
+On 96 fresh held-out-voice recordings, gap RMS was 2.46400 mm for published v4,
+2.43582 for the stateless control and 2.43150 for recurrence. The 1.319% gain
+versus v4 contains only 0.177% extra benefit from history. Well-timed /m,b,p/ hits
+were 152/158/159; contact F1 .79246/.79541/.79571. Supertonic gap RMS improved
+0.394% versus control while Phonon worsened 0.060%. The 3% extra-gain screen and
+no-engine-regression guard failed. A conditional transcript-cluster bootstrap
+estimated 0.117–0.245% extra gain; this does not cover training-seed uncertainty
+or make the change practically substantial. Prior dense-surface RMS improved only
+0.042% versus control. Do not attribute ordinary fine-tuning gains to recurrence.
+
+The history diagnostic established different teacher outputs at identical current
+inputs, not a promised gain from this particular state/feature/target recipe.
+Missing information can be real while a small pilot recovers little useful error.
+Keep both findings; neither erase the diagnostic nor claim all recurrent methods
+are exhausted. No new model was published from this experiment.
+
+The cell adds 13,703 parameters and 128 bytes of persistent state. ONNX exports
+are about 2.55 MB, partly due to unrolled crop/state graph overhead, versus v4
+2.25 MB. Custom WebGPU reads weights without instantiating that ONNX graph and
+adds only 54,960 explicit GPU buffer bytes. Apply residuals before clipping;
+clipping the baseline first changes the learned function. Preserve native crop/
+state contracts, including short tails and zero-frame no-ops. Native/export and
+three-run GPU parity were within 7.1e-7; reset repeats were byte-identical.
+
+Warm M5 Max desktop WebKit block medians were 1.05 ms for v4 and 1.23 ms for both
+new arms per nominal 500 ms emitted audio (476×/407× isolated STA, excluding TTS
+and rendering). These are not whole-pipeline generation factors. Nine physical
+footprint trials with James still animating gave v4 522.9–534.1 MiB, control
+530.9–536.2 and recurrence 527.0–533.9. Overlap does not establish a memory saving.
+These measure loaded idle page + model startup + accelerated prerecorded short/
+long/repeated STA, excluding initial rig loading, TTS and other browser processes.
+Twenty-ms sampling and desktop WebKit cannot guarantee physical-iPhone peaks.
