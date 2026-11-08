@@ -240,3 +240,5 @@ Jointly trained recurrent-state pilot: [matched quality, browser speed and memor
 Current-v4 learnability: [eight-clip memorisation results](docs/plans/v4-memorisation-results.md).
 
 Full-corpus loss balancing: [matched quality and browser results](docs/plans/compact-loss-balance-results.md).
+
+Frozen mouth experts: [James compatibility results](docs/plans/mouth-expert-compatibility-results.md).

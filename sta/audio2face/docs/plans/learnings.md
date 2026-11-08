@@ -1680,3 +1680,50 @@ this is not a physical-iPhone full-pipeline claim. Native/MLX and three full bro
 parity runs pass; reset repeats are byte-identical. Keep deployed v4, preserve the
 negative result and require a separate protocol for any new ratio or balancing
 algorithm. No weights were published from this experiment.
+
+
+## 39. Test frozen experts on the actual rig; SyncNet passes, AVSR transcript loss does not
+
+The [mouth-expert compatibility screen](mouth-expert-compatibility-results.md)
+used actual rendered James teacher-fitted motion, with fixed gaze/head/blink/
+lighting. Four correct calibration clips determine one global SyncNet feature
+alignment; eight different test clips compare shifts±80/160/320ms, reduced jaw
+opening, removed /m,b,p/ contacts and a static pose. Geometry checks preserve
+existing closures during under-opening and lift only uniquely associated
+bilabial contacts, not silence, above3mm with smooth shoulders. Freeze sources,
+corruptions, crops, checkpoints and pass criteria before reading expert scores.
+
+The paper-distributed frozen Auto-AVSR joint CTC/attention loss fails: correct
+wins4/8 for reduced opening and4/8 for missing closure; required timing variants
+win only3–5/8. Checkpoint-default normalization does not rescue it (2/8,3/8).
+Muted audio improves closure to7/8 but reduced opening remains3/8. Whole-transcript
+recognition with muted audio is not an audiovisual synchronization metric. All
+strict loads, direct-versus-cached loss parity and reversed-token controls pass;
+recognition correctness alone does not validate a visual training signal. The
+paper's training also adapts the lip-reader and masks audio; this frozen test
+does not refute its adapted method or prove one unique cause of failure.
+
+Secondary SyncNetv2, with original MFCC/BGR preprocessing and one fixed−40ms
+visual-feature alignment selected only on correct calibration clips, prefers
+correct motion8/8 for EVERY corruption and both engines4/4. No per-example or
+per-corruption alignment search is allowed. The40ms is scorer alignment, not a
+change to production playback or phoneme labels. A subsequent separately frozen
+confirmation selected eight text-disjoint clips from another corpus, with the
+same expert/crop/corruptions/offset: again8/8 on every condition. This is144 paired
+wins across two sets but only16 independent clips, not144 independent utterances.
+Do not retrospectively describe a selected-secondary confirmation as a successful
+initial primary AVSR experiment.
+
+The official SyncNet real-video example recovered expected offset3, minimum mean
+distance5.3518 and confidence10.087 (README about5.353/10.021), supporting the
+implementation. Actual local/CDN rig assets match; all20 calibration/test/
+confirmation cases pass input/frame/geometry checks. Every assessed test clip's
+scored SyncNet windows see the closure corruption. Calibration clips are not
+corruption tests; one has contacts outside that common interior.
+
+This supports a matched training-only SyncNet-loss trial, retaining geometry/
+closure constraints and current browser architecture. It does not yet establish
+useful gradients, subtle-error sensitivity, intelligibility, resistance to
+optimizer exploitation or an improvement over v4. Neither expert/student was
+trained; no browser weights/runtime/idle behaviour changed. Keep these inspected
+compatibility clips separate from any future model confirmation set.
