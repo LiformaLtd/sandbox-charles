@@ -1453,3 +1453,52 @@ the lower result. This did not establish a repeatable weight-dependent memory
 increase or saving. TTS was excluded and idle animation continued; these are
 not physical-iPhone full-pipeline guarantees. A missing local rig-file setup
 error was fixed before collecting valid browser measurements.
+
+## 34. Full 3D lip supervision is cheap to export, but this pilot gave a small gain
+
+The [dense lip-surface study](compact-lip-surface-results.md) directly supervised
+raw teacher positions over a fixed 2,267-vertex mouth/perioral region, all three
+axes, including the original 18 gap landmarks and lateral/depth geometry. Bounds
+reuse the earlier fitter's mouth region, not a hand-annotated vermilion mask.
+Only 1,077 selected vertices overlap the older frontal fit mask. Always match
+vertex/channel order and compare `R+wB` with `S+D`; target relative to rig neutral
+is `D+(S−R)`. Dropping that offset creates a systematic coordinate-frame error.
+
+A linear rig permits EXACT dense-MSE sufficient statistics: per axis retain
+`tBᵀ/V` and `mean(t²)`, with fixed `BBᵀ/V`. Loss is `wGw−2wq+s`. Retain `s`
+when reporting raw geometry error, including residual outside the rig span.
+This reduced 6,801 coordinates to 120 float32 values per frame without a learned
+compression or lost dense-loss gradients. Absolute head-height coordinates
+must not be naively stored in float16. The unchanged teacher backend can project
+before host transfer while preserving state/priming/crops; verify against the
+untouched output and all existing gap references. Here all 5,088 case references
+matched pinned gaps exactly, and dense/CPU/MLX gradient checks passed.
+
+Both arms shared current v4, data, 3,720 updates, sampled batches and a joint
+surface/gap/contact development selector. One training minibatch calibrated the
+surface weight to 25% of ordinary backbone-gradient norm (coefficient 0.64982),
+with a 372-step ramp. No coefficient sweep or test-driven selection was used.
+The joint selector is shared but differs from the earlier gap-only selector;
+matched fine-tuning is essential for attribution.
+
+On 96 fresh recordings / 384 gain cases, dense 3D RMS was 2.89763 mm for released
+v4, 2.84445 for control and 2.80955 for surface supervision. The improvement is
+3.04% versus release but only 1.23% versus matched control. Gap RMS improved 0.41%
+versus control, and both engines improved on both measurements. Well-timed
+closures fell 164→161; contact F1 declined slightly. The predeclared 3% extra-gain
+screen and closure-total guard failed. Do not label the entire baseline-relative
+gain as the benefit of surface supervision or hide the closure trade-off.
+
+Dense3D error and nine-gap error are different metrics. Report both on the same
+cohort and break surface error into lateral/vertical/depth components. Here depth
+was the largest component. Teacher-fitted rig surface RMS was 0.85555 mm, versus
+student 2.80955: prediction remains the larger measured stage, not proof of an
+irreducible noise floor or guaranteed recoverability. The fitted target is a
+retargeting reference, not a strictly optimal full-surface oracle.
+
+No model parameters, inputs or buffers were added: 2,251,827 bytes, 331,047
+parameters and 1,492,236 explicit GPU bytes. Warm desktop WebKit blocks stayed
+around 1 ms per 500 ms emitted audio; sampled renderer/GPU peaks were about
+525–532 MiB with idle animation active and TTS excluded. Those variations do not
+establish a memory saving or physical-iPhone full-pipeline safety. Keep published
+v4 finetune-r4; further weight/mask/representation trials need new confirmation.

@@ -227,3 +227,8 @@ The [targeted difficult-speech pilot](docs/plans/compact-targeted-speech-results
 compared context-enriched speech with matched broad speech and ordinary
 fine-tuning. It found no meaningful extra lip-gap gain; production remains
 finetune-r4. See its [reproduction instructions](scripts/research/targeted_speech/README.md).
+
+The [dense lip-surface experiment](docs/plans/compact-lip-surface-results.md)
+added raw-teacher 3D mouth supervision without increasing browser model size.
+It produced a small gain beyond matched fine-tuning, with a closure trade-off,
+and remains research-only. See its [reproduction instructions](scripts/research/lip_surface/README.md).

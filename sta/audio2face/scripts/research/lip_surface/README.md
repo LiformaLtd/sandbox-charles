@@ -1,6 +1,7 @@
 # Dense lip-surface supervision without a larger browser model
 
-Read the [frozen pilot](../../../docs/plans/compact-lip-surface.md).
+Read the [frozen pilot](../../../docs/plans/compact-lip-surface.md) and
+[results](../../../docs/plans/compact-lip-surface-results.md).
 This is offline research starting from released v4 finetune-r4. Both arms export
 only the existing compact waveform model; no new browser speech encoder,
 phoneme timings, head, loss tensors or surface target files are shipped.
