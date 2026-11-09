@@ -252,3 +252,5 @@ Closure-protected training: [matched quality, WebGPU speed and memory results](d
 Jaw targets and intermediate teacher: [audit, matched distillation and browser results](docs/plans/compact-assistant-teacher-results.md).
 
 Frozen-v4 residual learning: [fresh-speech quality, closure and browser comparison](docs/plans/compact-residual-learning-results.md).
+
+Earlier residual features: [matched early/late comparison and browser results](docs/plans/compact-earlier-features-results.md).

@@ -2004,3 +2004,37 @@ Three WebKit footprint trials per model span523.56–538.52MiB with animated Jam
 excluding TTS, initial rig loading and browser parent. Native/GPU parity, reset
 repeats and sixteen audio/seek review cases pass. No full-pipeline/iPhone memory
 claim is made. This one-seed candidate fails quality gates; keep deployed v4.
+
+## 45. The first encoder features do not improve a matched pointwise correction head
+
+The [earlier-feature ablation](compact-earlier-features-results.md) changes only
+the96-channel source of the residual head: first5-tap convolution/GELU versus
+final features after eight temporal blocks. Both receive identical frozen39-way
+base predictions and keep the same head, initial function, loss, seed,7,440
+scheduled batches and selector. Each source gets normalization from the same32
+fixed training batches. No new context, encoder, state or lookahead is added.
+This is an early learned representation, not a raw log-mel or temporal-head test.
+
+The late control reproduces the previous residual pilot's selected head exactly,
+validating the new split feature/prediction cache. Both select step1240. Export
+normalization explicitly materializes PyTorch's equal kind-flag alias so graphs
+and file sizes match. Initial functions/losses and frozen base parameters agree.
+
+On96 fresh original clips (24 disjoint texts/four voices outside training), early
+lip RMS2.46190mm versus late2.46226mm is just.01452% better. Training RMS is
+slightly worse. Both heads achieve182 well-timed /m,b,p/ hits versus v4's177,
+but contact F1 falls.80880→.80791 with early features, Supertonic F1 worsens,
+false/missed contacts increase and onset timing deteriorates. This fails the3%
+extra-gain and contact guards. Event-hit preservation alone is insufficient.
+Do not compare absolute error with previous cohorts or call this tiny difference
+a practical improvement. One seed does not exhaust earlier-feature methods.
+
+Both whole models remain2.322775MB/347,886 parameters, with16,839 trainable head
+parameters. A preserved encoder buffer lets WebGPU reuse the actual early features
+without repeating the encoder or opening a second session. Explicit GPU memory
+is1,598,768 bytes/26 buffers versus v4's1,492,236/25, an extra106,532 bytes. Three
+desktop WebKit trials give median1.04ms per500ms emitted audio for early,1.08ms
+late and1.00ms v4; slow first trials remain reported. Browser parity, resets and
+sixteen audio/seek review cases pass with idle rendering continuing. Process
+peaks521.88–534.44MiB exclude TTS, initial rig load and browser parent and do not
+establish iPhone/full-pipeline memory. Keep deployed v4 unchanged.
