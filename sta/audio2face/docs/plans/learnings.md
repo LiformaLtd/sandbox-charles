@@ -1,8 +1,39 @@
 # Building a small, accurate audio-to-face model with low browser memory
 
-Research notes from the James Audio2Face experiments, consolidated on 2026-11-07 through the matched-seed and channel-folding follow-up.
+Research notes from the James Audio2Face experiments, updated through 2026-11-09. Sections preserve the historical experiments; the current assessment below summarizes the subsequent training-fit, residual and earlier-feature findings.
 
 This document gives a reconstruction procedure for researchers starting with the full teacher and changing the data, fitting objective, student, or browser implementation. Numerical results below describe specific experiments. Hyperparameters are reference settings to repeat or ablate, rather than established optima.
+
+## Current assessment: why recent experiments have stalled
+
+**We have not identified the dominant remaining source of lip-gap error.** Recent
+experiments establish several negative results, not a proven diagnosis. Treat
+suggestions in older sections as dated hypotheses, not an endorsed queue of
+experiments that will each improve quality. See §46 for the research reset.
+
+There were useful gains: direct rig prediction and the custom WebGPU runner
+made browser inference small and practical; expanded independent speech plus
+matched longer training improved RMS5.31% over its control (§30, with the stated
+post-pilot/seed caveats). The recent small-loss/head studies have plateaued.
+
+The current compact model uses float32 weights. A useful interpretation of the
+remaining error needs to account for the smaller learned mapping, available
+audio/context, targets, objective and optimization; weight precision alone is
+not an established explanation.
+
+| Evidence | What it supports | What it does not establish |
+|---|---|---|
+| Eight known clips reach.395mm versus their own.350mm fitted reference (§37) | Tiny-set fitting is possible | Adequate capacity or learnability across every voice/context |
+| Published v4 original-gain training RMS1.839mm; same-data fitted-reference discrepancy.363mm (§41) | Substantial error already exists on training data | A unique capacity, optimization, context or label cause |
+| Affine recalibration lowers RMS but loses contacts (§41) | RMS and closure fidelity can conflict | That lowering the scalar score always improves animation |
+| Residuals are correlated, but trained heads recover little (§44–45) | These particular shared-feature heads do not solve it | That the remaining error is random or all residual methods fail |
+| A larger assistant predicts lower RMS (§43) | Better predictions exist in that larger/longer-trained setup | A capacity-only effect or successful transfer to the tiny student |
+
+These rows use their own defined datasets and metrics; do not subtract RMS
+values into additive error sources or compare absolute test scores across fresh
+cohorts. Keep closure/timing metrics alongside gap RMS. Further work should first
+resolve the training-fit bottleneck with controlled diagnostics, rather than
+presenting another auxiliary loss or correction head as a likely large win.
 
 ## 1. What we built
 
@@ -36,9 +67,9 @@ There are two experimental families with overlapping version names. Keep them se
 | --- | --- | ---: | --- |
 | Full teacher, Multi v3.2 | Geometry, jaw and eye values | 724.84 MB | Label generation and reference |
 | Geometry compression v1/v2 and precision/closure variants | Same geometry interface | 72–74 MB | Preserve the teacher interface with quantization and low-rank approximation |
-| Compact ARKit v1/v2/v3 | 52 blendshape coefficients, 39 active | 2.25 MB | Direct audio-to-rig distillation |
+| Compact ARKit v1/v2/v3/v4 | 52 blendshape coefficients, 39 active | 2.25 MB | Direct audio-to-rig distillation |
 
-The compact models have 331,047 learned parameters and 2,251,828-byte ONNX files. The difference between learned parameter bytes and file size includes the fixed waveform frontend and graph data. Compact v2 and v3 use float32 weights. Their size reduction comes primarily from the smaller architecture and output representation.
+The original compact exports have 331,047 learned parameters and 2,251,828-byte ONNX files; published v4 finetune-r4 is 2,251,827 bytes. The difference between learned parameter bytes and file size includes the fixed waveform frontend and graph data. Compact v2/v3/v4 use float32 weights. Their size reduction comes primarily from the smaller architecture and output representation.
 
 ## 2. Pin and validate the teacher first
 
@@ -2038,3 +2069,62 @@ late and1.00ms v4; slow first trials remain reported. Browser parity, resets and
 sixteen audio/seek review cases pass with idle rendering continuing. Process
 peaks521.88–534.44MiB exclude TTS, initial rig load and browser parent and do not
 establish iPhone/full-pipeline memory. Keep deployed v4 unchanged.
+
+## 46. Research reset: explain the plateau before proposing another quality mechanism
+
+The recent sequence has generated many experiments without a new convincing
+closure-preserving browser-model gain. Reparameterizing or supervising essentially
+the same mapping in different ways is not the same as testing many independent
+root causes. A residual head can rearrange information without adding the cues
+or trainable representation needed to remove the dominant error. An earlier
+pointwise source changes information, but does not test a temporal acoustic
+correction branch. Negative results must retain those scopes.
+
+The central unresolved observation is the gap between tiny-set memorisation and
+full-corpus training fit. Eight clips are learnable near their fitted reference,
+while published v4 has1.83882mm original-gain training error and ordinary full-
+network fine-tuning still leaves about1.74204mm. The full corpus does not fit
+exactly. A simple train-versus-test account misses this training residual, while
+a tiny-set success cannot prove unlimited broad capacity. Different voice/text
+and gain distributions further limit interpreting train/test differences.
+
+There is also an objective tradeoff. Our training objective combines normalized
+coefficient SmoothL1, raw gap, velocity, contact and timing terms; development
+selection combines gap RMS with contact F1. It does not minimize raw gap RMS
+alone. Lower RMS can sacrifice important contacts, as the frozen affine refit
+and several later pilots show. This tradeoff has evidence, but has not been
+shown to explain most of the remaining error. Teacher context/history and
+rig-target semantics remain possible contributors, not established dominant
+causes. The fitted-reference discrepancy is not a strict raw-gap lower bound.
+
+The large assistant's improved fit is useful evidence, but it also received more
+training and was not uniformly closure-preserving. It cannot by itself establish
+that more parameters solve the bottleneck. Likewise correlated residuals do not
+show that those residuals are predictable from the available browser inputs.
+
+A proposed next diagnostic, not executed here, is a nested training-fit curve:
+reuse the existing eight-clip memorisation anchor, then add balanced32,128,512
+and full-corpus subsets with frozen targets/context. Compare the unchanged
+production objective with pure fitted-coefficient MSE, training the entire
+network and measuring progress over enough logged updates to expose remaining
+convergence. Use the same source clips at every nested inclusion, separate
+replay explicitly, and record raw-teacher gap, fitted-target gap, normalized
+coefficient error and closures. Do not select subsets by measured error.
+
+This asks how fitting deteriorates as corpus complexity grows, and whether the
+objective trades away fit. The previous fourfold SmoothL1 experiment is not a
+full-corpus pure-MSE experiment; the optimal affine MSE refit freezes the body.
+A full-network pure-MSE fit curve therefore answers a different question. It is
+an offline diagnostic, not a proposed production-loss switch. If MSE lowers gap
+while losing closures, report that tradeoff instead of claiming a deployable win.
+If both objectives fail as the set grows, capacity/representation, contradictory
+available-input targets and optimization still require further separation; the
+curve alone does not uniquely diagnose them.
+
+Before another expensive quality campaign, require a diagnostic that separates
+specific causes and a small predeclared pilot showing a useful fit or information
+gain. Distinguish successful implementation, valid gradients, lower training
+loss, held-out gap improvement and closure-safe perceptual quality. They are
+separate milestones. Keep published v4 and the current browser efficiency until
+there is a demonstrated replacement; do not label speculative next steps as
+likely major improvements.
