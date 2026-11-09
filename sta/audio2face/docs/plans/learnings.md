@@ -1964,3 +1964,43 @@ GPU buffers stay1,492,236 bytes. Desktop WebKit peaks519.85–532.44MiB with ani
 James and prerecorded STA exclude TTS, initial rig loading and browser parent.
 There is no demonstrated speed/memory improvement or physical-iPhone claim.
 Preserve deployed v4 and continuous idle animation.
+
+## 44. Structured residuals are not automatically predictable from frozen late features
+
+The [residual-learning pilot](compact-residual-learning-results.md) freezes all
+v4 weights and shares its interpolated96-channel learned features and39 base
+predictions. Equal135→96 GELU→39 heads compare residual correction with direct
+prediction, matched in16,839 trainable parameters, initial output/loss, data,
+7,440 scheduled batches, seed and selector. The direct head uses paired GELU
+identity units; residual outgoing weights start at zero. Equal initial functions
+do not mean equal internal gradients or identical function classes. The residual
+skip supplies the known base function outside the trainable head.
+
+Training normalized coefficient residuals have median lag-one correlation.9604;
+five covariance axes explain51.93% of variance, while a constant bias accounts
+for1.235% of squared error. Counts include correlated gain variants and smooth
+teacher motion, so these are descriptive statistics, not independent samples or
+proof that the available browser inputs predict the error. Do not identify
+unexplained residuals with intrinsically random noise.
+
+A genuinely fresh24-text/four-held-out-voice cohort gives lip RMS2.46765mm for
+v4,2.42992 direct control and2.44062 residual. Residual improves1.095% over v4 but
+is.441% worse than control; original training RMS is also worse than control.
+Phone hits are169 v4,160 control,165 residual. Thus residual recovers some control
+closures but loses four relative to v4, failing preservation. Macro F1 slightly
+improves, but engine/error/timing guards also fail. A single metric is insufficient.
+
+On fresh originals this head removes2.20% of v4's squared raw-geometry lip-gap
+error and.76% of normalized coefficient error, versus direct control3.05%/.95%.
+These are voice-macro fractions of total error reduced, not mean-centered R² or
+noise-floor estimates. The experiment does not demonstrate useful nonlinear
+correction from the frozen late features. It does not rule out earlier shared
+spectral features, different context or other residual architectures.
+
+Both exports remain small at2.321912MB,3.11% above v4; there is no second session,
+encoder or readback. A research-only fused WebGPU projection/head adds67,744
+explicit GPU bytes and takes1.02ms per500ms block versus0.96ms for v4 on this desktop.
+Three WebKit footprint trials per model span523.56–538.52MiB with animated James,
+excluding TTS, initial rig loading and browser parent. Native/GPU parity, reset
+repeats and sixteen audio/seek review cases pass. No full-pipeline/iPhone memory
+claim is made. This one-seed candidate fails quality gates; keep deployed v4.

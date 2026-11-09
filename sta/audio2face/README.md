@@ -250,3 +250,5 @@ Full-corpus fit: [training/test measurements and frozen-readout diagnostic](docs
 Closure-protected training: [matched quality, WebGPU speed and memory results](docs/plans/compact-closure-protected-results.md).
 
 Jaw targets and intermediate teacher: [audit, matched distillation and browser results](docs/plans/compact-assistant-teacher-results.md).
+
+Frozen-v4 residual learning: [fresh-speech quality, closure and browser comparison](docs/plans/compact-residual-learning-results.md).
