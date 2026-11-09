@@ -1,0 +1,2 @@
+import { defineConfig } from '@playwright/test';
+export default defineConfig({testDir:'./tests/browser',timeout:180000,workers:1,use:{baseURL:process.env.TEST_BASE_URL ?? 'http://127.0.0.1:5181',viewport:{width:1440,height:1100},launchOptions:{executablePath:process.env.CHROME_EXECUTABLE ?? (process.platform==='darwin'?'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome':undefined),args:['--autoplay-policy=no-user-gesture-required']}}});
