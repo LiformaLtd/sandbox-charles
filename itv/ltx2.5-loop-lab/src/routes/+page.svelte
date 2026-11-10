@@ -6,10 +6,11 @@
   import { DEFAULT_NEGATIVE_PROMPT, isLoopSet, parseLoopSet } from '../lib/types';
   import '../style.css';
 
-  let draft: Draft = $state({ image: null, prompt: '', negativePrompt: DEFAULT_NEGATIVE_PROMPT, size: '512x512' });
+  let draft: Draft = $state({ image: null, prompt: '', negativePrompt: '', idlePrompt:'The character stands idle listening, with their mouth closed, and returns to the original pose.', idleNegativePrompt:DEFAULT_NEGATIVE_PROMPT, size: '512x512' });
   let active: LoopSet | null = $state(null);
   let clips: Clip[] = $state([]);
   let savedSets: LoopSet[] = $state([]);
+  const currentDuration=$derived.by(()=>active?.clips.find(c=>c.job.id===playback.current)?.job.request.seconds??10);
   let selectedSet = $state('');
   let refreshingSets = $state(false);
   let preview = $state('');
@@ -88,7 +89,7 @@
       const keepPlaying = playback.armed;
       await activate(saved, image, keepPlaying);
       draft = { image: new File([image], 'loop-image.png', { type: image.type || 'image/png' }),
-        prompt: saved.config.prompt, negativePrompt: saved.config.negative_prompt ?? '', size: `${saved.config.width}x${saved.config.height}` };
+        prompt: saved.config.prompt, negativePrompt: saved.config.negative_prompt ?? '', idlePrompt:saved.config.idle_prompt??'The character stands idle listening, with their mouth closed, and returns to the original pose.', idleNegativePrompt:saved.config.idle_negative_prompt??DEFAULT_NEGATIVE_PROMPT, size: `${saved.config.width}x${saved.config.height}` };
       updatePreview(); await saveDraft();
       if (modelReady) { clearTimeout(timer); await poll(); }
     } catch (cause) { showError('Could not open saved set', cause); }
@@ -96,7 +97,7 @@
   }
   function setLabel(batch: LoopSet) {
     const prompt = batch.config.prompt.replace(/\s+/g, ' ').trim();
-    return `${prompt.slice(0, 70)}${prompt.length > 70 ? '…' : ''} · ${batch.ready_count}/5 ready · ${batch.config.width}×${batch.config.height} · ${batch.id.slice(0, 6)}`;
+    return `${prompt.slice(0, 70)}${prompt.length > 70 ? '…' : ''} · ${batch.ready_count}/${batch.total} ready · ${batch.config.width}×${batch.config.height} · ${batch.id.slice(0, 6)}`;
   }
   async function health() {
     try {
@@ -118,7 +119,7 @@
         await write(`clip:${entry.job.id}`, blob);
       }
       if (!alive || version !== epoch) return;
-      clips = [...clips, { id: entry.job.id, slot: entry.slot, seed: entry.job.request.seed, url: URL.createObjectURL(blob) }].sort((a, b) => a.slot - b.slot);
+      clips = [...clips, { id: entry.job.id, slot: entry.slot, seed: entry.job.request.seed, seconds:entry.job.request.seconds, url: URL.createObjectURL(blob) }].sort((a, b) => a.slot - b.slot);
       player?.setClips($state.snapshot(clips));
     }
   }
@@ -150,18 +151,18 @@
       if (!alive || version !== epoch) return;
       active = batch; await write('active', $state.snapshot(batch)); await rememberSet(batch);
       await syncClips(batch, version);
-      saveNote = `${clips.length} of 5 clips saved on this browser`;
+      saveNote = `${clips.length} of ${batch.total} clips saved on this browser`;
       if (batch.status === 'cancelled') error = 'This set was stopped by a newer build. Saved clips can still play. Resume unfinished clips to generate the rest.';
       if (batch.status === 'blocked') error = 'Generation paused after a failed clip. Completed clips can still play. Retry the failed clip to continue.';
     } catch (cause) { showError('Could not update loop set', cause); }
     if (alive && version === epoch && (active?.status === 'generating' || clips.length < (active?.ready_count ?? 0))) timer = setTimeout(poll, 2500);
   }
   async function build(event: SubmitEvent) {
-    event.preventDefault(); if (!draft.image || !draft.prompt.trim() || submitting) return;
+    event.preventDefault(); if (!draft.image || !draft.prompt.trim() || !draft.idlePrompt.trim() || submitting) return;
     submitting = true; error = ''; buildNotice = '';
     try {
       await saveDraft();
-      const form = new FormData(); form.set('image', draft.image, draft.image.name); form.set('prompt', draft.prompt); form.set('negative_prompt', draft.negativePrompt);
+      const form = new FormData(); form.set('image', draft.image, draft.image.name); form.set('prompt', draft.prompt); form.set('negative_prompt', draft.negativePrompt);form.set('idle_prompt',draft.idlePrompt);form.set('idle_negative_prompt',draft.idleNegativePrompt);
       const [width, height] = draft.size.split('x'); form.set('width', width); form.set('height', height);
       const batch = parseLoopSet(await (await api('/v1/loop-sets', { method: 'POST', body: form })).json());
       await navigator.storage?.persist?.();
@@ -169,6 +170,21 @@
       if (batch.replaced_jobs) buildNotice = `Stopped ${batch.replaced_jobs} older unfinished jobs. This set now has the model.`;
     } catch (cause) { showError('Could not build loop set', cause); }
     finally { submitting = false; }
+  }
+  const canRegenerateIdle=$derived.by(()=>active?.total===11&&active.clips.filter(c=>c.job.request.kind==='talking'&&c.job.status==='completed').length===7);
+  async function regenerateIdle() {
+    if (!active || !canRegenerateIdle || submitting || !draft.idlePrompt.trim()) return;
+    const sourceId=active.id;
+    submitting=true;error='';buildNotice='';
+    try {
+      await saveDraft();
+      const form=new FormData();form.set('idle_prompt',draft.idlePrompt);form.set('idle_negative_prompt',draft.idleNegativePrompt);form.set('request_id',crypto.randomUUID());
+      const batch=parseLoopSet(await (await api(`/v1/loop-sets/${sourceId}/regenerate-idle`,{method:'POST',body:form})).json());
+      const image=await read<Blob>(`anchor:${sourceId}`)??await(await api(`/v1/loop-sets/${sourceId}/image`)).blob();
+      await activate(batch,image,playback.armed);clearTimeout(timer);await poll();
+      buildNotice='Kept all seven talking videos. Generating four fresh idle videos with your updated idle prompts. The previous set is still in Saved loop sets.';
+    } catch(cause) { showError('Could not regenerate idle videos',cause); }
+    finally { submitting=false; }
   }
   async function retry() {
     if (!active) return;
@@ -200,7 +216,7 @@
         const history = await read<unknown>('saved-sets');
         savedSets = Array.isArray(history) ? history.filter(isLoopSet) : [];
         const stored = await read<Draft>('draft'); if (!alive) return;
-        if (stored) draft = { ...stored, negativePrompt: stored.negativePrompt ?? DEFAULT_NEGATIVE_PROMPT }; updatePreview();
+        if (stored) draft = { ...draft, ...stored, negativePrompt:stored.negativePrompt??'', idlePrompt:stored.idlePrompt??draft.idlePrompt, idleNegativePrompt:stored.idleNegativePrompt??DEFAULT_NEGATIVE_PROMPT }; updatePreview();
         const cached = await read<unknown>('active');
         let batch = isLoopSet(cached) ? cached : undefined;
         const recovering = cached !== undefined && !batch;
@@ -218,7 +234,7 @@
             if (batch && !stored) {
               const image = await (await api(`/v1/loop-sets/${batch.id}/image`)).blob();
               draft = { image: new File([image], 'loop-image.png', { type: 'image/png' }),
-                prompt: batch.config.prompt, negativePrompt: batch.config.negative_prompt ?? '', size: `${batch.config.width}x${batch.config.height}` };
+                prompt: batch.config.prompt, negativePrompt: batch.config.negative_prompt ?? '', idlePrompt:batch.config.idle_prompt??'The character stands idle listening, with their mouth closed, and returns to the original pose.', idleNegativePrompt:batch.config.idle_negative_prompt??DEFAULT_NEGATIVE_PROMPT, size: `${batch.config.width}x${batch.config.height}` };
               await write(`anchor:${batch.id}`, image); await saveDraft(); updatePreview();
             }
           } catch (cause) { showError('Could not recover saved sets from the server', cause); }
@@ -240,11 +256,11 @@
   });
 </script>
 
-<svelte:head><title>Loop Lab · LTX 2.5</title><meta name="description" content="One image, five variations, infinite local video playback."/></svelte:head>
+<svelte:head><title>Loop Lab · LTX 2.5</title><meta name="description" content="One image, talking and idle loops, infinite local video playback."/></svelte:head>
 <div class="shell">
   <header><a href="/" class="brand"><span class="mark">∞</span> LOOP <span class="light">/ LAB</span></a><div class="local"><span class="dot" class:online={modelReady}></span> LTX 2.5 · On your Mac</div></header>
   <main>
-    <div class="intro"><div><p class="eyebrow">AN EXPERIMENT IN CONTINUITY</p><h1>One frame.<br/><span>Endless motion.</span></h1><p class="lede">Five variations. One continuous scene.</p></div><div class="recipe"><span>01 image</span><i>→</i><span>05 loops</span><i>→</i><strong>∞ possibilities</strong></div></div>
+    <div class="intro"><div><p class="eyebrow">AN EXPERIMENT IN CONTINUITY</p><h1>One frame.<br/><span>Endless motion.</span></h1><p class="lede">Seven talking lengths. Four idle variations. One continuous scene.</p></div><div class="recipe"><span>01 image</span><i>→</i><span>11 loops</span><i>→</i><strong>∞ possibilities</strong></div></div>
     <div class="studio">
       <aside class="composer">
         <div class="heading"><h2>Build your loop set</h2><span class="step">01</span></div>
@@ -264,15 +280,19 @@
               <input aria-label="Loop image" type="file" accept="image/png,image/jpeg,image/webp" onchange={chooseImage}/>
             </label>
             <p class="image-note">The same image anchors the start and end of every clip.</p>
-            <label for="prompt">What happens inside the loop?</label><textarea id="prompt" bind:value={draft.prompt} oninput={saveDraft} maxlength="8000" placeholder="A gentle breeze moves through the scene. The subject smiles, looks around, then returns to the original pose…"></textarea>
-            <label for="negative-prompt" class="negative-label">Negative prompt <span>What to avoid</span></label>
-            <textarea id="negative-prompt" class="negative-prompt" bind:value={draft.negativePrompt} oninput={saveDraft} maxlength="8000" placeholder="speaking, talking, lip movements, open mouth, singing"></textarea>
+            <label for="prompt">Talking prompt</label><textarea id="prompt" bind:value={draft.prompt} oninput={saveDraft} maxlength="8000" placeholder="A gentle breeze moves through the scene. The subject smiles, looks around, then returns to the original pose…"></textarea>
+            <label for="negative-prompt" class="negative-label">Talking negative prompt <span>What to avoid</span></label>
+            <textarea id="negative-prompt" class="negative-prompt" bind:value={draft.negativePrompt} oninput={saveDraft} maxlength="8000" placeholder="singing, exaggerated expressions"></textarea>
             <p class="negative-note">Discourage these actions. Leave empty to turn negative guidance off.</p>
-            <div class="format-row"><label>Format<select aria-label="Format" bind:value={draft.size} onchange={saveDraft}><option value="512x512">Square · 512 × 512</option><option value="768x512">Landscape · 768 × 512</option><option value="512x768">Portrait · 512 × 768</option></select></label><div class="duration"><small>PER CLIP</small><strong>10 seconds</strong></div></div>
-            <button class="build" type="submit" disabled={!modelReady || !draft.image || !draft.prompt.trim()}>{submitting ? 'Preparing loop set…' : 'Build & start looping'}<span>↗</span></button>
+            <label for="idle-prompt">Idle prompt</label><textarea id="idle-prompt" bind:value={draft.idlePrompt} oninput={saveDraft} maxlength="8000"></textarea>
+            <label for="idle-negative-prompt">Idle negative prompt</label><textarea id="idle-negative-prompt" class="negative-prompt" bind:value={draft.idleNegativePrompt} oninput={saveDraft} maxlength="8000"></textarea>
+            <button type="button" class="open-set" onclick={regenerateIdle} disabled={!modelReady||!canRegenerateIdle||!draft.idlePrompt.trim()}>{submitting?'Preparing…':'Regenerate idle videos'}</button>
+            <p class="negative-note">Uses these idle prompts with the open set’s original image and seven completed talking clips. Creates four new 5-second idle videos. The previous set stays saved.</p>
+            <div class="format-row"><label>Format<select aria-label="Format" bind:value={draft.size} onchange={saveDraft}><option value="512x512">Square · 512 × 512</option><option value="768x512">Landscape · 768 × 512</option><option value="512x768">Portrait · 512 × 768</option></select></label><div class="duration"><small>LOOP BANK</small><strong>Talking 3–9s · Idle 5s</strong></div></div>
+            <button class="build" type="submit" disabled={!modelReady || !draft.image || !draft.prompt.trim() || !draft.idlePrompt.trim()}>{submitting ? 'Preparing loop set…' : 'Build & start looping'}<span>↗</span></button>
           </fieldset>
         </form>
-        <p class="reuse-note">New builds stop older unfinished generations immediately. Completed clips are kept. The five new clips still generate one at a time.</p>
+        <p class="reuse-note">New builds stop older unfinished generations immediately. Completed clips are kept. All eleven clips generate one at a time: talking 3–9 seconds, then four 5-second idle clips.</p>
         {#if buildNotice}<p class="save-note" role="status">{buildNotice}</p>{/if}
         <p class="save-note" aria-live="polite">{saveNote}</p>
       </aside>
@@ -285,8 +305,8 @@
         </div>
         <div class="transport">
           <button class="play-button" onclick={togglePlayback} disabled={!ready}>{playback.armed ? '■ Stop' : '▶ Start'}</button>
-          <div class="clock"><strong>{String(Math.min(10, Math.floor(playback.elapsed))).padStart(2, '0')}</strong><span>/ 10s</span></div>
-          <progress max="10" value={Math.min(10, playback.elapsed)} aria-label="Current loop progress"></progress>
+          <div class="clock"><strong>{String(Math.min(currentDuration, Math.floor(playback.elapsed))).padStart(2, '0')}</strong><span>/ {currentDuration}s</span></div>
+          <progress max={currentDuration} value={Math.min(currentDuration, playback.elapsed)} aria-label="Current loop progress"></progress>
           <button class="audio-button" aria-pressed={sound} onclick={toggleSound}>{sound ? '♪ Audio on' : '♪ Audio off'}</button>
           <input class="volume" aria-label="Volume" type="range" min="0" max="1" step=".01" bind:value={volume} oninput={changeVolume}/>
         </div>
@@ -294,15 +314,17 @@
       </section>
     </div>
     <section class="collection" aria-label="Loop collection">
-      <div class="collection-heading"><div><p class="eyebrow">THE COLLECTION</p><h2>Five moments to mix forever.</h2></div><span class="count">{clips.length}<span> / 5 ready</span></span></div>
+      <div class="collection-heading"><div><p class="eyebrow">THE COLLECTION</p><h2>Talking and idle motion to take anywhere.</h2></div><span class="count">{clips.length}<span> / {active?.total??11} ready</span></span></div>
+      <p>Download the source image, all videos, prompts and timing metadata in one portable file.</p>
+      <a class="retry" href={active?`/api/v1/loop-sets/${active.id}/archive`:undefined} download aria-disabled={active?.status!=='completed'} onclick={event=>{if(active?.status!=='completed')event.preventDefault()}}>Download all · ZIP {active?.status==='completed'?'':'(available when complete)'}</a>
       <div class="clip-grid">
-        {#each [0,1,2,3,4] as slot}
+        {#each Array.from({length:active?.total??11},(_,slot)=>slot) as slot}
           {@const entry = active?.clips.find(c => c.slot === slot)}
           {@const cached = clips.find(c => c.slot === slot)}
           <article class="clip-card" class:current={playback.playing && playback.slot === slot} class:complete={!!cached}>
-            <div class="card-top"><span>LOOP {String(slot + 1).padStart(2, '0')}</span><span>{cached ? '✓' : entry?.job.status === 'running' ? '◌' : '○'}</span></div>
+            <div class="card-top"><span>{entry?.job.request.kind??(slot<7?'talking':'idle')} · {entry?.job.request.seconds??(active?.total===5?10:slot<7?slot+3:5)}s</span><span>{cached ? '✓' : entry?.job.status === 'running' ? '◌' : '○'}</span></div>
             <div class="card-status">{cached ? playback.playing && playback.slot === slot ? 'Now playing' : 'Ready to play' : entry?.job.status === 'running' ? 'Generating…' : entry?.job.status === 'failed' ? 'Generation failed' : entry?.job.status === 'cancelled' ? 'Cancelled by newer build' : active ? slot === 0 ? 'Queued' : `After loop ${String(slot).padStart(2, '0')}` : 'Waiting for a scene'}</div>
-            <div class="card-bottom"><small>{entry ? `Seed ${entry.job.request.seed}` : '10 seconds · new seed'}</small>{#if cached}<a href={cached.url} download={`loop-${slot+1}-${cached.id}.mp4`} aria-label={`Download loop ${slot + 1}`}>↓ Save</a>{:else if entry?.job.status === 'failed'}<a href={`/api/v1/jobs/${entry.job.id}/log`} target="_blank" rel="noreferrer">View log ↗</a>{/if}</div>
+            <div class="card-bottom"><small>{entry ? `Seed ${entry.job.request.seed}` : 'New seed'}</small>{#if cached}<a href={cached.url} download={`loop-${slot+1}-${cached.id}.mp4`} aria-label={`Download loop ${slot + 1}`}>↓ Save</a>{:else if entry?.job.status === 'failed'}<a href={`/api/v1/jobs/${entry.job.id}/log`} target="_blank" rel="noreferrer">View log ↗</a>{/if}</div>
           </article>
         {/each}
       </div>

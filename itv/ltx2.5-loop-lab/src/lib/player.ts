@@ -37,7 +37,7 @@ export class LoopPlayer {
     this.overlay = document.createElement('canvas');
     this.decks = [0, 1].map(() => {
       const video = document.createElement('video');
-      video.preload = 'auto'; video.playsInline = true; video.muted = true; video.loop = true;
+      video.preload = 'auto'; video.playsInline = true; video.muted = true; video.loop = false;
       return { video, id: null, ready: false, loading: null };
     });
     this.paint = this.paint.bind(this);
@@ -152,14 +152,15 @@ export class LoopPlayer {
     const video = this.decks[this.active].video;
     if (video.readyState >= 2) {
       this.draw(video);
+      const end=Math.min(this.pool.find(c=>c.id===this.decks[this.active].id)?.seconds??10,video.duration-.015);
       // Briefly converge onto the shared image at each endpoint. This softens
       // VAE reconstruction differences; it cannot repair arbitrary model motion.
-      if (this.anchor?.complete && this.anchor.naturalWidth && video.currentTime > 9.88) {
-        this.draw(this.anchor, Math.min(1, (video.currentTime - 9.88) / .12));
+      if (this.anchor?.complete && this.anchor.naturalWidth && video.currentTime > end-.12) {
+        this.draw(this.anchor, Math.min(1, (video.currentTime - (end-.12)) / .12));
       }
       if (this.blendStart && now - this.blendStart < 100) this.draw(this.overlay, 1 - (now - this.blendStart) / 100);
     }
-    if (video.currentTime >= 10 && !this.switching) void this.advance();
+    if (video.currentTime >= Math.min(this.pool.find(c=>c.id===this.decks[this.active].id)?.seconds??10,video.duration-.015) && !this.switching) void this.advance();
     if (now - this.lastEmit > 200) this.emit();
     this.raf = requestAnimationFrame(this.paint);
   }

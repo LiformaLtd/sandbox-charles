@@ -1,8 +1,8 @@
 # Loop Lab — SvelteKit 3 / LTX-2.5
 
-One image, five generated ten-second variations, an infinite shuffled video.
+One image, seven talking clips (3–9 seconds) and four five-second idle clips.
 The same image is deliberately supplied as both the first and last frame of
-all five model jobs. A prompt describes the action inside each loop.
+all eleven model jobs. Separate positive and negative prompts describe talking and idle motion.
 
 ## Start
 
@@ -31,9 +31,9 @@ build, set `BODY_SIZE_LIMIT=25M` to accommodate 20MB image uploads.
 ## Use
 
 1. Choose a PNG/JPEG/WebP under 20MB, enter the loop prompt and choose a format.
-2. **Build & start looping** loads the matching saved set or creates five jobs.
+2. **Build & start looping** loads the matching saved set or creates eleven jobs.
 3. Playback is armed immediately. It begins when the first completed MP4 has
-   downloaded and been cached; it does not wait for all five.
+   downloaded and been cached; it does not wait for all eleven.
 4. Newly finished clips enter the pool while the player continues. With only one
    available clip it repeats that clip. With two or more, every selection excludes
    the current clip. Each segment plays for ten seconds.
@@ -69,7 +69,7 @@ Cancelled sets show **Resume unfinished clips** rather than a failure.
 The editor starts with `speaking, talking, lip movements, open mouth, singing`.
 The text is saved with the browser draft and every generated set. Nonblank text
 enables the installed distilled runtime's `--nag --negative-prompt` guidance for
-all five clips. Clearing the field disables that guidance. Changing the negative
+all eleven clips. Clearing the field disables that guidance. Changing the negative
 prompt creates a distinct saved set; a blank field still reuses legacy sets that
 were generated without negative guidance. Opening a saved set restores its actual
 negative prompt, including an empty one. NAG is experimental guidance, so a
@@ -78,7 +78,7 @@ absence.
 
 ## Scheduling and recovery
 
-The server publishes all five job records in one SQLite transaction. Clip 2
+The server publishes all eleven job records in one SQLite transaction. Clip 2
 explicitly depends on successful completion of clip 1, clip 3 on clip 2, and so on.
 A single detached model worker claims only eligible jobs. This continues after
 the browser, frontend, or HTTP API closes/restarts. An interrupted worker restarts
@@ -165,3 +165,27 @@ SvelteKit to an isolated upstream that rejects inherited browser origins; it
 also verifies foreign-origin requests never reach that upstream. The live Build
 button was tested against the model API and returned 202 while reusing the five
 existing clips without new generation.
+
+## Portable avatar bank
+
+New builds generate talking clips of 3, 4, 5, 6, 7, 8 and 9 seconds, then four
+five-second idle clips. All eleven jobs depend on the previous job completing.
+The source image is used at both endpoints. Talking and idle positive/negative
+prompts are saved separately and are all included in the saved-set identity.
+Older five-clip sets remain available without conversion or regeneration.
+
+Once the full set completes, **Download all · ZIP** downloads a local archive with
+`manifest.json`, `source.png`, `talking/*.mp4` and `idle/*.mp4`. The manifest records
+the kind, duration, seed and prompts. Load that single ZIP in Loop Face Lab; no
+manual video grouping is required. ZIP creation never starts model jobs.
+
+### Regenerate idle only
+
+After all seven talking clips in an eleven-clip set are complete, edit **Idle
+prompt** and/or **Idle negative prompt**, then press **Regenerate idle videos**.
+It uses the open set's saved image, format and talking videos, regardless of other
+unsubmitted draft edits. Four new five-second idle jobs run sequentially with
+fresh seeds. A new saved set keeps the seven talking outputs without running
+inference again; the original set remains in the library. Unfinished older jobs
+are cancelled as with a normal build. Download the revised ZIP once all four new
+idle clips finish. The button is unavailable for legacy five-clip sets.

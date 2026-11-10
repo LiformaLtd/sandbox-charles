@@ -7,7 +7,7 @@ const proxy: RequestHandler = async ({ request, params, url }) => {
     return Response.json({ detail: 'Submit jobs from this Loop Lab page.' }, { status: 403 });
   }
   const path = params.path ?? '';
-  if (!/^(health|v1\/loop-sets(?:\/[a-f0-9]{64}(?:\/(image|retry))?)?|v1\/jobs\/[a-f0-9-]{36}\/(video|log))$/.test(path)) {
+  if (!/^(health|v1\/loop-sets(?:\/[a-f0-9]{64}(?:\/(image|retry|archive|regenerate-idle))?)?|v1\/jobs\/[a-f0-9-]{36}\/(video|log))$/.test(path)) {
     return Response.json({ detail: 'Unknown local model endpoint' }, { status: 404 });
   }
   const headers = new Headers();
