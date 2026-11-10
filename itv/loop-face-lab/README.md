@@ -46,7 +46,7 @@ filesystem imports or writes to either dependency at runtime.
 
 ## Use
 
-1. Choose a saved Loop Lab set, select one or more ready clips, and press
+1. Load a **Loop ZIP** exported from Loop Lab to restore the source image, both motion groups and durations together. Alternatively choose a saved Loop Lab set, select one or more ready clips, and press
    **Load selected loops & source image**. Alternatively upload the original
    image and one or more videos, then **Prepare face tracking**.
 2. Every decoded presentation frame is processed by MediaPipe once, in a worker.
@@ -67,8 +67,8 @@ filesystem imports or writes to either dependency at runtime.
    video's mouth expressions are excluded from the replacement. Rigid anchors
    set translation/scale, and MediaPipe rotations set roll, pitch and yaw.
 6. Speech follows its audio clock independently of the random video joins. When
-   speech ends, the replacement returns to its source expression and the loops
-   continue. **Stop** pauses loops and speech; Start resumes them. Audio controls
+   speech ends, the replacement returns to its source expression until the talking
+   clip finishes, then switches to original idle videos when available. **Stop** pauses loops and speech; Start resumes them. Audio controls
    can seek/replay the speech. Original loop audio remains muted.
 7. **Neutral face & neck** is enabled by default. It renders a neutral source-image
    face and an eight-row neck extension below the speaking face. The inner neck
@@ -86,6 +86,24 @@ filesystem imports or writes to either dependency at runtime.
 IndexedDB belongs to an origin (scheme + host + port). Returning on the same port
 restores local uploads. Saved Loop Lab sets can be imported from another port
 through the local library, without generating videos again.
+
+## Idle and talking motion
+
+Use **Add or load videos as** to choose **Idle motion** or **Talking motion** before
+uploading files or loading a saved set. Loading a set replaces that group while
+retaining the other group. Both groups must use the same original source image.
+Each clip also has a motion-type picker. Existing saved clips migrate to Talking.
+Group assignments and both video sets persist in IndexedDB.
+
+With both groups loaded, Start randomly loops idle clips using the original video
+without the replacement face or neck layer. Preparing speech leaves idle playback
+running. Once the audio is ready, a talking clip starts from its beginning before
+audio playback. While speech continues, talking clips cycle randomly. Audio ending
+or being paused immediately restores the neutral source expression; that talking
+clip finishes before playback returns to idle. Replaying audio interrupts idle in
+the same way. Stop pauses both video and speech. Speech mute changes only audio
+volume and does not change the motion state. Talking-only legacy scenes still play
+with a neutral replacement while silent; add idle clips for the full cycle.
 
 ## Browser voices
 
@@ -229,3 +247,24 @@ that the old layer is transparent at the protruding chin while the new one is op
 Development/preview send cross-origin isolation headers. A standalone adapter-node
 production server must preserve the same COOP/COEP headers when hosted behind a
 proxy. This experiment is configured for local use; no deployment is configured.
+
+## Speech duration scheduling
+
+Before audio starts, the complete recording gives its exact duration. A portable
+11-clip bank offers talking lengths 3–9 seconds. For up to 9 seconds, use the
+shortest available clip that covers the rounded-up duration (6.4s → 7s). For longer
+speech, use the fewest clips that cover it, balanced to within one second
+(12.4s → 6s + 7s; 18.1s → 6s + 6s + 7s). The planned sequence is shown beside
+the recording. Repeated lengths can reuse a clip via the two independent decks.
+Idle clips are excluded from the speech plan.
+
+After speech ends, finish the final talking clip with a neutral face, then return
+to random original idle video. Stop/Start resumes the current clip; replaying a
+finished recording restarts its planned sequence. Audio and speech animation keep
+the same continuous audio clock across all video joins. Older uploads infer a
+duration from decoded video; their available lengths are used rather than
+pretending they contain the new 3–9 second bank.
+
+The versioned ZIP manifest is validated before replacing the existing scene.
+Group assignments, durations, source image and videos survive refresh in IndexedDB.
+Archives are processed locally with `fflate`; no files are sent to third parties.
