@@ -14,7 +14,11 @@ export class LoopPlayer {
   private playing = false;
   private booting = false;
   private switching = false;
-  private retiring: Deck | null = null;
+  private speaking = false;
+  private speechPlan:Clip[]=[];
+  private planIndex=-1;
+  private planRestart=false;
+  private joining: Promise<void> | null = null;
   private destroyed = false;
   private version = 0;
   private raf = 0;
@@ -38,7 +42,7 @@ export class LoopPlayer {
     this.overlay = document.createElement('canvas');
     this.decks = [0, 1].map(() => {
       const video = document.createElement('video');
-      video.preload = 'auto'; video.playsInline = true; video.muted = true; video.loop = true;
+      video.preload = 'auto'; video.playsInline = true; video.muted = true; video.loop = false;
       return { video, id: null, ready: false, loading: null };
     });
     this.paint = this.paint.bind(this);
@@ -56,7 +60,7 @@ export class LoopPlayer {
   setClips(clips: Clip[]) {
     this.pool = clips;
     if (this.wanted && !this.playing) void this.begin();
-    else if (this.playing) void this.prepareNext();
+    else if (this.playing) void this.prepareNext().catch(error => { this.stop(); this.fail(String(error)); });
     this.emit();
   }
 
@@ -88,32 +92,66 @@ export class LoopPlayer {
     return deck.loading;
   }
 
-  private async prepareNext() {
-    if (!this.pool.length || !this.playing) return;
-    const deck = this.decks[1 - this.active];
-    if (deck === this.retiring) return;
-    const activeId = this.decks[this.active].id;
-    if (deck.id && this.pool.some(c => c.id === deck.id) &&
-        (this.pool.length === 1 || deck.id !== activeId)) return;
-    const candidates = this.pool.filter(clip => clip.id !== activeId);
-    const chosen = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : this.pool[0];
-    try { await this.load(deck, chosen); }
-    catch (error) { if (!this.destroyed) { this.stop(); this.fail(String(error)); } }
+  setSpeechPlan(ids:string[]) {
+    this.speechPlan=ids.map(id=>{
+      const clip=this.pool.find(c=>c.id===id&&c.kind!=='idle');
+      if(!clip)throw new Error('The selected speech clip is unavailable.');
+      return clip;
+    });
+    this.rewindSpeechPlan();
+  }
+  rewindSpeechPlan(){this.planIndex=-1;this.planRestart=this.speechPlan.length>0;}
+  clearSpeechPlan(){this.speechPlan=[];this.planIndex=-1;this.planRestart=false;}
+
+  private candidates() {
+    if(this.speaking&&this.speechPlan.length){
+      const planned=this.speechPlan[this.planRestart?0:this.planIndex+1];
+      if(planned)return [planned];
+    }
+    const kind = this.speaking ? 'talking' : 'idle';
+    const selected = this.pool.filter(clip => (clip.kind ?? 'talking') === kind);
+    // Legacy scenes containing talking clips only still support neutral playback.
+    return selected.length ? selected : this.pool.filter(clip => (clip.kind ?? 'talking') === 'talking');
   }
 
-  start() { this.wanted = true; this.emit(); void this.begin(); }
+  async setSpeechActive(active: boolean) {
+    this.speaking = active;
+    if (active) {
+      if (this.joining) await this.joining;
+      const current = this.pool.find(c => c.id === this.decks[this.active].id);
+      if ((current?.kind === 'idle'||this.planRestart) && this.playing) await this.advance();
+    }
+    await this.prepareNext();
+  }
+
+  private async prepareNext() {
+    const pool = this.candidates();
+    if (!pool.length || !this.playing) return;
+    const deck = this.decks[1 - this.active];
+    const activeId = this.decks[this.active].id;
+    if (deck.id && pool.some(c => c.id === deck.id) &&
+        (pool.length === 1 || deck.id !== activeId)) return;
+    const candidates = pool.filter(clip => clip.id !== activeId);
+    const chosen = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : pool[0];
+    await this.load(deck, chosen);
+  }
+
+  async start() { this.wanted = true; this.emit(); await this.begin(); }
 
   private async begin() {
     if (this.booting || this.playing || !this.pool.length || !this.wanted) return;
     this.booting = true; const version = this.version;
     try {
       const deck = this.decks[this.active];
-      const selected = this.pool.find(c => c.id === deck.id) ?? this.pool[0];
+      const pool = this.candidates();
+      const selected = this.planRestart?pool[0]:this.pool.find(c => c.id === deck.id) ?? pool[Math.floor(Math.random()*pool.length)];
+      if (!selected) throw new Error('Add talking clips before starting speech.');
       if (!await this.load(deck, selected) || !this.wanted || version !== this.version) return;
       await deck.video.play();
       if (!this.wanted || version !== this.version) { deck.video.pause(); return; }
+      if(this.speaking&&this.planRestart){this.planIndex=0;this.planRestart=false;}
       this.playing = true; this.setDeckGains(); this.emit();
-      this.raf = requestAnimationFrame(this.paint); void this.prepareNext();
+      this.raf = requestAnimationFrame(this.paint); void this.prepareNext().catch(error => { this.stop(); this.fail(String(error)); });
     } catch (error) {
       if (!this.destroyed) { this.wanted = false; this.fail(`Playback could not start. Press Start to try again. ${String(error)}`); this.emit(); }
     } finally {
@@ -130,7 +168,7 @@ export class LoopPlayer {
   }
 
   reset() {
-    this.stop(); this.version++; this.transitions = 0; this.pool = []; this.active = 0; this.retiring = null;
+    this.stop(); this.version++; this.transitions = 0; this.pool = []; this.active = 0; this.speaking = false;this.clearSpeechPlan();
     for (const deck of this.decks) {
       deck.cancel?.(); deck.id = null; deck.ready = false; deck.loading = null;
       deck.video.removeAttribute('src'); deck.video.load();
@@ -160,22 +198,29 @@ export class LoopPlayer {
   private paint(now: number) {
     if (!this.playing) return;
     const video = this.decks[this.active].video;
+    const end=Math.min(this.pool.find(c=>c.id===this.decks[this.active].id)?.seconds??10,video.duration-.015);
     if (video.readyState >= 2) {
       this.draw(video);
       // Briefly converge onto the shared image at each endpoint. This softens
       // VAE reconstruction differences; it cannot repair arbitrary model motion.
-      if (this.anchor?.complete && this.anchor.naturalWidth && video.currentTime > 9.88) {
-        this.draw(this.anchor, Math.min(1, (video.currentTime - 9.88) / .12));
+      if (this.anchor?.complete && this.anchor.naturalWidth && video.currentTime > end-.12) {
+        this.draw(this.anchor, Math.min(1, (video.currentTime - (end-.12)) / .12));
       }
       if (this.blendStart && now - this.blendStart < 100) this.draw(this.overlay, 1 - (now - this.blendStart) / 100);
     }
     this.decorate(this.context, this.decks[this.active].id ?? '', video.currentTime);
-    if (video.currentTime >= Math.min(10, video.duration - .015) && !this.switching) void this.advance();
+    if (video.currentTime >= end && !this.switching) void this.advance();
     if (now - this.lastEmit > 200) this.emit();
     this.raf = requestAnimationFrame(this.paint);
   }
 
-  private async advance() {
+  private advance(): Promise<void> {
+    if (this.joining) return this.joining;
+    this.joining = this.join().finally(() => { this.joining = null; });
+    return this.joining;
+  }
+
+  private async join() {
     this.switching = true; const version = this.version;
     try {
       await this.prepareNext();
@@ -187,20 +232,18 @@ export class LoopPlayer {
       next.video.currentTime = 0;
       await next.video.play();
       if (!this.wanted || version !== this.version) { next.video.pause(); return; }
-      this.active = 1 - this.active; this.transitions++; this.blendStart = performance.now();
-      this.retiring = previous;
+      this.active = 1 - this.active; this.transitions++;
+      if(this.speaking&&this.speechPlan.length){this.planIndex=this.planRestart?0:this.planIndex+1;this.planRestart=false;}
+      const previousKind=this.pool.find(c=>c.id===previous.id)?.kind??'talking';
+      const nextKind=this.pool.find(c=>c.id===next.id)?.kind??'talking';
+      this.blendStart = previousKind===nextKind?performance.now():0;
+      previous.video.pause(); previous.id = null; previous.ready = false; previous.loading = null;
       if (this.audio && this.sound) {
         const now = this.audio.currentTime;
         next.gain!.gain.setValueAtTime(0, now); next.gain!.gain.linearRampToValueAtTime(1, now + .05);
         previous.gain!.gain.setValueAtTime(1, now); previous.gain!.gain.linearRampToValueAtTime(0, now + .05);
       }
-      setTimeout(() => {
-        if (version === this.version && this.decks[this.active] !== previous) {
-          previous.video.pause(); previous.id = null; previous.ready = false; previous.loading = null;
-          this.retiring = null;
-          void this.prepareNext();
-        }
-      }, 60);
+      void this.prepareNext().catch(error => { this.stop(); this.fail(String(error)); });
       this.emit();
     } catch (error) { this.stop(); this.fail(`Could not join the next clip: ${String(error)}`); }
     finally { this.switching = false; }

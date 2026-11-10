@@ -20,12 +20,16 @@
  import {generateSpeech,releaseSpeech} from '../lib/speech';
  import {VOICES,DEFAULT_VOICE,getVoice} from '../lib/voices';
  import {playbackWav} from '../lib/audio';
+ import {readBundle} from '../lib/bundle';
+ import {planSpeech} from '../lib/speech-plan';
  import '../style.css';
  let workspace:Workspace=$state({image:null,videos:[],text:'Hello. It is lovely to meet you. What would you like to talk about today?'});
  let videos:ReadyVideo[]=$state([]),sets:LibrarySet[]=$state([]),selectedSet=$state(''),selectedSlots:number[]=$state([]);
  const selected=$derived(sets.find(set=>set.id===selectedSet));
  let busy=$state(false),speechBusy=$state(false),ready=$state(false),progress=$state('Choose a saved loop set or upload your own files.'),error=$state('');
  let preview=$state(''),audioUrl=$state(''),sound=$state(true),replace=$state(true),wire=$state(false),strength=$state(1),speechTrack:Track|undefined;
+ let uploadKind=$state<'idle'|'talking'>('talking');
+ let speechPlan=$state('');
  let selectedVoice=$state<string>(DEFAULT_VOICE);
  let fixedSize=$state(true),showFit=$state(false),fitStats:RigidFitStats|undefined=$state(),fitError=$state<number|undefined>(),faceScale=$state(0);
  let yawEnabled=$state(true),yawWindow=$state(300),yawStats:AxisSmoothingStats|undefined=$state();
@@ -34,7 +38,7 @@
  let neckEnabled=$state(true),neckOnly=$state(false),neckCoverage=$state(.5),neckNote=$state('');
  let neckLayer:NeutralNeckLayer|undefined;
  let runtime=$state<'webgpu'|'cpu'>('webgpu');
- let canvas:HTMLCanvasElement,audio:HTMLAudioElement;
+ let canvas:HTMLCanvasElement;let audio:HTMLAudioElement=$state()!;
  let playback:Playback=$state({armed:false,playing:false,current:null,slot:null,elapsed:0,transitions:0,buffering:false});
  let pose=$state({roll:0,pitch:0,yaw:0,x:0,y:0}),trackingVisible=$state(false),prepared=$state(false),speechInfo=$state('');
  let alive=false,player:LoopPlayer|undefined,renderer:FaceRenderer|undefined,placement:FacePlacement|undefined,sampler:ShapeSampler|undefined;
@@ -46,7 +50,7 @@
  async function blob(path:string){const response=await fetch(path);if(!response.ok)throw new Error(`Could not load saved media (HTTP ${response.status})`);return response.blob()}
  async function persist(){await write('workspace',$state.snapshot(workspace))}
  function updatePreview(){if(preview)URL.revokeObjectURL(preview);preview=workspace.image?URL.createObjectURL(workspace.image):''}
- function clearSpeech(){speechOperation?.abort();inference.cancel();audio?.pause();if(audioUrl)URL.revokeObjectURL(audioUrl);audioUrl='';if(audio){audio.removeAttribute('src');audio.load()}speechTrack=undefined;speechInfo='';player?.redraw()}
+ function clearSpeech(){speechOperation?.abort();inference.cancel();audio?.pause();if(audioUrl)URL.revokeObjectURL(audioUrl);audioUrl='';if(audio){audio.removeAttribute('src');audio.load()}speechTrack=undefined;speechInfo='';speechPlan='';player?.clearSpeechPlan();void player?.setSpeechActive(false).catch(e=>fail('Could not switch motion',e));player?.redraw()}
  function clearPrepared(){operation?.abort();player?.reset();renderer?.dispose();renderer=undefined;placement=undefined;sampler=undefined;neckLayer=undefined;neckNote='';fitStats=undefined;rigidSolution=undefined;yawStats=undefined;pitchStats=undefined;fitError=undefined;faceScale=0;prepared=false;trackingVisible=false;clearSpeech()}
  function setVideos(){for(const video of videos)URL.revokeObjectURL(video.url);videos=workspace.videos.map((video,slot)=>({...video,slot,seed:0,url:URL.createObjectURL(video.file),status:'Awaiting tracking'}));updatePreview()}
  async function changeImage(event:Event){
@@ -58,7 +62,14 @@
   const input=event.currentTarget as HTMLInputElement,files=Array.from(input.files??[]);if(!files.length)return;
   if(files.some(file=>file.size>150*1024*1024)||files.length+workspace.videos.length>20){error='Choose up to 20 loops, each under 150MB.';return}
   busy=true;error='';clearPrepared();
-  try{for(const file of files){const id=await fingerprint(file);if(!workspace.videos.some(v=>v.id===id))workspace.videos.push({id,file,name:file.name})}setVideos();await persist();progress='Files saved. Prepare face tracking to begin.'}catch(e){fail('Could not load videos',e)}finally{busy=false;input.value=''}
+  try{for(const file of files){const id=await fingerprint(file);if(!workspace.videos.some(v=>v.id===id))workspace.videos.push({id,file,name:file.name,kind:uploadKind})}setVideos();await persist();progress='Files saved. Prepare face tracking to begin.'}catch(e){fail('Could not load videos',e)}finally{busy=false;input.value=''}
+ }
+ async function changeKind(id:string,kind:'idle'|'talking'){clearPrepared();const video=workspace.videos.find(v=>v.id===id);if(video)video.kind=kind;setVideos();try{await persist()}catch(e){fail('Could not save motion type',e)}}
+ async function importBundle(event:Event){
+  const input=event.currentTarget as HTMLInputElement,file=input.files?.[0];if(!file)return;
+  busy=true;error='';
+  try{progress='Reading loop ZIP…';const scene=await readBundle(file,workspace.text);clearPrepared();workspace=scene;setVideos();await persist();progress='Loop ZIP saved. Preparing tracking…'}catch(e){fail('Could not import loop ZIP',e);busy=false;input.value='';return}
+  busy=false;input.value='';await prepare();
  }
  async function removeVideo(id:string){clearPrepared();workspace.videos=workspace.videos.filter(v=>v.id!==id);setVideos();try{await persist()}catch(e){fail('Could not save scene',e)}}
  async function refreshLibrary(){try{const result=await json('/api/v1/loop-sets');if(!Array.isArray(result.sets))throw new Error('Invalid library response');sets=result.sets;if(!selectedSet&&sets.length){selectedSet=sets[0].id;chooseSet()}}catch(e){fail('Could not read saved loop sets',e)}}
@@ -69,9 +80,10 @@
    const image=await blob(`/api/v1/loop-sets/${selected.id}/image`),imported=[];
    for(const clip of selected.clips.filter(c=>selectedSlots.includes(c.slot)&&c.job.status==='completed')){
     progress=`Loading saved loop ${clip.slot+1}…`;const video=await blob(`/api/v1/jobs/${clip.job.id}/video`);
-    const file=new File([video],`loop-${clip.slot+1}.mp4`,{type:'video/mp4'});imported.push({id:await fingerprint(file),name:file.name,file});
+    const file=new File([video],`loop-${clip.slot+1}.mp4`,{type:'video/mp4'});imported.push({id:await fingerprint(file),name:file.name,file,kind:clip.job.request?.kind??uploadKind,seconds:clip.job.request?.seconds});
    }
-   workspace={...workspace,image:new File([image],'source-image.png',{type:image.type||'image/png'}),videos:imported};setVideos();await persist();
+   const importedKinds=new Set(imported.map(v=>v.kind));const retained=workspace.videos.filter(v=>!importedKinds.has(v.kind??'talking'));
+   workspace={...workspace,image:new File([image],'source-image.png',{type:image.type||'image/png'}),videos:[...retained,...imported.filter(v=>!retained.some(old=>old.id===v.id))]};setVideos();await persist();
    progress='Saved loops loaded. Preparing face tracking…';
   }catch(e){fail('Could not load saved loops',e);busy=false;return}
   busy=false;await prepare();
@@ -108,6 +120,7 @@
    player?.setAnchor(preview,512,512);
    for(const video of videos){
     video.status='Tracking…';video.track=await tracker.video(video.file,video.id,signal,message=>progress=`${video.name}: ${message}`);signal.throwIfAborted();
+    video.seconds??=Math.round(video.track.duration);
     video.status=`${video.track.frames.length} frames cached${video.track.missing?` · ${video.track.missing} without a face`:''}`;
    }
    progress='Fitting a fixed-size 3D face to the cached tracking…';
@@ -120,14 +133,20 @@
    neckLayer=new NeutralNeckLayer(placement,templateMesh.triangles);
    for(const video of videos)neckLayer.prepare(video.track!);
    await updateNeck();
+   for(const video of videos){if(video.seconds!>video.track!.duration+.1)throw new Error(`${video.name} is shorter than its declared duration.`)}
    const first=videos[0].track!;player?.setAnchor(preview,first.width,first.height);player?.setClips($state.snapshot(videos));prepared=true;
    progress='Ready. Start the loops or enter some text and generate speech.';
   }catch(e){if(!signal.aborted)fail('Could not prepare face tracking',e)}finally{if(alive)busy=false}
  }
  function decorate(ctx:CanvasRenderingContext2D,id:string,time:number){
   const video=videos.find(v=>v.id===id),track=video?.track,frame=track?frameAt(track,time):null;
+  canvas.dataset.motionKind=video?.kind??'talking';
+  const speaking=!!speechTrack&&!!audio&&!audio.paused&&!audio.ended;
+  canvas.dataset.avatarMode=video?.kind==='idle'?'idle':speaking?'speaking':'finishing';
+  canvas.dataset.faceReplaced=String(video?.kind!=='idle'&&replace);
+  if(video?.kind==='idle'){trackingVisible=false;canvas.dataset.faceMotion='0';canvas.dataset.neutralNeck='false';return}
   if(!renderer||!placement||!sampler||!track||!frame){trackingVisible=false;return}
-  if(speechTrack&&audio&&!audio.ended&&audio.currentTime>0)sampleTrack(speechTrack.frames,audio.currentTime,weights);else weights.set(sampler.map.sourceReference);
+  if(speechTrack&&speaking)sampleTrack(speechTrack.frames,audio.currentTime,weights);else weights.set(sampler.map.sourceReference);
   sampler.sample(weights,strength,true);
   const projected=placement.project(frame,track.width,track.height,sampler.local);
   if(replace){const neutral=neckEnabled?neckLayer?.project(track,time):null;const layer=renderer.draw(projected.points,track.width,track.height,wire,true,neutral,neckOnly);canvas.dataset.neutralNeck=String(!!neutral);canvas.dataset.neckExtent=String(neckLayer?.extent??0);ctx.drawImage(layer,0,0,canvas.width,canvas.height)}
@@ -147,20 +166,21 @@
   clearSpeech();
   try{getVoice(selectedVoice);await write('speech-voice',selectedVoice)}catch(e){fail('Could not save voice choice',e)}
  }
+ async function startTalking(){await player?.setSpeechActive(true);await player?.start();await player?.setSpeechActive(true)}
  async function speak(){
-  if(!prepared||speechBusy)return;clearSpeech();speechBusy=true;error='';const signal=(speechOperation=new AbortController()).signal;
+  if(!prepared||speechBusy)return;if(!videos.some(v=>v.kind!=='idle')){error='Add at least one talking video before generating speech.';return}clearSpeech();speechBusy=true;error='';const signal=(speechOperation=new AbortController()).signal;
   try{
    const voice=getVoice(selectedVoice);
    const pcm=await generateSpeech(workspace.text,signal,message=>progress=message,voice.id),playback=playbackWav(pcm);
    speechTrack=await inference.run(playback.pcm,config.model,runtime,signal,(message,percent)=>progress=`${message} ${percent}%`);
-   signal.throwIfAborted();audioUrl=URL.createObjectURL(playback.blob);audio.src=audioUrl;audio.muted=!sound;audio.load();
+   signal.throwIfAborted();const plan=planSpeech(speechTrack.duration,$state.snapshot(videos));player?.setSpeechPlan(plan.map(clip=>clip.id));speechPlan=plan.map(clip=>`${clip.seconds}s`).join(' + ');audioUrl=URL.createObjectURL(playback.blob);audio.src=audioUrl;audio.muted=!sound;audio.load();
    speechInfo=`${voice.name} · ${voice.accent} · ${speechTrack.duration.toFixed(1)}s · ${speechTrack.count} animation frames · ${Math.round(speechTrack.inferenceMs)}ms face inference`;
-   await audio.play();player?.start();progress='Speaking. The video loops continue independently.';await persist();
-  }catch(e){if(!signal.aborted)fail('Could not generate speech',e)}finally{if(alive)speechBusy=false}
+   await startTalking();await audio.play();progress='Speaking. Talking motion will finish before returning to idle.';await persist();
+  }catch(e){await player?.setSpeechActive(false);if(!signal.aborted)fail('Could not generate speech',e)}finally{if(alive)speechBusy=false}
  }
  async function togglePlayback(){
   if(playback.armed){player?.stop();audio.pause()}
-  else{player?.start();if(speechTrack&&!audio.ended&&audio.currentTime>0)try{await audio.play()}catch(e){fail('Could not resume speech',e)}}
+  else{await player?.start();if(speechTrack&&!audio.ended&&audio.currentTime>0)try{await audio.play()}catch(e){fail('Could not resume speech',e)}}
  }
  onMount(()=>{
   alive=true;player=new LoopPlayer(canvas,value=>playback=value,message=>error=message,decorate);
@@ -193,7 +213,10 @@
   <div class="studio">
    <aside>
     <section><h2><span>01</span> Load a scene</h2>
-     <label for="library">Saved Loop Lab sets</label><div class="row"><select id="library" bind:value={selectedSet} onchange={chooseSet} disabled={!ready||busy}><option value="">Choose a saved scene</option>{#each sets as set}<option value={set.id}>{set.config.prompt.slice(0,70)} · {set.ready_count}/5</option>{/each}</select><button class="subtle" onclick={refreshLibrary} disabled={busy}>Refresh</button></div>
+     <label class="file-button">＋ Load a loop ZIP<input aria-label="Loop ZIP" type="file" accept=".zip,application/zip" onchange={importBundle} disabled={!ready||busy||speechBusy}/></label>
+     <p class="hint">One Loop Lab ZIP restores the source image, talking clips and idle clips together.</p>
+     <label for="loop-kind">Add or load videos as</label><select id="loop-kind" bind:value={uploadKind} disabled={busy||speechBusy}><option value="talking">Talking motion</option><option value="idle">Idle motion</option></select>
+     <label for="library">Saved Loop Lab sets</label><div class="row"><select id="library" bind:value={selectedSet} onchange={chooseSet} disabled={!ready||busy}><option value="">Choose a saved scene</option>{#each sets as set}<option value={set.id}>{set.config.prompt.slice(0,70)} · {set.ready_count}/{set.total??set.clips.length}</option>{/each}</select><button class="subtle" onclick={refreshLibrary} disabled={busy}>Refresh</button></div>
      {#if selected}<div class="choices">{#each selected.clips as clip}<label><input type="checkbox" value={clip.slot} bind:group={selectedSlots} disabled={busy||clip.job.status!=='completed'}/>Loop {clip.slot+1}</label>{/each}</div>{/if}
      <button class="secondary full" onclick={importSet} disabled={!ready||busy||speechBusy||!selectedSlots.length}>Load selected loops & source image</button>
      <p class="hint">Loads existing files. No video generation.</p>
@@ -201,7 +224,8 @@
      <label class="image-input">{#if preview}<img src={preview} alt="Original source face"/>{:else}<span>＋ Original source image</span>{/if}<input aria-label="Source image" type="file" accept="image/png,image/jpeg,image/webp" onchange={changeImage} disabled={!ready||busy||speechBusy}/></label>
      <label class="file-button">＋ Add one or more video loops<input aria-label="Video loops" type="file" multiple accept="video/mp4,video/webm,video/quicktime" onchange={addVideos} disabled={!ready||busy||speechBusy}/></label>
      <p class="hint">Use loops made from this image. Up to 20 clips, each at most 30 seconds. Playback uses up to 10 seconds per clip.</p>
-     {#each videos as video}<div class="video-row"><div><strong>{video.name}</strong><small>{video.status}</small></div><button aria-label={`Remove ${video.name}`} onclick={()=>removeVideo(video.id)} disabled={busy||speechBusy}>×</button></div>{/each}
+     <p class="hint">{videos.filter(v=>v.kind==='idle').length} idle · {videos.filter(v=>v.kind!=='idle').length} talking. Idle plays without face replacement; speech switches to talking motion.</p>
+     {#each videos as video}<div class="video-row"><div><strong>{video.name}</strong><small>{video.kind??'talking'} · {video.seconds??'?'}s · {video.status}</small></div><select aria-label={`Motion type for ${video.name}`} value={video.kind??'talking'} onchange={event=>changeKind(video.id,event.currentTarget.value as 'idle'|'talking')} disabled={busy||speechBusy}><option value="talking">Talking</option><option value="idle">Idle</option></select><button aria-label={`Remove ${video.name}`} onclick={()=>removeVideo(video.id)} disabled={busy||speechBusy}>×</button></div>{/each}
      <button class="secondary full" onclick={prepare} disabled={!ready||busy||speechBusy||!workspace.image||!videos.length}>{prepared?'Reload cached tracking':'Prepare face tracking'}</button>
     </section>
     <section><h2><span>02</span> Give it something to say</h2>
@@ -218,7 +242,7 @@
     </section>
    </aside>
    <section class="viewer">
-    <div class="viewer-heading"><h2>Your speaking scene</h2><span class="tag">{playback.playing?'LIVE PLAYBACK':'READY WHEN YOU ARE'}</span></div>
+    <div class="viewer-heading"><h2>Your speaking scene</h2><span class="tag">{playback.playing?(videos.find(v=>v.id===playback.current)?.kind==='idle'?'IDLE · ORIGINAL VIDEO':audio&&!audio.paused&&!audio.ended?'SPEAKING':'FINISHING · NEUTRAL FACE'):'READY WHEN YOU ARE'}</span></div>
     <div class="stage"><canvas bind:this={canvas} width="512" height="512" aria-label="Speaking avatar" data-current-clip={playback.current??''} data-transitions={playback.transitions}></canvas>{#if !preview}<div class="empty"><span>◉</span><h3>Let the scene speak.</h3><p>Load loops and their source image to begin.</p></div>{/if}</div>
     <div class="transport"><button class="primary" onclick={togglePlayback} disabled={!prepared||busy}>{playback.armed?'■ Stop':'▶ Start loops'}</button><span>Loop {playback.slot===null?'—':playback.slot+1} · {playback.elapsed.toFixed(1)}s</span><span>{playback.transitions} joins</span></div>
     <div class="toggles"><label><input type="checkbox" bind:checked={replace} onchange={()=>player?.redraw()}/> Replace face</label><label><input type="checkbox" bind:checked={wire} onchange={()=>player?.redraw()}/> Show mesh</label><label><input type="checkbox" bind:checked={sound} onchange={()=>audio.muted=!sound}/> Speech audio</label></div>
@@ -242,11 +266,11 @@
      {#if neckNote}<p class="warning">{neckNote}</p>{/if}
     </div>
     <label class="strength">Speech motion strength <input aria-label="Speech motion strength" type="range" min="0" max="1.5" step=".05" bind:value={strength} oninput={()=>player?.redraw()}/><span>{Math.round(strength*100)}%</span></label>
-    <audio bind:this={audio} onseeked={()=>player?.redraw()} controls aria-label="Generated speech"></audio><p class="hint">{speechInfo||'Generated speech appears here. Original video audio stays muted.'}</p>
+    <audio bind:this={audio} onplay={()=>{void startTalking().catch(e=>fail('Could not start talking motion',e))}} onpause={()=>{void player?.setSpeechActive(false).catch(e=>fail('Could not switch motion',e));player?.redraw()}} onended={()=>{player?.rewindSpeechPlan();void player?.setSpeechActive(false).catch(e=>fail('Could not switch motion',e));player?.redraw()}} onseeked={()=>player?.redraw()} controls aria-label="Generated speech"></audio><p class="hint">{speechInfo||'Generated speech appears here. Original video audio stays muted.'}{speechPlan?` · Motion: ${speechPlan}`:''}</p>
     <div class="diagnostics"><div><small>HEAD POSITION</small><strong>{pose.x.toFixed(0)}, {pose.y.toFixed(0)} px</strong></div><div><small>ROLL</small><strong>{pose.roll.toFixed(1)}°</strong></div><div><small>PITCH</small><strong>{pose.pitch.toFixed(1)}°</strong></div><div><small>YAW</small><strong>{pose.yaw.toFixed(1)}°</strong></div></div>
     <p class="fit-current">Face scale {faceScale?faceScale.toFixed(2):'—'} px / unit{#if fitError!==undefined} · current fit error {fitError.toFixed(2)} px{/if}</p>
     <p class="status" aria-live="polite">{progress}</p>
-    {#if prepared&&playback.playing&&!trackingVisible}<p class="warning">No tracked face in this frame. Showing the original video.</p>{/if}
+    {#if prepared&&playback.playing&&videos.find(v=>v.id===playback.current)?.kind!=='idle'&&!trackingVisible}<p class="warning">No tracked face in this frame. Showing the original video.</p>{/if}
     <details><summary>About this experiment</summary><p>A neutral source-image face and extended neck are painted below the speaking mesh. The neck transition reduces head motion toward a smoothed image-plane anchor; it is not a separate torso tracker. The opaque coverage is sized from the cached jaw positions. Fixed-size fitting uses one 3D reference and an orthographic camera scale calibrated across all loaded frames. Rotation and position are fitted to the eyes, nose and temple points; speech keeps those anchor vertices fixed. Offline symmetric filters smooth yaw and pitch independently. The first and last filtered angles of each loop ease to shared values. Roll is never smoothed; position and scale are unchanged. Raw fitting remains available for comparison. Speech replaces video expressions using the existing calibrated ARKit-to-MediaPipe motion, adapted to this source fit. Tracking is cached by video content; it does not run again during playback.</p><p>This is a single-texture experiment. It cannot reconstruct unseen face surfaces, teeth or tongue, or reliably handle hands crossing the face. Strong head turns and lighting changes may reveal seams. Use the original-video and mesh views to compare.</p></details>
    </section>
   </div>
