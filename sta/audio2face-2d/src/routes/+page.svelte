@@ -14,6 +14,8 @@
   let avatarName=$state('Loading avatar');
   let mapping=$state<'linear'|'local'>('linear');
   let runtime=$state<Runtime>('webgpu');
+  let modelId=$state('3d-reference');
+  let preparedModelLabel=$state('');
   let sourceMode=$state<'sample'|'text'|'upload'>('sample');
   let sampleId=$state('');
   let text=$state('Mum packed a blue paper bag. We may meet Amanda near the main entrance this evening.');
@@ -44,6 +46,7 @@
   let generationAbort:AbortController|undefined;
   const weights=new Float32Array(52);
 
+  const currentModel=$derived(catalog?.models?.find(m=>m.id===modelId)??catalog?.model);
   const currentSample=$derived(catalog?.samples.find(s=>s.id===sampleId));
   const currentAvatar=$derived(catalog?.avatars.find(a=>a.id===avatarId));
   const quickAvatars=$derived(catalog?.avatars.filter(a=>['0c72c586','01d55f04','dd80126a','05a87620'].includes(a.id))??[]);
@@ -97,16 +100,22 @@
         status='Decoding your audio…';pcm=await decodeMono16k(await file.arrayBuffer());label=file.name;
       }
       signal.throwIfAborted();const sound=playbackWav(pcm);
-      const result=await client.run(sound.pcm,catalog.model,runtime,signal,(message,percent)=>{if(!signal.aborted){status=message;progress=percent;}});
+      const selectedModel=currentModel??catalog.model;
+      const result=await client.run(sound.pcm,selectedModel,runtime,signal,(message,percent)=>{if(!signal.aborted){status=message;progress=percent;}});
       signal.throwIfAborted();if(!mounted)return;
       const old=audioUrl;audioUrl=URL.createObjectURL(sound.blob);audio.src=audioUrl;audio.load();
       if(old)URL.revokeObjectURL(old);
-      track=result;preparedLabel=label;neutralHold=false;progress=100;
+      track=result;preparedModelLabel=selectedModel.label??'Compact v4';preparedLabel=label;neutralHold=false;progress=100;
       status='Ready. Shape follows the audio clock, including pause and seek.';
       try{await audio.play();}catch{status='Ready. Press Play in the audio controls below.';}
     }catch(cause){
       if(!signal.aborted){error=cause instanceof Error?cause.message:String(cause);status='Preparation failed.';console.error('[2d-face-lab] speech preparation failed',cause);}
     }finally{if(generationAbort?.signal===signal)busy=false;}
+  }
+  function changeModel(){
+    stop();track=null;preparedLabel='';preparedModelLabel='';
+    audio?.removeAttribute('src');audio?.load();if(audioUrl)URL.revokeObjectURL(audioUrl);audioUrl='';
+    status='Model changed. Prepare the speech again for this reference.';
   }
   function stop(){
     generationAbort?.abort();client?.cancel();busy=false;audio?.pause();
@@ -234,7 +243,8 @@
         </section>
         <details class="experiment-details"><summary>Experiment details <span>↗</span></summary>
           <label class="field-label" for="runtime">Shape inference</label><select id="runtime" bind:value={runtime} disabled={busy}><option value="webgpu">WebGPU</option><option value="cpu">CPU · WASM</option></select>
-          <p>Compact v4 mapping baseline · 2.25 MB</p><p>478 landmarks · 52 source controls</p>
+          {#if catalog?.models?.length}<label class="field-label" for="shape-model">Reference model</label><select id="shape-model" bind:value={modelId} onchange={changeModel} disabled={busy}>{#each catalog.models as model}<option value={model.id}>{model.label}</option>{/each}</select>{/if}
+          <p>{preparedModelLabel||currentModel?.label||'Compact v4'} · 2.25 MB</p><p>478 landmarks · 52 source controls</p>
           {#if track}<p>Inference: {track.inferenceMs.toFixed(0)} ms for {track.duration.toFixed(1)} s of audio</p>{/if}
           <p class="mono">Fit: {currentAvatar?.id??'—'}<br />{fitHash.slice(0,16)}</p>
           <p class="warning-note">These mappings have not passed the production quality gate. This viewer is for checking and improving them.</p>

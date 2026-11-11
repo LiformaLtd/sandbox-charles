@@ -1,9 +1,10 @@
 export type Sample = { id: string; label: string; text: string; url: string; duration: number };
 export type AvatarSummary = { id: string; name: string; url: string; thumbnail: string };
-export type ContactRig = { rest: number[]; basis: number[] };
+export type ContactRig = { rest: number[]; basis: number[]; capture?: {full:number;release:number;closedAnchor:number;openAnchor:number;method:string;source:string} };
+export type ModelInfo = {id?:string;label?:string;url:string;sha256:string;bytes:number};
 export type Catalog = {
   avatars: AvatarSummary[]; samples: Sample[];
-  model: { url: string; sha256: string; bytes: number }; contact: ContactRig;
+  model: ModelInfo; models?:ModelInfo[]; contact: ContactRig;
 };
 export type Crop = { x: number; y: number; w: number; h: number };
 export type AvatarMesh = {
@@ -11,7 +12,7 @@ export type AvatarMesh = {
   sourceUV: number[]; ring: number[]; triangles: number[]; crop: Crop;
   frame: { center: number[]; width: number; rotation: number[] };
   cheek?: { basis: number[]; blend: number[]; method: string };
-  fitHash: string; calibration: string; contactGap: number[];
+  fitHash: string; calibration: string;
 };
 export type Mapping = {
   kind: 'linear' | 'local'; reference: Float32Array; basis: Float32Array; sourceReference: Float32Array;

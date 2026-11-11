@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { windowFrames } from '../src/lib/windows.ts';
 import { ShapeSampler, parseMapping, sampleTrack } from '../src/lib/shape.ts';
-import { playbackWav } from '../src/lib/audio.ts';
+import { playbackWav,readPcm16Wav } from '../src/lib/audio.ts';
 import type { AvatarMesh, ContactRig } from '../src/lib/types.ts';
 
 const read=(name:string)=>JSON.parse(readFileSync(new URL(`../static/assets/${name}`,import.meta.url),'utf8'));
@@ -61,4 +61,11 @@ for(const kind of ['linear','local'])test(`${kind} cheek transfer moves cheeks w
    if(Math.abs(before)>1e-9)assert.ok(after*Math.sign(before)>=Math.abs(before)*.095-1e-8,`${avatar.id} cheek triangle ${j/3} maintains area`);
   }
  }
+});
+
+test('comparison WAV decoding and playback preserve every PCM16 sample exactly',async()=>{
+ const pcm=Float32Array.from({length:65536},(_,i)=>(i-32768)/32768);
+ const first=playbackWav(pcm),bytes=await first.blob.arrayBuffer(),decoded=readPcm16Wav(bytes);
+ assert.deepEqual(decoded,pcm);assert.deepEqual(await playbackWav(decoded!).blob.arrayBuffer(),bytes);
+ assert.throws(()=>readPcm16Wav(bytes.slice(0,-2)),/truncated/);
 });

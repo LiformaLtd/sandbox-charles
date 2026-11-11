@@ -5,6 +5,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 from cheek_transfer import build_cheek_transfer
+from contact_calibration import calibrate_contact
 
 OVAL=[10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,
       152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109]
@@ -42,6 +43,8 @@ def main():
     parser.add_argument('--maps',type=Path,required=True)
     parser.add_argument('--local-maps',type=Path,required=True)
     parser.add_argument('--source-assets',type=Path,required=True)
+    parser.add_argument('--reference-model',type=Path)
+    parser.add_argument('--regression-audio',type=Path)
     args=parser.parse_args();app=Path(__file__).resolve().parents[1];out=app/'static/assets'
     out.mkdir(parents=True,exist_ok=True)
     results=json.loads((args.maps/'results.json').read_text());reg=np.load(args.maps/'source-registration.npz')
@@ -91,8 +94,7 @@ def main():
             ring=ring.ravel().tolist(),triangles=indices,crop=crop,
             frame=dict(center=center.tolist(),width=width,rotation=rotation.ravel().tolist()),
             cheek=build_cheek_transfer(reg,model,mesh['faceMeshEdges']),
-            fitHash=sha(mesh_file),calibration='Experimental — not validated for production',
-            contactGap=[.003]*9)
+            fitHash=sha(mesh_file),calibration='Experimental — not validated for production')
         write(folder/'mesh.json',data)
         catalog.append(dict(id=face,name=names.get(face,face),thumbnail='/assets/avatars/'+face+'/thumbnail.webp',
             url='/assets/avatars/'+face+'/mesh.json'))
@@ -111,6 +113,19 @@ def main():
     expected=results['protocol']['model_sha256']
     if sha(model)!=expected:raise ValueError('Pinned model checksum mismatch')
     (out/'models').mkdir(exist_ok=True);shutil.copy2(model,out/'models/lf-sta-v4.onnx')
+    baseline_model=dict(id='baseline',label='Original mapping baseline (v4)',url='/assets/models/lf-sta-v4.onnx',sha256=expected,bytes=model.stat().st_size)
+    reference=args.reference_model or args.source_assets/'compact-coverage-v2/coverage/runs/control-replay-s37/model.onnx'
+    reference_sha='5f28ddbbaf6f063ab51c90b90c711d2afff7aa1f7fffd1d813813b0a3297ebbd'
+    if sha(reference)!=reference_sha:raise ValueError('The 3D reference checkpoint does not match the verified deployed v4 export')
+    shutil.copy2(reference,out/'models/lf-sta-3d-reference-v4.onnx')
+    reference_model=dict(id='3d-reference',label='Current 3D demo v4',url='/assets/models/lf-sta-3d-reference-v4.onnx',sha256=reference_sha,bytes=reference.stat().st_size)
+    if args.regression_audio:
+        if sha(args.regression_audio)!='55915d420d797ba4423a40eb3eddc412e267f888d15e4d5ed8568095f9525d2c':raise ValueError('The regression clip must be the exact captured 3D Supertonic M1 WAV')
+        with wave.open(str(args.regression_audio)) as wav:
+            if wav.getframerate()!=16000 or wav.getnchannels()!=1 or wav.getsampwidth()!=2:raise ValueError('Expected exact mono PCM16 16 kHz 3D comparison audio')
+            duration=wav.getnframes()/16000
+        shutil.copy2(args.regression_audio,out/'speech/appointment-supertonic-m1.wav')
+        samples.append(dict(id='appointment-supertonic-m1',label='Appointment · exact 3D Supertonic M1',text='Good afternoon, I am here to help you arrange your next appointment.',url='/assets/speech/appointment-supertonic-m1.wav',duration=duration))
     speech_dir=out/'lf-tts';speech_dir.mkdir(exist_ok=True)
     for name in ['model.q8.gguf','tokenizer.json','config.json','easton.safetensors']:
         shutil.copy2(args.source_assets/'phonon'/name,speech_dir/name)
@@ -118,10 +133,14 @@ def main():
         [5980,7505],[6093,18810],[263,18809],[17362,13358]]).T
     n,b=reg['source_neutral'],reg['source_basis']
     contact=dict(rest=(n[upper,1]-n[lower,1]).tolist(),basis=(b[upper,1,:]-b[lower,1,:]).ravel().tolist())
+    library=json.loads((args.maps/'source-library.json').read_text())
+    capture,poses=calibrate_contact(library,np.array(contact['rest']),np.array(contact['basis']).reshape(9,52))
+    contact['capture']=capture
+    write(out/'contact-calibration.json',dict(capture=capture,poses=poses,librarySHA256=sha(args.maps/'source-library.json')))
     write(out/'catalog.json',dict(avatars=catalog,samples=samples,excludedHistoricalFits=skipped,
-        model=dict(url='/assets/models/lf-sta-v4.onnx',sha256=expected,bytes=model.stat().st_size),contact=contact))
-    write(out/'provenance.json',dict(avatars=fingerprints,model=expected,sourceMaps=str(args.maps.resolve()),localMaps=str(args.local_maps.resolve())))
-    print(f'Prepared {len(catalog)} actual avatar fits, 6 speech clips, the pinned model and local speech assets in {out}')
+        model=reference_model,models=[reference_model,baseline_model],contact=contact))
+    write(out/'provenance.json',dict(avatars=fingerprints,model=reference_sha,calibrationBaseline=expected,referenceModelSHA256=reference_sha,regressionAudioSHA256=sha(args.regression_audio) if args.regression_audio else None,sourceMaps=str(args.maps.resolve()),localMaps=str(args.local_maps.resolve())))
+    print(f'Prepared {len(catalog)} actual avatar fits, {len(samples)} speech clips, the pinned reference models and local speech assets in {out}')
     for entry in skipped:print('Excluded',entry['id']+':',entry['reason'])
 
 
