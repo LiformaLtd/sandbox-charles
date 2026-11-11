@@ -1,11 +1,9 @@
+import { LipContactConstraint } from './contact.ts';
 import type { AvatarMesh, ContactRig, Mapping } from './types';
 
 export const POINTS = 478;
 export const CHANNELS = 52;
-export const INNER_UP = [78,191,80,81,82,13,312,311,310,415,308];
-export const INNER_DOWN = [78,95,88,178,87,14,317,402,318,324,308];
-const OUTER_UP = [61,185,40,39,37,0,267,269,270,409,291];
-const OUTER_DOWN = [61,146,91,181,84,17,314,405,321,375,291];
+export { INNER_UP, INNER_DOWN } from './contact.ts';
 
 export function parseMapping(data: Record<string, unknown>): Mapping {
   const array = (key: string, count?: number) => {
@@ -43,6 +41,7 @@ export function sampleTrack(frames: Float32Array, time: number, result: Float32A
 export class ShapeSampler {
   readonly local = new Float32Array(POINTS * 2);
   readonly image = new Float32Array((POINTS + 36) * 2);
+  private lipContact: LipContactConstraint;
   private beforeCheeks = new Float32Array(POINTS*2);
   private cheekTriangles: number[]=[];
   cheekGain=1;
@@ -55,6 +54,7 @@ export class ShapeSampler {
   readonly mesh: AvatarMesh; readonly map: Mapping; readonly contact: ContactRig;
   constructor(mesh: AvatarMesh, map: Mapping, contact: ContactRig) {
     this.mesh=mesh;this.map=map;this.contact=contact;
+    this.lipContact=new LipContactConstraint(mesh,map.reference);
     this.cheekBasis=Float32Array.from(mesh.cheek?.basis??[]);
     this.cheekBlend=Float32Array.from(mesh.cheek?.blend??[]);
     if(mesh.cheek && (this.cheekBasis.length!==POINTS*2*CHANNELS || this.cheekBlend.length!==POINTS || !this.cheekBasis.every(Number.isFinite) || !this.cheekBlend.every(v=>Number.isFinite(v)&&v>=0&&v<=1)))throw new Error("Invalid cheek transfer data.");
@@ -93,7 +93,6 @@ export class ShapeSampler {
         for (let j = 0; j < local.length; j++) local[j] += k * map.solution[e * local.length + j];
       }
     }
-    if (correctContact) this.applyContact(weights);
     this.cheekGain=1;
     if(cheekStrength>0 && this.cheekBasis.length){
       this.beforeCheeks.set(local);
@@ -108,10 +107,12 @@ export class ShapeSampler {
       }
       this.limitCheekDeformation();
     }
+    for(let j=0;j<local.length;j++)local[j]=map.reference[j]+(local[j]-map.reference[j])*strength;
+    if(correctContact && strength>0)this.applyContact(weights);
     const { center, width, rotation: r } = mesh.frame;
     for (let i = 0; i < POINTS; i++) {
-      const x = map.reference[2 * i] + (local[2 * i] - map.reference[2 * i]) * strength;
-      const y = map.reference[2 * i + 1] + (local[2 * i + 1] - map.reference[2 * i + 1]) * strength;
+      const x = local[2 * i];
+      const y = local[2 * i + 1];
       this.image[2 * i] = (x * r[0] + y * r[1]) * width + center[0];
       this.image[2 * i + 1] = (x * r[2] + y * r[3]) * width + center[1];
     }
@@ -159,7 +160,7 @@ export class ShapeSampler {
     }
   }
   private applyContact(weights: Float32Array) {
-    const { contact, map, local, mesh } = this;
+    const { contact, map, local } = this;
     const gaps = this.gaps;
     for (let p = 0; p < 9; p++) {
       let gap = contact.rest[p];
@@ -171,14 +172,10 @@ export class ShapeSampler {
     // Upper-face controls do not determine contact strength.
     for (let c = 14; c <= 40; c++) movement += (weights[c] - map.sourceReference[c]) ** 2;
     movement += (weights[46] - map.sourceReference[46]) ** 2;
-    const amount = gaps[4] <= 0.1 ? Math.min(1, Math.sqrt(movement) / 0.15) : 0;
-    for (let p = 0; p < 9; p++) {
-      const upper = INNER_UP[p + 1]; const lower = INNER_DOWN[p + 1];
-      const gap = local[lower * 2 + 1] - local[upper * 2 + 1];
-      const wanted = Math.max(0.001, Math.min(0.008, mesh.contactGap[p]));
-      const shift = Math.max(-0.15, Math.min(0.15, (wanted - gap) * amount / 2));
-      local[upper * 2 + 1] -= shift; local[lower * 2 + 1] += shift;
-      local[OUTER_UP[p + 1] * 2 + 1] -= shift; local[OUTER_DOWN[p + 1] * 2 + 1] += shift;
-    }
+    const full=contact.capture?.full??.1,release=contact.capture?.release??full;
+    let capture=gaps[4]<=full?1:0;
+    if(gaps[4]>full&&gaps[4]<release){const t=(release-gaps[4])/(release-full);capture=t*t*(3-2*t);}
+    const amount=capture*Math.min(1,Math.sqrt(movement)/.15);
+    this.lipContact.apply(local,amount);
   }
 }

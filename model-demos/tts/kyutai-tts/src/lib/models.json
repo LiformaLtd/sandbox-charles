@@ -1,0 +1,6 @@
+[
+	{ "id": "english_18m_2026-10", "size": "18.2M", "label": "Large" },
+	{ "id": "english_7m_2026-10", "size": "6.9M", "label": "Mid-size" },
+	{ "id": "english_2m_2026-10", "size": "1.9M", "label": "Smallest" },
+	{ "id": "english_2026-01", "size": "100M", "label": "Original" }
+]
