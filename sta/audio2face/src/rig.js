@@ -51,8 +51,10 @@ function makeEyeGeometry(geometry, positions, pivot) {
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 }
 
-export async function createJames(viewport, { compact = false } = {}) {
-  const [rig, binary] = await Promise.all([asset('/assets/rig.json', 'json'), asset('/assets/rig.bin', 'arrayBuffer')]);
+export async function createJames(viewport, {
+  compact = false, assetsBase = '/assets', blendshapeUrl = '/assets/james-blendshapes.bin', compactGaze,
+} = {}) {
+  const [rig, binary] = await Promise.all([asset(`${assetsBase}/rig.json`, 'json'), asset(`${assetsBase}/rig.bin`, 'arrayBuffer')]);
   const skinLength = rig.meshes.skin.vertexCount * 3;
   if (!Number.isInteger(rig.eyeCloseOffset) || rig.eyeCloseOffset + skinLength * 4 > binary.byteLength) {
     throw new Error('The James rig is missing its eye-close pose. Regenerate it with scripts/prepare_rig.py.');
@@ -60,7 +62,7 @@ export async function createJames(viewport, { compact = false } = {}) {
   const eyeClose = new Float32Array(binary, rig.eyeCloseOffset, skinLength);
   const blend = compact && await loadBlendshapeRig([
     skinLength, rig.meshes.tongue.vertexCount * 3, rig.jaw.length * 3,
-  ]);
+  ], blendshapeUrl);
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 300);
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -204,10 +206,12 @@ export async function createJames(viewport, { compact = false } = {}) {
     }
 
     inverseHeadRotation.copy(faceParts.quaternion).invert();
+    const gaze = blend && compactGaze ? compactGaze(frame) : undefined;
     for (const { mesh, rotation, offset } of eyes) {
+      const index = offset - 88827;
       mesh.rotation.set(
-        (rotation[0] + (blend ? 0 : frame?.[offset] ?? 0)) * degree,
-        (rotation[1] + (blend ? 0 : frame?.[offset + 1] ?? 0)) * degree,
+        (rotation[0] + (blend ? gaze?.[index] ?? 0 : frame?.[offset] ?? 0)) * degree,
+        (rotation[1] + (blend ? gaze?.[index + 1] ?? 0 : frame?.[offset + 1] ?? 0)) * degree,
         rotation[2] * degree,
       );
       // The eye pivots travel with the head, but gaze stays in scene space.
@@ -232,10 +236,11 @@ export async function createJames(viewport, { compact = false } = {}) {
     lower.position.copy(center(jaw)).sub(neutralCenter.clone().applyQuaternion(lower.quaternion));
   }
 
-  function view(mouth = false) {
-    controls.target.set(0, mouth ? -1.6 : 0, mouth ? 6 : -2);
-    const distance = mouth ? 26 : camera.aspect < 0.95 ? 80 : 69;
-    camera.position.set(0, mouth ? -1.6 : 1.4, distance);
+  function view(mouth = false, options = {}) {
+    const target = options.target ?? [0, mouth ? -1.6 : 0, mouth ? 6 : -2];
+    controls.target.set(...target);
+    const distance = options.distance ?? (mouth ? 26 : camera.aspect < 0.95 ? 80 : 69);
+    camera.position.set(target[0], target[1] + (mouth ? 0 : 1.4), distance);
     controls.update();
   }
 

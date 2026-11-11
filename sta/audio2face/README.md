@@ -1,5 +1,15 @@
 # James Facial Motion Studio
 
+## Isolated full-face research view
+
+The new 52-channel research candidate can be compared with unchanged v4 in
+`expressive.html`. See [pilot findings and limitations](docs/plans/expressive-arkit-pilot.md)
+and [reproduction instructions](scripts/research/expressive_arkit/README.md).
+After staging its ignored assets with `prepare_review.py`, run
+`npm run dev:expressive`. It uses the first free port starting at 5173.
+Strong-expression closure and tongue-proxy issues remain; this is not a Player
+release. The normal demo entry point and released model remain unchanged.
+
 A local macOS sandbox for typing dialogue and watching the matching James v3
 mesh speak it. The browser drives the skin, tongue, jaw, and eyes from the
 batch-one ONNX graph. The audio player's clock selects the animation frame,
