@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>James · expressive model research</title></head>
+<body>
+  <main>
+    <header><p class="eyebrow">JAMES · MODEL RESEARCH</p><h1>Expression, before retargeting</h1><p>The same speech and audio clock drive both faces. Head motion and procedural blinks are off.</p></header>
+    <section class="controls" aria-label="Animation controls">
+      <fieldset id="settings" disabled>
+        <label>Speech sample<select id="sample"></select></label>
+        <label>Compare against<select id="comparison-source"><option value="teacher">NVIDIA teacher · raw replay</option><option value="v4">Released v4</option></select></label>
+        <label>Emotion<select id="emotion"></select></label>
+        <label>Strength <output id="strength-value">100%</output><input id="strength" type="range" min="0" max="100" value="100"></label>
+        <label>Gaze style<select id="gaze-style"><option>Claire</option><option selected>James</option><option>Mark</option></select></label>
+        <button id="generate" type="button">Generate &amp; play</button>
+        <label class="upload">Or upload audio<input id="upload" type="file" accept="audio/*"></label>
+      </fieldset>
+      <p id="transcript"></p><p id="status" role="status">Loading the research rig and models…</p>
+      <audio id="audio" controls hidden></audio>
+    </section>
+    <section class="comparison" aria-label="Model comparison">
+      <article id="baseline-card"><h2>Current v4 <span>finetune-r4 · unchanged</span></h2><div id="baseline-view" class="viewport"></div></article>
+      <article id="teacher-card" hidden><h2>NVIDIA teacher <span>raw James geometry · replay</span></h2><div id="teacher-view" class="viewport"></div></article>
+      <article><h2>Full-face candidate <span>52 channels · research</span></h2><div id="candidate-view" class="viewport"></div></article>
+    </section>
+    <nav aria-label="Camera"><button id="detail" type="button">Face detail</button><button id="mouth-detail" type="button">Mouth detail</button><button id="whole" type="button">Whole head</button><span>Drag to rotate · scroll to zoom</span></nav>
+    <p id="candidate-summary" class="note"></p>
+    <p id="teacher-summary" class="note"></p>
+    <p class="note">Emotion and gaze style are supplied controls, not inferred intent. Strong expressions currently weaken some lip closures. Gaze uses a 25° research calibration; tongue-out uses a protrusion proxy. This view does not change the Player or 2.5D mapping.</p>
+    <details><summary>Inspect an individual ARKit rig target</summary><p>Manual rig test, not a model prediction. Tongue-out is shown with the jaw open.</p><div class="pose-controls"><label>Target<select id="target"></select></label><label>Amount<input id="amount" type="range" min="0" max="100" value="100"></label><button id="show-target" type="button" disabled>Show target</button></div></details>
+  </main>
+  <script type="module" src="/src/expressive-review.js"></script>
+</body>
+</html>

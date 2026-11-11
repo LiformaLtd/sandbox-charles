@@ -1,6 +1,7 @@
 .local/
 node_modules/
 dist/
+dist-expressive/
 .env
 __pycache__/
 .vercel/

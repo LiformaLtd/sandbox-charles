@@ -1,7 +1,7 @@
 import { modelAssetUrl } from './model-assets.js';
 
-export async function loadBlendshapeRig(sizes) {
-  const response = await fetch(modelAssetUrl('/assets/james-blendshapes.bin'));
+export async function loadBlendshapeRig(sizes, url = '/assets/james-blendshapes.bin') {
+  const response = await fetch(modelAssetUrl(url));
   if (!response.ok) throw new Error(`Could not load the James blendshapes (HTTP ${response.status}).`);
   const binary = await response.arrayBuffer();
   const view = new DataView(binary);

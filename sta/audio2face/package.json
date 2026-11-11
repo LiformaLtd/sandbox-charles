@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:expressive": "vite --config vite.research.config.js",
+    "build:expressive": "vite build --config vite.research.config.js",
     "build": "vite build",
     "preview": "vite preview",
     "build:hosted": "sh scripts/prepare_hosted_assets.sh && vite build --mode hosted"
