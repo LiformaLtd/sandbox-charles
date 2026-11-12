@@ -1,8 +1,39 @@
 # Building a small, accurate audio-to-face model with low browser memory
 
-Research notes from the James Audio2Face experiments, consolidated on 2026-11-07 through the matched-seed and channel-folding follow-up.
+Research notes from the James Audio2Face experiments, updated through 2026-11-09. Sections preserve the historical experiments; the current assessment below summarizes the subsequent training-fit, residual and earlier-feature findings.
 
 This document gives a reconstruction procedure for researchers starting with the full teacher and changing the data, fitting objective, student, or browser implementation. Numerical results below describe specific experiments. Hyperparameters are reference settings to repeat or ablate, rather than established optima.
+
+## Current assessment: why recent experiments have stalled
+
+**We have not identified the dominant remaining source of lip-gap error.** Recent
+experiments establish several negative results, not a proven diagnosis. Treat
+suggestions in older sections as dated hypotheses, not an endorsed queue of
+experiments that will each improve quality. See §46 for the research reset.
+
+There were useful gains: direct rig prediction and the custom WebGPU runner
+made browser inference small and practical; expanded independent speech plus
+matched longer training improved RMS5.31% over its control (§30, with the stated
+post-pilot/seed caveats). The recent small-loss/head studies have plateaued.
+
+The current compact model uses float32 weights. A useful interpretation of the
+remaining error needs to account for the smaller learned mapping, available
+audio/context, targets, objective and optimization; weight precision alone is
+not an established explanation.
+
+| Evidence | What it supports | What it does not establish |
+|---|---|---|
+| Eight known clips reach.395mm versus their own.350mm fitted reference (§37) | Tiny-set fitting is possible | Adequate capacity or learnability across every voice/context |
+| Published v4 original-gain training RMS1.839mm; same-data fitted-reference discrepancy.363mm (§41) | Substantial error already exists on training data | A unique capacity, optimization, context or label cause |
+| Affine recalibration lowers RMS but loses contacts (§41) | RMS and closure fidelity can conflict | That lowering the scalar score always improves animation |
+| Residuals are correlated, but trained heads recover little (§44–45) | These particular shared-feature heads do not solve it | That the remaining error is random or all residual methods fail |
+| A larger assistant predicts lower RMS (§43) | Better predictions exist in that larger/longer-trained setup | A capacity-only effect or successful transfer to the tiny student |
+
+These rows use their own defined datasets and metrics; do not subtract RMS
+values into additive error sources or compare absolute test scores across fresh
+cohorts. Keep closure/timing metrics alongside gap RMS. Further work should first
+resolve the training-fit bottleneck with controlled diagnostics, rather than
+presenting another auxiliary loss or correction head as a likely large win.
 
 ## 1. What we built
 
@@ -36,9 +67,9 @@ There are two experimental families with overlapping version names. Keep them se
 | --- | --- | ---: | --- |
 | Full teacher, Multi v3.2 | Geometry, jaw and eye values | 724.84 MB | Label generation and reference |
 | Geometry compression v1/v2 and precision/closure variants | Same geometry interface | 72–74 MB | Preserve the teacher interface with quantization and low-rank approximation |
-| Compact ARKit v1/v2/v3 | 52 blendshape coefficients, 39 active | 2.25 MB | Direct audio-to-rig distillation |
+| Compact ARKit v1/v2/v3/v4 | 52 blendshape coefficients, 39 active | 2.25 MB | Direct audio-to-rig distillation |
 
-The compact models have 331,047 learned parameters and 2,251,828-byte ONNX files. The difference between learned parameter bytes and file size includes the fixed waveform frontend and graph data. Compact v2 and v3 use float32 weights. Their size reduction comes primarily from the smaller architecture and output representation.
+The original compact exports have 331,047 learned parameters and 2,251,828-byte ONNX files; published v4 finetune-r4 is 2,251,827 bytes. The difference between learned parameter bytes and file size includes the fixed waveform frontend and graph data. Compact v2/v3/v4 use float32 weights. Their size reduction comes primarily from the smaller architecture and output representation.
 
 ## 2. Pin and validate the teacher first
 
@@ -1170,3 +1201,930 @@ in the evidence. Publish a new immutable revision and change the demo's model
 pointer, preserving the predecessor for rollback. Do not overwrite a cached
 model URL or attribute the original v4's three-seed confirmation to a later
 single-seed fine-tune. V4 gain-r1 retains the 2.25 MB label and original topology.
+
+## 25. More transcript variety is not the same as missing phonetic coverage
+
+The [distinct-speech experiment](compact-coverage-results.md) replaced 32 shared
+primary training texts with 128 new texts, keeping 256 base / 768 gain-conditioned
+primary recordings, eight balanced training voices, historical replay, the v4
+gain-r1 initialization and the same maximum 744-update budget. Each new text had
+two voices rather than eight; each voice still had 32 base recordings. Both arms
+selected checkpoints on identical old/new development data before test scoring.
+
+On 96 fresh recordings / 384 gain variants, original-level RMS improved only
+1.2% versus the matched control. Phonon improved 3.9%, Supertonic regressed 1.2%
+and contact F1 declined slightly versus control. Historical Easton improved
+about 3.8% versus live v4, but the broader cross-engine screen failed. Lower
+opening error and aggregate gap RMS did not guarantee better quiet-speech
+closures. Keep those dimensions separate; no broad accuracy breakthrough was
+established, and published v4 gain-r1 was not changed by this experiment.
+
+The primary text pair-coverage figure rose 74.3% → 93.0%, but including clean
+historical replay it was already 99.69% and rose only to 99.76%. Distinct triples
+with replay rose 5,921 → 6,522. Audit the complete sampled corpus before arguing
+that missing common phone pairs explain errors. Text statistics also count
+transitions across punctuation that may contain pauses in generated speech.
+
+This result does not prove more data cannot help: a fixed recording/update budget
+also reduces voice repetitions per text and changes sampling exposure. It tests
+one bounded distribution change. Preserve the fresh-recording versus previously
+studied-voice distinction, use per-engine and closure regressions, and test
+independent representation capacity next without adding a heavy runtime encoder.
+
+The user subsequently chose to publish the coverage result as v4 coverage-r2.
+Against the deployed gain-r1 predecessor, original-level RMS improves about
+4.7% for Phonon, 0.6% for Supertonic and 2.5% overall. Supertonic's 1.2%
+regression was against the matched extra-training control, not the deployed
+model. Report both comparisons clearly; they answer different questions. Keep
+the contact tradeoffs and study-screen outcome in the release metadata while
+preserving predecessor URLs for rollback.
+
+
+## 26. Independent capacity can learn without improving generalization
+
+The [independent capacity study](compact-independent-capacity-results.md) widened
+96 to 128 channels while preserving the efficient frontend and initial function.
+Unlike the earlier duplicated channels, the additional encoder filters were
+independently initialized, and their weights changed by 12.45% during training.
+Both arms used identical data, replay, sampled minibatches and 744-update budgets;
+selected epoch 18 checkpoints preceded fresh test scoring.
+
+On 96 new recordings / 384 gain variants, the wider model was 0.23% worse in
+original-level lip-gap RMS than the matched 96-channel control. Phonon worsened
+0.60%, Supertonic improved 0.10%, and contact F1 slightly declined. Its 42.9%
+larger download (3.22 versus 2.25 MB), roughly 1 MB additional explicit GPU
+buffers and 15% higher warm block time bought no useful fresh quality gain.
+Small historical improvements and gains against the published initialization
+were insufficient: additional training also helped the narrow control.
+
+Keep coverage-r2 as published v4. This one-seed fine-tune does not establish a
+universal capacity limit. It does remove one practical hypothesis without
+adding runtime complexity. Preserve initialization/gradient/sampler audits;
+otherwise a negative width result can be an invalid symmetry experiment. Report
+contact hits, conditional timing and opening error separately. Model buffer
+allocation is not total browser peak memory, and desktop speed is not iPhone
+speed. Target the next independent test at representation/supervision or temporal
+state rather than buying more of the same channels without evidence.
+
+
+## 27. Training-only state supervision preserved cost but did not fix closures
+
+The [articulation-state experiment](compact-articulation-state-results.md) added
+a training-only linear closing/closed/opening/open classifier to the existing
+96-channel representation. Labels came from teacher geometry, not phoneme onset.
+Ignore frames with invalid neighbours so padding does not create artificial
+motion states. Both arms instantiated identical heads and used identical data,
+replay and sampled minibatches. The control reproduced the previous experiment's
+export byte for byte, and gradient checks showed the new loss reached the encoder.
+
+On 96 fresh recordings / 384 levels, original-level RMS improved only 0.37%
+versus control (about 0.010 mm). Both engines improved slightly in RMS, but
+contact F1 declined from 0.75151 to 0.74948, and well-timed /m b p/ hits did not
+improve. The frozen 5% quality screen failed. A smooth geometry-error reduction
+is not sufficient evidence of better articulation. Keep published coverage-r2;
+do not tune state thresholds against the now-inspected confirmation set.
+
+Removing the auxiliary head before export retained exactly 331,047 parameters,
+2,251,827 bytes, the original ONNX runtime graph, 25 explicit GPU buffers and
+1,492,236 model GPU bytes. Native/WebGPU full-track parity and sixteen synchronized
+James review cases passed. Warm block timings were effectively unchanged at
+about 1 ms on this desktop, with no new total-page or physical-iPhone peak claim.
+
+A post-hoc decomposition on these recordings measured 0.374 mm teacher-to-rig
+fitting RMS versus 2.627 mm student-to-fitted-target RMS. Prediction remains the
+larger error source here; this is not evidence that fitting quality never matters.
+A training-only classifier changes supervision without giving the deployed
+network carried motion history. Test a tiny stateful temporal decoder/short
+motion prior independently next, keeping the efficient audio frontend. Its
+benefit remains a hypothesis, and state reset, streaming seams, memory and fresh
+closure behavior must be measured before any release.
+
+
+## 28. A short feature-history decoder was cheap but did not fix transient closures
+
+The [tiny temporal decoder pilot](compact-temporal-decoder-results.md) froze the
+entire v4 backbone and added eight-frame feature context, 16 GELU units and 39
+residual corrections: 12,967 parameters. The matched control had identical
+capacity/operators but repeated current-frame features instead of real history.
+It completed the same training budget but development selection retained epoch
+zero; its selected output matches v4. The temporal arm selected epoch 13.
+
+Construct contexts on full clip tracks before drawing training windows. Never
+reset at a block boundary or carry history into another recording. Export valid
+first/count and next-history inputs explicitly, and update only emitted frames.
+Zero normalized history between utterances. Here history was prior encoded
+features, not corrected poses; there was no autoregressive feedback or extra
+lookahead. Five tests and full native/WebGPU tracks verified these semantics;
+reset/repeated GPU generation was byte-identical.
+
+On 96 fresh recordings / 384 teacher-labelled levels, RMS improved only 0.52%
+(Phonon 0.82%, Supertonic 0.29%). Frame-level contact F1 rose slightly, but
+well-timed /m/, /b/ and /p/ hits fell 58→54, 75→74 and 53→52. A better aggregate
+hold/contact score does not imply more reliable transient closures. The 5%
+screen failed; keep published v4. This limited frozen-backbone residual test does
+not establish that all recurrent or jointly trained temporal models will fail.
+
+The export was 2.310 MB versus 2.252 MB, with 67,824 extra explicit GPU bytes,
+including 2,688 bytes of carried history. A third reusable WebGPU pipeline kept
+warm blocks around 1.48 ms versus 1.01 ms on desktop. Relative overhead was 47%,
+even though absolute cost stayed small. Sampled desktop renderer/GPU footprints
+with James animating and prerecorded inference were all about 523–529 MiB;
+TTS was excluded, sampling was 20 ms, and run variability is not a memory saving.
+These results make no full-pipeline or iPhone peak guarantee.
+
+ONNX may transpose Linear weights into generated MatMul initializers, so their
+original parameter names/layout cannot be assumed by a custom GPU packer. Resolve
+the graph's matrix inputs, transpose deliberately, lock hashes and require full
+parity. Preserve failed setup evidence without changing trained weights or test
+labels merely to make a runtime adapter pass.
+
+## 29. Test learnability before adding runtime complexity
+
+The [data-scale study](compact-data-scale-results.md) first asked whether the
+unchanged 331,047-parameter student could memorize four existing training clips.
+It could: fitted-target gap RMS fell from 2.149 mm to 0.374 mm with the existing
+mixed loss and 0.175 mm with pure fitted-coefficient MSE. Raw-teacher error reached
+about 0.42 mm, near this subset's 0.372 mm fitted-target discrepancy. This supports
+trying data and optimization before adding an expensive speech encoder. It does
+not prove global capacity, and diagnostic training fits must never be presented
+as held-out quality. The lower-MSE arm had worse closure F1 than the mixed arm;
+representation error, physical contact and timing remain separate measurements.
+
+## 30. Scale independent recordings and compute together, with matched controls
+
+Increasing primary originals 256→3,328 and gain-conditioned examples 768→3,840,
+while retaining clean replay, produced a larger gain than recent tiny decoder
+experiments without increasing browser cost. Across three fixed seeds, long
+expanded-data training improved RMS 7.22% versus deployed v4 and 5.31% versus a
+matched long-training control. Both engines, authored speech and broad ARCTIC
+speech improved. Keep the denominator explicit: primary original count is 13×,
+primary labelled examples 5×, and total including replay has a different ratio.
+The expansion also changed linguistic distribution, so this is not proof that
+recording count alone caused the improvement. Changed-gain audio needs its own
+teacher labels. Audit retained prior development and confirmation texts too.
+
+Short and long budgets can share one exact trajectory prefix, avoiding an
+additional learning-rate-schedule confound. Here short=744 and long=3,720 updates;
+both use the same long cosine schedule. Select only on development, preserve
+optimizer/RNG state and freeze all candidate exports before confirmation scoring.
+
+The original pilot improved 4.45% versus control, missing its predeclared 5%
+screen. Preserve that failure. The subsequent fixed-seed stability extension was
+explicitly post-pilot; a better three-seed mean does not retrospectively pass the
+pilot or create an independent test population. Report all seeds, not just the
+best. Well-timed closure gains were 10.37% versus the control but only 4.14%
+versus v4; a comparator error would substantially overstate the visible benefit.
+
+## 31. Validate accelerated training gradients and keep runtime claims separate
+
+Torch MPS on the installed stack had stride-sensitive geometry errors and bad
+optimization behavior even after a forward-contiguity fix. Matching one forward
+pass is insufficient: compare the complete loss, gradients, first optimizer
+update and descent against CPU. Native MLX training passed after disabling TF32
+before import. Float32 forward max difference was 3.58e-7, gradient relative L2
+1.03e-6 and first-update parameter difference 2.00e-6. This is a validated backend
+for this experiment, not a claim that all Torch MPS versions are incorrect.
+Export through the unchanged waveform graph and verify complete browser tracks.
+
+Read-only memory-mapped training caches avoid loading unused speech features;
+verify cached windows against the original loader, including repeated indices
+and source boundaries. Lock source and array hashes before training.
+
+A better weight set can preserve download size and GPU buffers exactly. Here
+all exports remain 2,251,827 bytes and allocate 1,492,236 explicit GPU bytes.
+Desktop warm blocks remain about 1.3 ms per 500 ms emitted audio, with overlapping
+run variability. Wait for rig startup and warm the runner before timing. Sampled
+prerecorded STA+idle-renderer footprints around 520–535 MiB exclude TTS and do
+not guarantee physical-iPhone peak memory. Keep James animating throughout these
+checks; suppressing idle animation is not an acceptable memory optimization.
+
+## 32. Better teacher-feature reconstruction did not improve mouth animation
+
+The [expanded-corpus distillation trial](compact-feature-distillation-results.md)
+revisited the earlier small-corpus feature-MSE pilot using current v4 scale-r3,
+the larger speech corpus and a normalized cosine objective. A training-only
+96→768 affine head matched the full teacher's last audio-encoder features from
+the student's final interpolated hidden states. The head was removed at export;
+no new browser encoder, phoneme timings or additional lookahead were introduced.
+
+Both arms instantiated identical heads and shared seed, initialization, sampled
+windows, replay, update budget and development-only checkpoint selection. Only
+the hint coefficient differed: zero versus a ramp to 0.1 over 372 updates.
+Features were aligned to exactly the existing waveform, crop and validity mask.
+CPU/MLX auxiliary loss matched exactly and gradient relative L2 was 3.85e-7.
+Hint gradients reached the backbone; the control's hint gradients were zero.
+The trained head's cosine loss fell to 0.382. Successful auxiliary learning is
+not evidence that the learned information improves the target animation task.
+
+On 96 new recordings / 384 gain cases with disjoint texts, original-level RMS
+was 2.42607 mm for control and 2.42576 mm for distillation: only 0.0126% extra
+improvement. Contact F1 declined slightly and well-timed /m b p/ hits fell from
+156 to 153. Current v4 scored 2.48979 mm on this new cohort; both trained arms
+improved about 2.56%, so that shared gain belongs to ordinary fine-tuning. Do
+not compare this cohort's baseline directly with the old 352-recording score
+of 2.72455 mm or attribute their difference to a model update. The predeclared
+3% control-relative screen failed; keep deployed v4 unchanged.
+
+All exports retained 331,047 parameters, 2,251,827 bytes, identical topology and
+1,492,236 explicit GPU bytes. Three settled desktop WebKit runs measured roughly
+1 ms per 500 ms emitted block for every arm, with full-track native/GPU agreement
+within 7.01e-7 and byte-identical repeat output. Sampled active-idle-renderer/GPU
+peaks were about 533 MiB (v4), 525 MiB (control) and 535 MiB (distillation), with
+TTS excluded. These single bounded process measurements do not establish a
+memory regression/saving or physical-iPhone peak guarantee.
+
+This fixed seed/layer/coefficient experiment does not rule out all distillation.
+It does show that normalized last-layer speech-feature imitation is not a
+useful extra ingredient at this setting. Preserve the negative result instead
+of combining it with another intervention or sweeping against the inspected
+confirmation set. Target rendered-mouth residuals and difficult acoustic
+coverage independently next.
+
+## 33. Context-enriched text did not produce an acoustic hard-example win
+
+The [targeted-speech pilot](compact-targeted-speech-results.md) starts from the
+newly requested v4 finetune-r4 release, the ordinary fine-tuned control from the
+feature study. That release retains WebGPU defaults, the exact browser graph and
+continuous idle motion. The subsequent targeting experiment was not deployed.
+
+Mining high residual phoneme triples from TRAINING windows and selecting unseen
+sentences containing them gave a 2.46× context-score enrichment at similar word
+lengths. Supported contexts used at least eight distinct texts/100 frames and
+appeared in at least three candidate sentences. Both additions had 72 texts ×
+four presets = 288 recordings, paired voice/gain schedules and exact eight-voice /
+three-gain balance. Keep a separate broad-data addition as well as an original-
+data control: otherwise extra examples or training can masquerade as targeting.
+
+Reserve fresh evaluation candidates before selecting training examples; exclude
+all retained training/dev/test texts. Separate old/replay/new RNG streams keep
+shared examples stable when novel pools have different window counts. Here both
+new-data arms intentionally replaced 16 of 48 primary windows per update; that
+is an oversampling policy, not uniform training on the enlarged corpus. Lock
+all checkpoint selections before fresh scores and retain complete sample hashes.
+
+On 128 fresh recordings / 512 labelled levels, targeted RMS was 2.73863 mm versus
+broad 2.73757 and original-data control 2.73106. This is no meaningful RMS win.
+Well-timed closure hits improved 105→107 versus broad, but contact F1 fell
+.76908→.76788 and broad-stratum RMS worsened. Phonon improved 0.598% while
+Supertonic worsened 0.613%. A higher event count alone is not better overall lip
+sync. The predeclared 3% screen failed; retain the negative result.
+
+The context-enriched evaluation sentences were actually easier for the released
+model in gap RMS than the broad sentences. Text-level phoneme difficulty is an
+imperfect proxy for acoustic difficulty, even when mined from model errors.
+A separate future study could score actual candidate audio with the teacher and
+student before selecting training examples, retaining coverage/voice quotas and
+outlier controls. Do not tune that new strategy on this inspected confirmation.
+
+All exports stayed 2,251,827 bytes / 331,047 parameters / 1,492,236 explicit GPU
+bytes. Warm desktop WebKit blocks stayed about 1 ms per 500 ms emitted audio.
+An initial targeted WebContent+GPU peak of 544.5 MiB versus 521.8 for release fell
+to 524.2 on a bounded repeat (release 521.7); preserve both runs instead of choosing
+the lower result. This did not establish a repeatable weight-dependent memory
+increase or saving. TTS was excluded and idle animation continued; these are
+not physical-iPhone full-pipeline guarantees. A missing local rig-file setup
+error was fixed before collecting valid browser measurements.
+
+## 34. Full 3D lip supervision is cheap to export, but this pilot gave a small gain
+
+The [dense lip-surface study](compact-lip-surface-results.md) directly supervised
+raw teacher positions over a fixed 2,267-vertex mouth/perioral region, all three
+axes, including the original 18 gap landmarks and lateral/depth geometry. Bounds
+reuse the earlier fitter's mouth region, not a hand-annotated vermilion mask.
+Only 1,077 selected vertices overlap the older frontal fit mask. Always match
+vertex/channel order and compare `R+wB` with `S+D`; target relative to rig neutral
+is `D+(S−R)`. Dropping that offset creates a systematic coordinate-frame error.
+
+A linear rig permits EXACT dense-MSE sufficient statistics: per axis retain
+`tBᵀ/V` and `mean(t²)`, with fixed `BBᵀ/V`. Loss is `wGw−2wq+s`. Retain `s`
+when reporting raw geometry error, including residual outside the rig span.
+This reduced 6,801 coordinates to 120 float32 values per frame without a learned
+compression or lost dense-loss gradients. Absolute head-height coordinates
+must not be naively stored in float16. The unchanged teacher backend can project
+before host transfer while preserving state/priming/crops; verify against the
+untouched output and all existing gap references. Here all 5,088 case references
+matched pinned gaps exactly, and dense/CPU/MLX gradient checks passed.
+
+Both arms shared current v4, data, 3,720 updates, sampled batches and a joint
+surface/gap/contact development selector. One training minibatch calibrated the
+surface weight to 25% of ordinary backbone-gradient norm (coefficient 0.64982),
+with a 372-step ramp. No coefficient sweep or test-driven selection was used.
+The joint selector is shared but differs from the earlier gap-only selector;
+matched fine-tuning is essential for attribution.
+
+On 96 fresh recordings / 384 gain cases, dense 3D RMS was 2.89763 mm for released
+v4, 2.84445 for control and 2.80955 for surface supervision. The improvement is
+3.04% versus release but only 1.23% versus matched control. Gap RMS improved 0.41%
+versus control, and both engines improved on both measurements. Well-timed
+closures fell 164→161; contact F1 declined slightly. The predeclared 3% extra-gain
+screen and closure-total guard failed. Do not label the entire baseline-relative
+gain as the benefit of surface supervision or hide the closure trade-off.
+
+Dense3D error and nine-gap error are different metrics. Report both on the same
+cohort and break surface error into lateral/vertical/depth components. Here depth
+was the largest component. Teacher-fitted rig surface RMS was 0.85555 mm, versus
+student 2.80955: prediction remains the larger measured stage, not proof of an
+irreducible noise floor or guaranteed recoverability. The fitted target is a
+retargeting reference, not a strictly optimal full-surface oracle.
+
+No model parameters, inputs or buffers were added: 2,251,827 bytes, 331,047
+parameters and 1,492,236 explicit GPU bytes. Warm desktop WebKit blocks stayed
+around 1 ms per 500 ms emitted audio; sampled renderer/GPU peaks were about
+525–532 MiB with idle animation active and TTS excluded. Those variations do not
+establish a memory saving or physical-iPhone full-pipeline safety. Keep published
+v4 finetune-r4; further weight/mask/representation trials need new confirmation.
+
+
+## 35. Teacher state changes lips for identical current audio; noise barely does
+
+The [teacher-history compatibility diagnostic](teacher-history-compatibility-results.md)
+ran 304 teacher tracks on 16 fixed-hash suffixes across eight Phonon/Supertonic
+voices. Natural speech/silence prefixes produce reachable recurrent states;
+corresponding current waveform windows are byte-identical after 250 ms. Native
+priming, noise reuse, half-second hops and frame crops were retained. Exact
+original-output projection parity, deterministic repeats, reset-state controls
+and identical stateless-student outputs all passed. Exclude the first 250 ms:
+there the current audio window can still contain prefix audio.
+
+Among three warm histories at seed 0, gap / dense 3D mouth RMS differences were
+1.040 / 1.276 mm during 250–750 ms, 0.148 / 0.186 during 750–1,250 ms,
+0.037 / 0.047 during 1,250–2,250 ms, and 0.007 / 0.007 during 2,250–3,250 ms.
+First-bin contact disagreement was 4.58%. Speech-prefix A versus B alone gives
+0.897 mm gap RMS; cold versus warm silence only 0.050 mm. This is a causal recent
+speech-history effect, not just cold priming. It appears in both engines, larger
+in these Supertonic examples (1.429 versus 0.350 mm first-bin gap RMS). Sixteen
+constructed suffixes are not a production distribution or a general engine rank.
+
+Noise seeds 1–3 versus 0 give just 0.0175 mm gap / 0.0256 mm surface RMS over the
+primary interval. Existing training labels already fix seed 0; do not call this
+random label noise resampled every window. It cannot plausibly explain most of
+the roughly 2–3 mm student error. We changed history only once: later convergence
+means old history decays, not that missing past can matter only at utterance
+startup. Each streaming block can again lack recent pre-window context.
+
+A supplementary uniform warm-history decomposition attributes 5.13% of first-bin
+gap MSE and 7.65% of surface MSE to teacher-history variance on this probe; pooled
+primary shares are about 1.2–1.3%. These are not production error fractions or
+expected recurrent-model gains. Most error here is still conditional-mean bias.
+The result supports a cheap jointly trained 32-unit state versus matched reset/
+stateless controls, not a promised large win or a large memory-heavy sequence
+model. Keep frontend/lookahead fixed and validate free-running speech, closures,
+speed and repeated-play memory. Earlier frozen 117 ms feature-history and longer
+input tests did not test exactly this hypothesis, but their weak gains remain
+relevant evidence. No model was trained or replaced by this diagnostic.
+
+
+## 36. Jointly training a small recurrent state is cheap, but gave little extra gain
+
+The [32-unit state pilot](compact-recurrent-state-results.md) retains v4's exact
+waveform filters/mel bank, normalization, interpolation, one-second windows,
+500 ms hops and lookahead. A GRU on tanh(encoded/4) adds a standardized residual;
+all backbone and decoder weights train jointly. The matched control has the same
+cell/head but resets its previous state every emitted frame. Its recurrent
+matrix is dormant; effective temporal capacity intentionally differs. Both
+zero-initialized heads reproduce v4 exactly before training.
+
+Use chronological streams, not randomly isolated windows, when training state.
+Here a shared frozen sampler used twenty slots, up to four consecutive blocks
+per update, state detachment every four blocks and resets at recording boundaries.
+Invalid padding and overlapping non-emitted rows never advance state. Complete
+ordered development clips selected checkpoints. Both arms used 1,240 updates,
+83,731 nonpadding block exposures and selected step 1,116; this bounded pilot is
+shorter in updates than prior 3,720-step trials and does not exhaust recurrent
+training. Fixed inputs, resets, optimizer and selection are essential controls.
+
+On 96 fresh held-out-voice recordings, gap RMS was 2.46400 mm for published v4,
+2.43582 for the stateless control and 2.43150 for recurrence. The 1.319% gain
+versus v4 contains only 0.177% extra benefit from history. Well-timed /m,b,p/ hits
+were 152/158/159; contact F1 .79246/.79541/.79571. Supertonic gap RMS improved
+0.394% versus control while Phonon worsened 0.060%. The 3% extra-gain screen and
+no-engine-regression guard failed. A conditional transcript-cluster bootstrap
+estimated 0.117–0.245% extra gain; this does not cover training-seed uncertainty
+or make the change practically substantial. Prior dense-surface RMS improved only
+0.042% versus control. Do not attribute ordinary fine-tuning gains to recurrence.
+
+The history diagnostic established different teacher outputs at identical current
+inputs, not a promised gain from this particular state/feature/target recipe.
+Missing information can be real while a small pilot recovers little useful error.
+Keep both findings; neither erase the diagnostic nor claim all recurrent methods
+are exhausted. No new model was published from this experiment.
+
+The cell adds 13,703 parameters and 128 bytes of persistent state. ONNX exports
+are about 2.55 MB, partly due to unrolled crop/state graph overhead, versus v4
+2.25 MB. Custom WebGPU reads weights without instantiating that ONNX graph and
+adds only 54,960 explicit GPU buffer bytes. Apply residuals before clipping;
+clipping the baseline first changes the learned function. Preserve native crop/
+state contracts, including short tails and zero-frame no-ops. Native/export and
+three-run GPU parity were within 7.1e-7; reset repeats were byte-identical.
+
+Warm M5 Max desktop WebKit block medians were 1.05 ms for v4 and 1.23 ms for both
+new arms per nominal 500 ms emitted audio (476×/407× isolated STA, excluding TTS
+and rendering). These are not whole-pipeline generation factors. Nine physical
+footprint trials with James still animating gave v4 522.9–534.1 MiB, control
+530.9–536.2 and recurrence 527.0–533.9. Overlap does not establish a memory saving.
+These measure loaded idle page + model startup + accelerated prerecorded short/
+long/repeated STA, excluding initial rig loading, TTS and other browser processes.
+Twenty-ms sampling and desktop WebKit cannot guarantee physical-iPhone peaks.
+
+
+## 37. Current v4 memorises eight clips near their fitted reference; loss trades RMS for contact
+
+The [current-v4 memorisation diagnostic](v4-memorisation-results.md) repeats rather
+than invents the earlier four-clip learnability finding. Always consult previous
+controls before recommending the same experiment. Eight different hash-selected
+training recordings, one per eight Phonon/Supertonic voices, contain 57 windows /
+1,499 supervised frames. Their own fitted-reference gap RMS is 0.35045 mm pooled,
+not the 0.373 mm measured on a separate 96-clip cohort. Freeze selection before
+measuring errors; do not repurpose held-out confirmation clips for this test.
+
+With architecture/frontend/lookahead unchanged, matched 3,000-update full-batch
+training reduced raw error 1.75932→0.39533 mm under pure fitted-coefficient MSE.
+Student-to-fitted-target gap error reached 0.16314 mm. This passes the predeclared
+within-25%-of-reference screen. The existing mixed loss selected step800 at
+0.46053 mm raw / 0.45079 mm fitted-target error and failed that closeness screen;
+its final raw error was 0.46910 mm. Pure MSE selected its final step3000.
+
+The objectives trade measurements: mixed loss contact F1 is .99901 versus .97358
+for pure MSE (initial .88802; fitted reference .98083). Lower gap RMS does not
+alone establish better lip sync. This controlled small-set difference supports
+examining loss balance, but does not isolate which mixed term causes it or prove
+that a production MSE switch will help. Keep event timing/closure measures.
+
+A hard 2–3 mm representational floor from the current file size is unsupported.
+Memorisation does not prove unlimited broad capacity or general phonetic features;
+recording-specific cues can suffice. Generalization, optimization and objective
+trade-offs remain candidates, not a uniquely identified root cause. These training
+fits are not held-out gains and their weights were not published.
+
+Exports remain 2,251,827 bytes / 331,047 parameters with bit-identical frontend and
+normalization. Native complete-stream gap RMS matches training within 0.000002 mm.
+Preserve a numerical caveat: fitted-MSE failed the usual 5e-5 coefficient-parity
+threshold, with maximum delta 2.44e-4; mixed passed at 1.44e-5. Cached NumPy FFT
+versus ONNX convolution changes mel by at most 6.14e-6. Feeding the ONNX mel into
+the same MLX model reproduces nearly all the coefficient change, showing amplified
+frontend rounding sensitivity. This does not invalidate the aggregate memorisation
+result, but it is not deployment parity approval. Do not relax a threshold after
+seeing the result and call it a pass. No browser/memory/phone claim follows.
+
+
+## 38. A fixed fourfold coefficient weight did not transfer the memorisation benefit
+
+The [full-corpus loss-balance pilot](compact-loss-balance-results.md) changes just
+coefficient SmoothL1 weight1→4, retaining raw gap/contact/velocity/timing terms.
+It is not pure MSE and does not test every loss-balancing method. Both arms use
+released v4, the complete existing primary corpus plus historical replay,3,720
+updates and identical sampler/optimizer/development selector. Control values and
+gradients match the original objective exactly. Epoch-zero was eligible; the
+same selector chose control step2,976 and candidate1,116. Different selected
+checkpoints are not different training budgets.
+
+Fresh96-recording /384-gain-case confirmation gives gap RMS2.28384 mm for v4,
+2.24551 for control and2.25118 for candidate. The candidate is0.253% worse than
+control, despite1.430% improvement versus release. Contact F1 falls.80098→.79670.
+Well-timed /m,b,p/ hits are25/71/57 for control and23/74/58 for the candidate;
+totals153→155 conceal lost /m/ hits, and both totals trail release159. Existing
+0–100ms anticipatory scoring is retained. The3% extra-gain, no-engine-regression
+and contact-F1 guards fail. Do not promote this balance or the control from RMS
+alone. A supplementary transcript-cluster bootstrap spans−1.552% to+1.141% extra
+gain and does not support a robust improvement or a significant degradation.
+
+Phonon worsens0.618% versus control; Supertonic improves0.073%. Half/quarter audio
+improves1.01%/2.64%, while original and boost worsen. Preserve these stratified
+positives without replacing the primary endpoint after seeing results. Prior
+surface/feature/recent confirmation also favours control; prior dense3D RMS is
+2.84445 mm control versus2.86464 candidate. Historical gap favours the candidate.
+No single metric/stratum establishes overall lip-sync quality.
+
+Fourfold coefficient emphasis clips gradients on100% of updates, versus68.63%
+for control; mean preclip norms2.621 versus1.150. Same optimizer settings do not
+mean same effective update vectors/magnitudes. This is a measured consequence of
+the loss change, not proof clipping alone caused the result. Held-out coefficient
+MAE did not improve either. Small-set learnability therefore does not imply that
+simply raising coefficient weight improves generalization.
+
+All exports stay331,047 parameters /2,251,827 bytes with identical operators,
+frontend and normalization; the production WebGPU runner stays unchanged. Warm
+M5 Max WebKit block medians are1.02/1.01/1.02ms for v4/control/candidate per nominal
+500ms emitted audio. All allocate1,492,236 explicit GPU bytes. Nine animated-James
+renderer+GPU peak trials span about523–533MiB, with TTS/initial rig load excluded;
+this is not a physical-iPhone full-pipeline claim. Native/MLX and three full browser
+parity runs pass; reset repeats are byte-identical. Keep deployed v4, preserve the
+negative result and require a separate protocol for any new ratio or balancing
+algorithm. No weights were published from this experiment.
+
+
+## 39. Test frozen experts on the actual rig; SyncNet passes, AVSR transcript loss does not
+
+The [mouth-expert compatibility screen](mouth-expert-compatibility-results.md)
+used actual rendered James teacher-fitted motion, with fixed gaze/head/blink/
+lighting. Four correct calibration clips determine one global SyncNet feature
+alignment; eight different test clips compare shifts±80/160/320ms, reduced jaw
+opening, removed /m,b,p/ contacts and a static pose. Geometry checks preserve
+existing closures during under-opening and lift only uniquely associated
+bilabial contacts, not silence, above3mm with smooth shoulders. Freeze sources,
+corruptions, crops, checkpoints and pass criteria before reading expert scores.
+
+The paper-distributed frozen Auto-AVSR joint CTC/attention loss fails: correct
+wins4/8 for reduced opening and4/8 for missing closure; required timing variants
+win only3–5/8. Checkpoint-default normalization does not rescue it (2/8,3/8).
+Muted audio improves closure to7/8 but reduced opening remains3/8. Whole-transcript
+recognition with muted audio is not an audiovisual synchronization metric. All
+strict loads, direct-versus-cached loss parity and reversed-token controls pass;
+recognition correctness alone does not validate a visual training signal. The
+paper's training also adapts the lip-reader and masks audio; this frozen test
+does not refute its adapted method or prove one unique cause of failure.
+
+Secondary SyncNetv2, with original MFCC/BGR preprocessing and one fixed−40ms
+visual-feature alignment selected only on correct calibration clips, prefers
+correct motion8/8 for EVERY corruption and both engines4/4. No per-example or
+per-corruption alignment search is allowed. The40ms is scorer alignment, not a
+change to production playback or phoneme labels. A subsequent separately frozen
+confirmation selected eight text-disjoint clips from another corpus, with the
+same expert/crop/corruptions/offset: again8/8 on every condition. This is144 paired
+wins across two sets but only16 independent clips, not144 independent utterances.
+Do not retrospectively describe a selected-secondary confirmation as a successful
+initial primary AVSR experiment.
+
+The official SyncNet real-video example recovered expected offset3, minimum mean
+distance5.3518 and confidence10.087 (README about5.353/10.021), supporting the
+implementation. Actual local/CDN rig assets match; all20 calibration/test/
+confirmation cases pass input/frame/geometry checks. Every assessed test clip's
+scored SyncNet windows see the closure corruption. Calibration clips are not
+corruption tests; one has contacts outside that common interior.
+
+This supports a matched training-only SyncNet-loss trial, retaining geometry/
+closure constraints and current browser architecture. It does not yet establish
+useful gradients, subtle-error sensitivity, intelligibility, resistance to
+optimizer exploitation or an improvement over v4. Neither expert/student was
+trained; no browser weights/runtime/idle behaviour changed. Keep these inspected
+compatibility clips separate from any future model confirmation set.
+
+
+## 40. Training-only SyncNet: preserve the actual rendering domain and require a matched gain
+
+The [matched SyncNet pilot](compact-syncnet-loss-results.md) retains the complete
+current-v4 browser graph, audio frontend, lookahead,331,047 parameters and2,251,827
+bytes. A compatible frozen expert does not automatically provide an effective
+training objective. Validate both the images used during training and the way its
+gradient reaches the student, then test generalization against ordinary fine-tuning.
+
+An offline differentiable James renderer was not an adequate substitute for the
+actual Three face. Triangle attempts failed numerical-gradient checks; a smooth
+point renderer eventually passed derivatives, timing and reduced-opening checks,
+but preferred correct motion to missing closures on only4/8 clips. Do not accept
+correct derivatives of images that fail the intended perceptual discrimination.
+That renderer was rejected before any student update. Its sources/results remain
+available separately from the final training method.
+
+The final pilot evaluates the original frozen SyncNet on actual Three/WebKit
+images. A single-view renderer reproduces sampled compatibility images exactly.
+Sixteen Rademacher central probes at coefficient epsilon.003 estimate the visual
+loss gradient on five25fps frames. A separate max-.001 coefficient descent
+check improves actual distance on all eight first-batch training examples. This
+is a stochastic finite-scale estimate, not exact analytic rendering gradients.
+Its cotangent transfers through clipping/interpolation to MLX; the Torch/MLX
+backbone vector-product relative difference is below one part per million.
+The prior−40ms scorer alignment stays fixed; labels/playback timing do not move.
+
+Both arms run the same3,720 updates, seed37 main batches, all primary/replay data,
+optimizer and development selection. The control exactly reproduces the previous
+control's export hash. One existing five-frame primary example receives auxiliary
+supervision every four updates, rotating eight voices. The loss is positive excess
+SyncNet distance over the fitted teacher's distance, with zero gradient when the
+unperturbed student score already matches/beats the teacher. Training-only
+calibration sets mean auxiliary backbone norm to25% of ordinary-loss norm,
+with372-update ramp. Probe seeds change independently of the main sampler.
+There are930 scheduled auxiliary examples,454 active; this is sparse supervision,
+not expert loss on every frame of the full corpus. Both arms select step2976.
+
+On a new96-recording /384-gain-case confirmation, raw-teacher lip-gap RMS is
+2.47594mm for v4,2.44256 for control and2.44231 with SyncNet. The added loss gives
+only0.0103% extra improvement over control, not the1.358% seen versus release.
+Contact F1 is.80281 control versus.80209 SyncNet; /m,b,p/ well-timed hits are
+identical41/67/55. Phonon gap improves0.045% while Supertonic worsens0.018%.
+The predeclared≥3% extra-gain and no-engine-regression guards fail. Keep the
+published v4; this trial does not justify promoting the auxiliary loss.
+The24-transcript cluster-bootstrap95% interval spans−0.118% to+0.120% extra
+improvement. It supports neither a meaningful gain nor a significant degradation.
+Prior dense3D mouth RMS slightly worsens2.84445→2.84749mm versus control.
+
+All three exports retain identical operators, frontend/normalization constants
+and1,492,236 explicit GPU bytes. Warm M5 Max WebKit block medians are.98/.96/.99ms
+for v4/control/SyncNet per nominal500ms emitted audio. Three animated-James
+WebContent+GPU peak trials per model span522–532MiB across short/long/repeated
+accelerated STA. TTS and initial rig loading are excluded; this does not measure
+full-pipeline peak memory on a physical iPhone. Native/MLX parity, three browser
+parity runs and byte-identical reset repeats pass. Sixteen synchronized review
+cases pass audio/seek checks. Idle rendering continues; no runtime changes or
+weights are published.
+
+This result does not rule out a denser, lower-variance, adapted or differently
+weighted visual objective. It tests one fixed sparse numerical-gradient recipe.
+Useful local descent directions and success on conspicuous corruptions do not
+establish sensitivity to the remaining small errors, a meaningful student gain,
+or resistance to optimizer exploitation. Preserve the negative result without
+relabeling ordinary fine-tuning's gain as a successful SyncNet improvement.
+
+### Practical decision after this experiment
+
+For this recipe, the answer is **no meaningful additional quality gain**. Ordinary
+fine-tuning accounts for about 1.35% improvement over released v4; adding SyncNet
+contributes only 0.01% beyond that control, with no additional bilabial hits.
+The substantial renderer engineering and roughly 52s versus 722s training cost
+did not produce a useful improvement. Keep the negative result and stop tuning
+this particular recipe. This is a prioritization decision, not proof that visual
+supervision cannot work.
+
+For subsequent work, prioritize training-data coverage and target quality over
+another small auxiliary-loss variation. Broader speech coverage previously gave
+a measured 5.31% RMS improvement over a matched control (§30). That is stronger
+evidence of a useful direction than this null result. It does not guarantee that
+another corpus expansion will give the same return, or establish data coverage
+as the sole remaining bottleneck. The tiny-set memorisation result (§37) shows
+that the current network can fit known clips closely; it does not prove adequate
+capacity for every unseen voice and phonetic context.
+
+A concrete untested direction is to mine difficult **synthesized audio** using
+the current student's measured errors against teacher targets, then collect new
+voices, contexts or renditions around those failures. Keep this distinct from
+the earlier text-context selection experiment (§33), which did not establish an
+acoustic hard-example benefit. Audit teacher targets for the selected failures
+before increasing their training weight. Compare against equally sized broad
+speech additions with matched student updates and replay, then confirm on fresh
+texts and voices. This is a proposed experiment, not a demonstrated improvement.
+
+For future complex objectives, use staged go/no-go checks: rendering and gradient
+validity first, then a small matched student-training pilot, before scaling up.
+Expert rankings on large corruptions and local descent checks are implementation
+preflights; a held-out student improvement is the evidence needed to justify
+further investment. Track offline engineering/training cost separately from
+browser file size, inference speed and memory.
+
+
+## 41. Measure full training fit and test the final readout before attributing error to generalization
+
+The [full-corpus fit diagnostic](compact-training-fit-results.md) scores every
+primary training frame and all historical replay, rather than inferring fit from
+a tiny memorisation test or a minibatch loss. There are3,840 primary labelled
+clips/751,498 frames and549 replay clips/99,188 frames. Report original-gain
+training separately (1,280 clips) for comparison with original-gain test speech;
+that condition count is different from the pre-gain independent-recording count.
+
+The SyncNet model's original-gain training RMS is1.74377mm, compared with2.44231mm
+on the previous held-out test; all-primary-gain training RMS is1.80916mm.
+The ordinary control gives1.74204mm original /1.80719mm all-primary. Thus neither
+fits the full corpus closely. Same-data fitted-James reference discrepancy is
+.36254mm original /.36193mm all-primary; SyncNet differs from fitted targets by
+1.74879mm /1.81466mm respectively. This reference is not a strict gap optimum;
+RMS values cannot be subtracted into independent error components.
+
+Higher held-out error coexists with substantial training error. Different voices,
+text distributions and condition mixes prevent interpreting the difference as a
+controlled measure of generalization alone. Tiny-set memorisation does not prove
+full-corpus learnability. This measurement does not quantify conflicting teacher
+histories, identify a unique capacity/optimization cause or show that more data
+will or will not help. Do not automatically prescribe data expansion from the
+test score without measuring the fit and auditing targets.
+
+One follow-up freezes the ordinary control's entire learned body and refits only
+its final affine readout to normalized coefficient MSE using float64 sufficient
+statistics. All96 feature directions survive the fixed1e-9 cutoff; the normal-equation
+residual is1.32e-15. Primary voices share75% frame weight, replay25%.
+This is a fixed-objective optimal-readout diagnostic, not a matched SGD-budget
+experiment or a claim about nonlinear readouts. No development/test selection
+or sweep is used. Only3,783 existing parameter values change.
+
+Unclipped normalized coefficient MSE decreases only2.72% (.257119→.250124).
+Original training gap improves1.74204→1.69868mm, and inspected test gap improves
+2.44256→2.38811mm. But test F1 falls.80281→.77553; /m,b,p/ hits fall41/67/55→
+34/51/32, totaling163→117. The scalar RMS improvement is not an acceptable
+animation improvement. Keep published v4 and reject this head. The previous test
+set is now inspected regression evidence for this new diagnostic, not a fresh
+independent confirmation. Its failure needs no further release confirmation.
+
+A simple affine recalibration does not solve the remaining error. This does not
+prove that the existing audio frontend is insufficient: useful information may
+need nonlinear decoding, different representation learning, context, cleaner
+labels or better full-network optimization. Those alternatives need separate
+experiments. Preserve closure/timing constraints when investigating RMS gains.
+
+The measurement adapter matches the existing evaluator on768 clips; all cached
+target frames and cache input fingerprints agree. Native waveform parity on29
+clips per model stays within1.13e-6. The new graph, total331,047 parameters and
+2,251,827-byte file stay unchanged except for two readout tensors. No new browser
+performance/memory measurement or deployment is claimed. Production WebGPU and
+continuous idle animation remain unchanged.
+
+
+## 42. Same-batch closure protection does not improve the full-corpus fit
+
+The [closure-protected experiment](compact-closure-protected-results.md) checks
+conflicting gradients before training, then compares actual AdamW-displacement
+projection and nonlinear contact/timing backtracking against ordinary updates.
+Both arms retain331,047 parameters,2,251,827 bytes, the original loss, identical
+scheduled batches and3,720 updates. It is not standard PCGrad. Accepted motion
+and time differ; attempted updates still advance Adam moments/counters.
+
+Fitting/contact gradients conflict on65.625% of64 fixed probes, fitting/timing
+on32.8125%, but only8/64 actual first Adam proposals violate the guards. Thus
+conflict is real without proving it is the dominant cause of fit error. During
+training535/3720 protected parameter steps are skipped. Recorded same-batch
+nonlinear guards pass, but this does not guarantee unseen closure quality.
+
+On the fresh96-original-clip cohort, protected/control gap RMS is2.61176/2.58937mm;
+original training RMS is1.70073/1.66929mm. Treatment is.865% worse on test and1.883%
+worse on training. Both TTS engines worsen, F1 falls.79979→.79815, and /m,b,p/
+hits tie34/64/52. Slightly better missed contacts and onset timing coexist with
+worse false closures and release timing. The predeclared screen fails. This new
+cohort has a different absolute difficulty from previous test sets. Improvement
+relative to published v4 comes largely from ordinary additional fine-tuning and
+must not be attributed to protection. Neither new arm is promoted.
+
+The unchanged production WebGPU graph stays about1ms per500ms block, with the
+same1,492,236 explicit GPU bytes. Three fresh desktop WebKit footprint trials per
+model peak524–538MiB with animated James and short/long/repeated prerecorded STA.
+TTS, initial rig loading, network and browser-parent memory are excluded. This
+is not a full-pipeline iPhone claim or a memory improvement. Export/native parity,
+reset identity and synchronized review controls pass. Keep deployed v4 and idle
+animation. Repeated loss/optimizer variants have not removed the substantial
+training residual; investigate representation and target consistency rather
+than assuming another scalar loss adjustment will produce a large gain.
+
+## 43. A better offline assistant does not automatically produce a better tiny student
+
+The [jaw audit and assistant-teacher pilot](compact-assistant-teacher-results.md)
+keeps target changes separate from training changes. Regenerating24 fixed clips
+matches cached labels; no label-generation mismatch is found in that sample.
+The existing bounded skin/gap fitter is already regularized and mouth-weighted,
+but omits the separate teacher jaw anchors. A fixed soft jaw constraint improves
+development jaw RMS1.198→1.022mm with unchanged small-sample /m,b,p/ hit counts.
+Lip RMS.3743→.3763mm and weighted skin RMS.4393→.4474mm slightly worsen. Contact
+F1 improves but coefficient velocity rises. This is an anatomical tradeoff, not
+a demonstrated explanation or cure for student training error. Do not overwrite
+all labels from this small audit or assume jaw refinement improves learnability.
+
+The offline assistant has1,266,663 parameters,192 residual channels and a96-channel
+task bottleneck; final students remain331,047 parameters and2,251,827 bytes.
+Function-preserving widening needs symmetry breaking: exact duplicate channels
+can remain identical under gradient descent. Complementary bottleneck-column
+noise cancels initially but produces different encoder-half gradients. Test both
+initial function parity and gradient asymmetry. A checkpoint-loading repair and
+the initial symmetric trajectory are archived; the final pilot is rerun under
+the corrected frozen protocol. It is not an outcome-driven training sweep.
+
+The assistant receives7,440 updates, tiny arms3,720. Combined development gap
+improves5.515% with higher contact F1, passing the predeclared pilot gate. On the
+inspected regression cohort, assistant RMS2.53327mm improves on tiny control
+2.62794mm, but capacity and offline training budget both differ. Total phone hits
+improve while /m/ and /p/ each lose one against v4; this is not closure-safe proof.
+
+Tiny feature/output distillation adds only.377% regression gap improvement over
+matched control:2.62794→2.61803mm. Training RMS1.74204→1.72965mm improves.711%.
+Contact F1 slips.79797→.79763, and /m,b,p/ hits35/64/54→33/64/51 lose five events.
+Supertonic F1, missed contacts and onset timing worsen. Reject this pilot; a better
+teacher and same-family features do not guarantee useful transfer. Do not repeat
+the5.5% assistant development gain as a tiny browser-model gain. Existing cohorts
+are inspected regression evidence; no fresh release confirmation is warranted
+for this failed screen. One seed does not exhaust every distillation method.
+
+The tiny control exactly reproduces the preceding ordinary-control model hash,
+and the two tiny arms have identical scheduled samplers. Final graphs, constants,
+parameter count and bytes remain unchanged. Native/export parity, three WebGPU
+trials and reset repeats pass. STA remains about1ms per500ms block on desktop;
+GPU buffers stay1,492,236 bytes. Desktop WebKit peaks519.85–532.44MiB with animated
+James and prerecorded STA exclude TTS, initial rig loading and browser parent.
+There is no demonstrated speed/memory improvement or physical-iPhone claim.
+Preserve deployed v4 and continuous idle animation.
+
+## 44. Structured residuals are not automatically predictable from frozen late features
+
+The [residual-learning pilot](compact-residual-learning-results.md) freezes all
+v4 weights and shares its interpolated96-channel learned features and39 base
+predictions. Equal135→96 GELU→39 heads compare residual correction with direct
+prediction, matched in16,839 trainable parameters, initial output/loss, data,
+7,440 scheduled batches, seed and selector. The direct head uses paired GELU
+identity units; residual outgoing weights start at zero. Equal initial functions
+do not mean equal internal gradients or identical function classes. The residual
+skip supplies the known base function outside the trainable head.
+
+Training normalized coefficient residuals have median lag-one correlation.9604;
+five covariance axes explain51.93% of variance, while a constant bias accounts
+for1.235% of squared error. Counts include correlated gain variants and smooth
+teacher motion, so these are descriptive statistics, not independent samples or
+proof that the available browser inputs predict the error. Do not identify
+unexplained residuals with intrinsically random noise.
+
+A genuinely fresh24-text/four-held-out-voice cohort gives lip RMS2.46765mm for
+v4,2.42992 direct control and2.44062 residual. Residual improves1.095% over v4 but
+is.441% worse than control; original training RMS is also worse than control.
+Phone hits are169 v4,160 control,165 residual. Thus residual recovers some control
+closures but loses four relative to v4, failing preservation. Macro F1 slightly
+improves, but engine/error/timing guards also fail. A single metric is insufficient.
+
+On fresh originals this head removes2.20% of v4's squared raw-geometry lip-gap
+error and.76% of normalized coefficient error, versus direct control3.05%/.95%.
+These are voice-macro fractions of total error reduced, not mean-centered R² or
+noise-floor estimates. The experiment does not demonstrate useful nonlinear
+correction from the frozen late features. It does not rule out earlier shared
+spectral features, different context or other residual architectures.
+
+Both exports remain small at2.321912MB,3.11% above v4; there is no second session,
+encoder or readback. A research-only fused WebGPU projection/head adds67,744
+explicit GPU bytes and takes1.02ms per500ms block versus0.96ms for v4 on this desktop.
+Three WebKit footprint trials per model span523.56–538.52MiB with animated James,
+excluding TTS, initial rig loading and browser parent. Native/GPU parity, reset
+repeats and sixteen audio/seek review cases pass. No full-pipeline/iPhone memory
+claim is made. This one-seed candidate fails quality gates; keep deployed v4.
+
+## 45. The first encoder features do not improve a matched pointwise correction head
+
+The [earlier-feature ablation](compact-earlier-features-results.md) changes only
+the96-channel source of the residual head: first5-tap convolution/GELU versus
+final features after eight temporal blocks. Both receive identical frozen39-way
+base predictions and keep the same head, initial function, loss, seed,7,440
+scheduled batches and selector. Each source gets normalization from the same32
+fixed training batches. No new context, encoder, state or lookahead is added.
+This is an early learned representation, not a raw log-mel or temporal-head test.
+
+The late control reproduces the previous residual pilot's selected head exactly,
+validating the new split feature/prediction cache. Both select step1240. Export
+normalization explicitly materializes PyTorch's equal kind-flag alias so graphs
+and file sizes match. Initial functions/losses and frozen base parameters agree.
+
+On96 fresh original clips (24 disjoint texts/four voices outside training), early
+lip RMS2.46190mm versus late2.46226mm is just.01452% better. Training RMS is
+slightly worse. Both heads achieve182 well-timed /m,b,p/ hits versus v4's177,
+but contact F1 falls.80880→.80791 with early features, Supertonic F1 worsens,
+false/missed contacts increase and onset timing deteriorates. This fails the3%
+extra-gain and contact guards. Event-hit preservation alone is insufficient.
+Do not compare absolute error with previous cohorts or call this tiny difference
+a practical improvement. One seed does not exhaust earlier-feature methods.
+
+Both whole models remain2.322775MB/347,886 parameters, with16,839 trainable head
+parameters. A preserved encoder buffer lets WebGPU reuse the actual early features
+without repeating the encoder or opening a second session. Explicit GPU memory
+is1,598,768 bytes/26 buffers versus v4's1,492,236/25, an extra106,532 bytes. Three
+desktop WebKit trials give median1.04ms per500ms emitted audio for early,1.08ms
+late and1.00ms v4; slow first trials remain reported. Browser parity, resets and
+sixteen audio/seek review cases pass with idle rendering continuing. Process
+peaks521.88–534.44MiB exclude TTS, initial rig load and browser parent and do not
+establish iPhone/full-pipeline memory. Keep deployed v4 unchanged.
+
+## 46. Research reset: explain the plateau before proposing another quality mechanism
+
+The recent sequence has generated many experiments without a new convincing
+closure-preserving browser-model gain. Reparameterizing or supervising essentially
+the same mapping in different ways is not the same as testing many independent
+root causes. A residual head can rearrange information without adding the cues
+or trainable representation needed to remove the dominant error. An earlier
+pointwise source changes information, but does not test a temporal acoustic
+correction branch. Negative results must retain those scopes.
+
+The central unresolved observation is the gap between tiny-set memorisation and
+full-corpus training fit. Eight clips are learnable near their fitted reference,
+while published v4 has1.83882mm original-gain training error and ordinary full-
+network fine-tuning still leaves about1.74204mm. The full corpus does not fit
+exactly. A simple train-versus-test account misses this training residual, while
+a tiny-set success cannot prove unlimited broad capacity. Different voice/text
+and gain distributions further limit interpreting train/test differences.
+
+There is also an objective tradeoff. Our training objective combines normalized
+coefficient SmoothL1, raw gap, velocity, contact and timing terms; development
+selection combines gap RMS with contact F1. It does not minimize raw gap RMS
+alone. Lower RMS can sacrifice important contacts, as the frozen affine refit
+and several later pilots show. This tradeoff has evidence, but has not been
+shown to explain most of the remaining error. Teacher context/history and
+rig-target semantics remain possible contributors, not established dominant
+causes. The fitted-reference discrepancy is not a strict raw-gap lower bound.
+
+The large assistant's improved fit is useful evidence, but it also received more
+training and was not uniformly closure-preserving. It cannot by itself establish
+that more parameters solve the bottleneck. Likewise correlated residuals do not
+show that those residuals are predictable from the available browser inputs.
+
+A proposed next diagnostic, not executed here, is a nested training-fit curve:
+reuse the existing eight-clip memorisation anchor, then add balanced32,128,512
+and full-corpus subsets with frozen targets/context. Compare the unchanged
+production objective with pure fitted-coefficient MSE, training the entire
+network and measuring progress over enough logged updates to expose remaining
+convergence. Use the same source clips at every nested inclusion, separate
+replay explicitly, and record raw-teacher gap, fitted-target gap, normalized
+coefficient error and closures. Do not select subsets by measured error.
+
+This asks how fitting deteriorates as corpus complexity grows, and whether the
+objective trades away fit. The previous fourfold SmoothL1 experiment is not a
+full-corpus pure-MSE experiment; the optimal affine MSE refit freezes the body.
+A full-network pure-MSE fit curve therefore answers a different question. It is
+an offline diagnostic, not a proposed production-loss switch. If MSE lowers gap
+while losing closures, report that tradeoff instead of claiming a deployable win.
+If both objectives fail as the set grows, capacity/representation, contradictory
+available-input targets and optimization still require further separation; the
+curve alone does not uniquely diagnose them.
+
+Before another expensive quality campaign, require a diagnostic that separates
+specific causes and a small predeclared pilot showing a useful fit or information
+gain. Distinguish successful implementation, valid gradients, lower training
+loss, held-out gap improvement and closure-safe perceptual quality. They are
+separate milestones. Keep published v4 and the current browser efficiency until
+there is a demonstrated replacement; do not label speculative next steps as
+likely major improvements.

@@ -1,0 +1,6 @@
+<!DOCTYPE html><html><head><style>body{margin:0;background:#000}#panels{display:flex}.view{width:224px;height:224px}</style></head><body><div id="panels"><div class="view" id="mouth"></div><div class="view" id="face"></div></div><script type="module">
+import {createJames} from '/src/rig.js';
+const mouth=await createJames(document.querySelector('#mouth'),{compact:true});const face=await createJames(document.querySelector('#face'),{compact:true});mouth.view(true);face.view(false);
+await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+window.renderWeights=w=>{for(const r of [mouth,face]){r.pose(w,0);r.draw();}return [...document.querySelectorAll('canvas')].map(c=>c.toDataURL('image/png').split(',')[1]);};window.ready=true;
+</script></body></html>

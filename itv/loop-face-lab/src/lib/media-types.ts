@@ -1,0 +1,9 @@
+export type FaceFit={points:Float32Array;matrix:Float32Array};
+export type FaceFrame=FaceFit&{time:number};
+export type FaceTrack={revision:number;width:number;height:number;duration:number;frames:(FaceFrame|null)[];times:number[];missing:number};
+export type SavedVideo={id:string;name:string;file:File;kind?:'idle'|'talking';seconds?:number};
+export type Workspace={image:File|null;videos:SavedVideo[];text:string};
+export type ReadyVideo=SavedVideo&{url:string;slot:number;seed:number;track?:FaceTrack;status:string};
+export type LibrarySet={id:string;ready_count:number;total?:number;config:{prompt:string;width:number;height:number};clips:{slot:number;job:{id:string;status:string;request?:{kind?:'idle'|'talking';seconds?:number}}}[]};
+export const TRACK_REVISION=1;
+export async function fingerprint(blob:Blob){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer())),v=>v.toString(16).padStart(2,'0')).join('')}

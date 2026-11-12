@@ -10,19 +10,28 @@ const assetPath = process.env.A2F_ACTIVATION_ASSET_PATH || '/.local/packed-diagn
 const cases = JSON.parse(await readFile(join(root, 'parity-cases.json')));
 const modelUrls = process.env.A2F_PARITY_MODELS ? JSON.parse(process.env.A2F_PARITY_MODELS)
   : Object.fromEntries(['v3', 'v4'].map(name => [name, '/assets/james-arkit-student-' + name + '.onnx']));
+const runnerUrls = JSON.parse(process.env.A2F_PARITY_RUNNERS || '{}');
 const browser = await webkit.launch(process.env.WEBKIT_EXECUTABLE ? { executablePath: process.env.WEBKIT_EXECUTABLE } : {});
 const report = [];
 try {
   for (const [model, modelUrl] of Object.entries(modelUrls)) {
     const page = await browser.newPage({ ...devices['iPhone 13'] });
     await page.goto(base + '/?model=compact-' + model);
-    const result = await page.evaluate(async ({ cases, model, modelUrl, assetPath, before }) => {
-      const { createCompactWebGpu } = await import('/src/compact-webgpu.js');
+    const result = await page.evaluate(async ({ cases, model, modelUrl, runnerUrl, assetPath, before }) => {
+      const { createCompactWebGpu } = await import(runnerUrl);
       const { modelAssetUrl } = await import('/src/model-assets.js');
       const { audioWindows } = await import('/src/geometry.mjs');
+      let gpuBytes = 0, buffers = 0;
+      const allocate = GPUDevice.prototype.createBuffer;
+      GPUDevice.prototype.createBuffer = function (descriptor) {
+        const buffer = allocate.call(this, descriptor);
+        gpuBytes += buffer.size; buffers++;
+        return buffer;
+      };
       const adapter = await navigator.gpu.requestAdapter();
       const bytes = await (await fetch(modelAssetUrl(modelUrl))).arrayBuffer();
       const runners = { fixed: await createCompactWebGpu(adapter, bytes, () => {}) };
+      const allocation = { gpuBytes, buffers };
       if (before) {
         const original = await import(assetPath + 'compact-original.js');
         runners.original = await original.createCompactWebGpu(await navigator.gpu.requestAdapter(), bytes, () => {});
@@ -59,13 +68,13 @@ try {
           const raw = new Uint8Array(track.buffer), parts = [];
           for (let i = 0; i < raw.length; i += 16384) parts.push(String.fromCharCode(...raw.subarray(i, i + 16384)));
           timings.shift(); timings.sort((a, b) => a - b);
-          output.push({ name: item.name, model, variant, values: track.length, max, mae: sum / track.length,
+          output.push({ name: item.name, model, variant, allocation, values: track.length, max, mae: sum / track.length,
             nonfinite, zeroedFrames, badFrames, median_ms: timings[Math.floor(timings.length / 2)],
             base64: btoa(parts.join('')) });
         }
       }
       return output;
-    }, { cases, model, modelUrl, assetPath, before: process.env.COMPARE_ORIGINAL === '1' });
+    }, { cases, model, modelUrl, runnerUrl: runnerUrls[model] || '/src/compact-webgpu.js', assetPath, before: process.env.COMPARE_ORIGINAL === '1' });
     for (const row of result) {
       await writeFile(join(root, row.name + '-' + row.variant + '-' + model + '.f32'), Buffer.from(row.base64, 'base64'));
       delete row.base64; report.push(row);

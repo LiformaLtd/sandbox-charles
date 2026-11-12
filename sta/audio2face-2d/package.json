@@ -1,0 +1,40 @@
+{
+  "name": "audio2face-2d",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#lib": "./src/lib/index.js",
+    "#lib/*": "./src/lib/*"
+  },
+  "scripts": {
+    "dev": "vite dev --host 127.0.0.1 --port 5181 --strictPort",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4181 --strictPort",
+    "prepare": "svelte-kit sync",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "prepare:demo": "uv run --with numpy==2.5.4 --with pillow==13.0.0 python scripts/prepare_demo.py",
+    "test:browser": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "@sveltejs/adapter-static": "^4.0.1",
+    "@sveltejs/kit": "^3.0.0",
+    "@sveltejs/vite-plugin-svelte": "^7.2.0",
+    "@types/earcut": "3.0.0",
+    "@types/node": "25.0.3",
+    "@webgpu/types": "0.1.66",
+    "svelte": "^5.57.2",
+    "svelte-check": "^4.6.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.0"
+  },
+  "dependencies": {
+    "earcut": "3.2.4",
+    "onnxruntime-web": "1.31.1",
+    "phonon-tts": "0.6.0",
+    "protobufjs": "7.6.6"
+  }
+}

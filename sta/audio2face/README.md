@@ -17,6 +17,14 @@ The hosted project is **Liforma / james-audio2face**. Compare
 and [v3](https://james-audio2face.vercel.app/?model=compact-v3&sta=webgpu).
 Both links select WebGPU; the model selector retains the dialogue when switching.
 
+Tabs left open across a deployment can reference removed JavaScript chunks. The
+app confirms a missing same-origin build asset, saves the dialogue and selections,
+and refreshes once. It keeps ordinary network errors visible and avoids reload
+loops. Run `node --test scripts/test-preload-recovery.mjs scripts/test-base64.mjs`
+for the recovery and WebKit tokenizer checks. Hosted browser smoke tests are
+`scripts/verify-tts-deployment.mjs` and `scripts/verify-preload-recovery.mjs`; set
+`DEPLOYMENT_URL`, `PLAYWRIGHT_MODULE` and optionally `WEBKIT_EXECUTABLE`.
+
 The hosted build plays a smoothed, precomputed DAWN idle loop during both
 idle and speech. Live speech-driven head gestures use the local DAWN service
 described below.
@@ -86,11 +94,26 @@ V4 adds balanced Phonon/Supertonic multi-voice training and clean
 Easton replay at the same 2.25 MB size. The initial v4 was validation-selected
 seed 73, epoch 19; three-seed fresh confirmation improved mean lip-gap error by 5.4%.
 See [validation results](docs/plans/compact-v4-validation-results.md).
-The current v4 revision is **gain-r1**, the subsequent teacher-labelled
+The prior v4 revision is **gain-r1**, the subsequent teacher-labelled
 loudness fine-tune (seed 37, epoch 15). It retains the same 2.25 MB download,
 improving quiet/loud RMS by 3.4% and extra-quiet RMS by 7.3% versus a matched
 fine-tuning control. Those are single-seed follow-up results, separate from the
 earlier three-seed confirmation. See [gain results](docs/plans/compact-gain-robustness-results.md).
+The preceding revision is **coverage-r2**, trained on broader distinct speech at
+the same 2.25 MB size. New original-speech RMS improved 2.5% versus gain-r1,
+with mixed closure results. The immutable gain-r1 predecessor is retained.
+See [coverage results](docs/plans/compact-coverage-results.md).
+The preceding revision is **scale-r3**, expanded-data seed 37, development-selected
+step 2976. This exact export improves confirmation lip-gap RMS 6.52% versus
+coverage-r2, with the same 2.25 MB download and GPU buffers. The 7.22% result
+is the three-seed mean, not the score of this individual export. The initial
+control-relative screen missed its target; publication is requested for iPhone
+testing, not a claim of independent release confirmation. See
+[data-scale results](docs/plans/compact-data-scale-results.md).
+The current revision is **finetune-r4**, the ordinary fine-tuning control from
+the feature-distillation study (seed 37, development-selected step 2976). It
+improves fresh-test lip-gap RMS by 2.56% versus scale-r3, retaining the same
+2.25 MB file and browser graph. No teacher-feature head is included.
 Open `?model=compact-v4&sta=webgpu` to test v4, then select v3 to compare the
 same dialogue. Switching reloads the page and retains the text, engine and view.
 The demo opens with **Compact ARKit v4** selected in the model
@@ -117,7 +140,7 @@ curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-
   -o .local/arkit-student/james-arkit-student-v2.onnx
 curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v3/james-arkit-student-v3.onnx \
   -o .local/arkit-student/james-arkit-student-v3.onnx
-curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v4-gain-r1/james-arkit-student-v4.onnx \
+curl -fL https://staging-cdn.liforma.ai/models/speech-to-animation/lf-sta/arkit-student-v4-finetune-r4/james-arkit-student-v4.onnx \
   -o .local/arkit-student/james-arkit-student-v4.onnx
 ```
 
@@ -185,3 +208,49 @@ at runtime.
 
 - [James v3 Maya sample scene and geometry](https://github.com/NVIDIA/Maya-ACE/tree/release/2.0/sample_project)
 - [Model bundle and terms](https://huggingface.co/nvidia/Audio2Face-3D-v3.0)
+
+## Compact model data-scale research
+
+The unchanged compact network was tested with a larger independently synthesized
+corpus and a matched training-budget grid. See [results and limitations](docs/plans/compact-data-scale-results.md)
+and [reproduction instructions](scripts/research/data_scale/README.md). The study
+initially left production unchanged; the subsequently requested scale-r3 release
+uses its seed-37 model, retaining WebGPU as the browser default.
+
+The follow-up [teacher-feature distillation experiment](docs/plans/compact-feature-distillation-results.md)
+kept the same browser graph and found no meaningful gain beyond matched ordinary
+fine-tuning. Its [reproduction instructions](scripts/research/feature_distillation/README.md)
+and synchronized local research review are separate from the published demo;
+the subsequent requested release uses the fine-tuned control as v4 finetune-r4.
+
+The [targeted difficult-speech pilot](docs/plans/compact-targeted-speech-results.md)
+compared context-enriched speech with matched broad speech and ordinary
+fine-tuning. It found no meaningful extra lip-gap gain; production remains
+finetune-r4. See its [reproduction instructions](scripts/research/targeted_speech/README.md).
+
+The [dense lip-surface experiment](docs/plans/compact-lip-surface-results.md)
+added raw-teacher 3D mouth supervision without increasing browser model size.
+It produced a small gain beyond matched fine-tuning, with a closure trade-off,
+and remains research-only. See its [reproduction instructions](scripts/research/lip_surface/README.md).
+
+Teacher history/noise diagnostic: [protocol and results](docs/plans/teacher-history-compatibility-results.md), with [reproduction steps](scripts/research/teacher_history/README.md).
+
+Jointly trained recurrent-state pilot: [matched quality, browser speed and memory results](docs/plans/compact-recurrent-state-results.md).
+
+Current-v4 learnability: [eight-clip memorisation results](docs/plans/v4-memorisation-results.md).
+
+Full-corpus loss balancing: [matched quality and browser results](docs/plans/compact-loss-balance-results.md).
+
+Frozen mouth experts: [James compatibility results](docs/plans/mouth-expert-compatibility-results.md).
+
+Training-only SyncNet: [matched quality, WebGPU speed and memory results](docs/plans/compact-syncnet-loss-results.md).
+
+Full-corpus fit: [training/test measurements and frozen-readout diagnostic](docs/plans/compact-training-fit-results.md).
+
+Closure-protected training: [matched quality, WebGPU speed and memory results](docs/plans/compact-closure-protected-results.md).
+
+Jaw targets and intermediate teacher: [audit, matched distillation and browser results](docs/plans/compact-assistant-teacher-results.md).
+
+Frozen-v4 residual learning: [fresh-speech quality, closure and browser comparison](docs/plans/compact-residual-learning-results.md).
+
+Earlier residual features: [matched early/late comparison and browser results](docs/plans/compact-earlier-features-results.md).

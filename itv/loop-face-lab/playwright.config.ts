@@ -1,0 +1,2 @@
+import {defineConfig} from '@playwright/test';
+export default defineConfig({testDir:'./tests/browser',timeout:240000,workers:1,use:{baseURL:process.env.TEST_BASE_URL||'http://127.0.0.1:5175',headless:true,channel:'chrome',viewport:{width:1440,height:1150}},reporter:'list'});

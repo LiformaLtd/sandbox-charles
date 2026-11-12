@@ -1,0 +1,27 @@
+{
+  "name": "ltx25-loop-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev --host 127.0.0.1 --port 5173",
+    "build": "vite build",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "test": "node scripts/test.mjs",
+    "preview": "vite preview --host 127.0.0.1 --port 5173"
+  },
+  "dependencies": {
+    "@sveltejs/kit": "^3.1.1",
+    "svelte": "^5.57.1",
+    "@opentelemetry/api": "^1.9.0"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-node": "^6.0.1",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "vite": "^8.3.7",
+    "typescript": "^6.0.0",
+    "svelte-check": "^4.0.0",
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^22.0.0"
+  }
+}

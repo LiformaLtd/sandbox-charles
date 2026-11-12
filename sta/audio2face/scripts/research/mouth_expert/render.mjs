@@ -1,0 +1,7 @@
+import{readFile,writeFile,mkdir}from'node:fs/promises';
+const{webkit}=await import(process.env.PLAYWRIGHT_MODULE);const root=process.env.A2F_EXPERT_OUTPUT,base=process.env.DIAGNOSTIC_URL;
+const cases=JSON.parse(await readFile(root+'/cases.json'));const browser=await webkit.launch({executablePath:process.env.WEBKIT_EXECUTABLE});
+try{const page=await browser.newPage({viewport:{width:448,height:224},deviceScaleFactor:1});const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto(base+'/scripts/research/mouth_expert/render.html');await page.waitForFunction(()=>window.ready,null,{timeout:60000});
+for(const item of cases){for(const kind of ['correct','underopen-50','missing-closure']){const raw=await readFile(root+'/tracks/'+item.id+'-'+kind+'.f32');const data=new Float32Array(raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength));for(const view of ['mouth','face'])await mkdir(root+'/frames/'+item.id+'/'+kind+'/'+view,{recursive:true});
+for(let t=0;t<item.frames;t++){const images=await page.evaluate(w=>window.renderWeights(w),Array.from(data.subarray(t*52,(t+1)*52)));for(const[i,view]of['mouth','face'].entries())await writeFile(`${root}/frames/${item.id}/${kind}/${view}/${String(t).padStart(4,'0')}.png`,Buffer.from(images[i],'base64'));}console.log(item.id,kind,item.frames,'frames per view');}}
+if(errors.length)throw Error(errors.join(';'));await writeFile(root+'/render-complete.json',JSON.stringify({cases:cases.length,errors},null,2));}finally{await browser.close();}

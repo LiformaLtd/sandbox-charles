@@ -8,3 +8,5 @@ __pycache__/
 /public/assets/
 .vercel
 .env*
+# This directory contains research source, rather than test coverage output.
+!scripts/research/coverage/
