@@ -5,8 +5,8 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   worker: { format: 'es' },
   optimizeDeps: { include: ['onnxruntime-web/wasm', 'phonon-tts/worker.js', 'protobufjs/minimal.js'] },
-  server: { headers: { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp' } },
-  preview: { headers: { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp' } },
+  server: { host: '127.0.0.1', port: 5173, strictPort: false, headers: { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp' } },
+  preview: { host: '127.0.0.1', port: 5173, strictPort: false, headers: { 'Cross-Origin-Opener-Policy': 'same-origin', 'Cross-Origin-Embedder-Policy': 'require-corp' } },
 	plugins: [
 		sveltekit({
 			compilerOptions: {

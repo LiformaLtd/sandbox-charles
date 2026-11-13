@@ -20,7 +20,7 @@ npm ci
 npm run dev
 ```
 
-Open **http://127.0.0.1:3025**. Port 3025 is fixed; startup fails if occupied.
+Open the URL printed in the terminal. The app starts at port 5173 and advances to the first free port.
 `/api` proxies to **http://127.0.0.1:3026**. To change the API destination, copy
 `.env.example` to `.env` and configure `LTX25_API_URL` before starting Vite.
 

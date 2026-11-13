@@ -19,7 +19,7 @@ npm ci
 npm run dev
 ```
 
-Open http://127.0.0.1:5184/. Supertonic native inference is part of this Node app, without a separate service. Phonon uses its official WASM worker; the ONNX modes use ONNX Runtime Web WASM. Browser runs use a single CPU thread.
+Open the URL printed by Vite: port 5173, or the first free port after it. Supertonic native inference is part of this Node app, without a separate service. Phonon uses its official WASM worker; the ONNX modes use ONNX Runtime Web WASM. Browser runs use a single CPU thread.
 
 Pocket local mode deliberately shares the existing Pocket Python service at http://127.0.0.1:8178; set `POCKET_TTS_URL` for another endpoint. To run a separate service from this app, install uv and Python 3.12:
 
@@ -50,7 +50,7 @@ Model registry: `src/lib/catalogue.ts`. Pinned revisions prevent silent changes 
 
 Supertonic inference is adapted from `supertone-oss-archive/supertonic` at `1e9799e964ea4c0dad7cde993b65c3c813a7b373`, MIT; notice included under `src/lib/supertonic/vendor/LICENSE`.
 
-Validate with `npm run check` and `npm run build`. The local production build uses `HOST=127.0.0.1 PORT=5184 node build`. Its configured origin is http://127.0.0.1:5184; change `paths.origin` in `vite.config.ts` before building for another origin.
+Validate with `npm run check` and `npm run build`. The local production build uses `npm run preview`. Its origin is derived from the incoming request.
 
 ## Phonon local runtimes
 
@@ -62,4 +62,4 @@ The `/api/phonon` proxy carries the service's incremental float32 audio stream t
 
 `npm ci` builds a browser-only engine from the exact `@sctg/sentencepiece-js` 1.3.3 source. The build verifies its SHA-256, extracts the upstream Emscripten engine, selects its browser platform and rejects any remaining imports of Node modules. Generated JavaScript and embedded WebAssembly stay out of Git. The small adapter accepts the existing tokenizer bytes directly; token IDs are unchanged. Upstream source: https://github.com/sctg-development/sentencepiece-js (Apache-2.0; notice in `src/lib/pocket/onnx/generated/LICENSE`).
 
-Run `npm run test:tokenizer` to render the lab in Chrome and compare 32 tokenization cases against the original wrapper. It downloads only the pinned public Pocket tokenizer and checks its SHA-256; no speech weights, voice data or recordings are downloaded. Chrome is expected at its standard macOS path; set `CHROME_EXECUTABLE` elsewhere. The test starts its own server on port 5184 and fails if that port is occupied. Stop an existing lab server first. Full speech inference still requires the model/runtime selected in the UI.
+Run `npm run test:tokenizer` to render the lab in Chrome and compare 32 tokenization cases against the original wrapper. It downloads only the pinned public Pocket tokenizer and checks its SHA-256; no speech weights, voice data or recordings are downloaded. Chrome is expected at its standard macOS path; set `CHROME_EXECUTABLE` elsewhere. The test starts its own server at port 5173 or the first free port and uses its printed URL. Full speech inference still requires the model/runtime selected in the UI.

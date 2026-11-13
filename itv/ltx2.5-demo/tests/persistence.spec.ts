@@ -1,6 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 
+test.use({ baseURL: async ({}, use) => {
+  const url = process.env.TEST_BASE_URL || process.env.LTX_TEST_URL;
+  if (!url) throw new Error('The test server did not publish its actual URL.');
+  await use(url);
+} });
+
 test('restores draft, reconnects to running job, caches video and downloads after refresh', async ({ page }) => {
   let job: { id: string; status: string } | null = null;
   let posts = 0;

@@ -3,9 +3,9 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-	plugins: [sveltekit({ adapter: adapter(), paths: { origin: 'http://127.0.0.1:5184' } })],
+	plugins: [sveltekit({ adapter: adapter() })],
 	worker: { format: 'es' },
 	ssr: { external: ['onnxruntime-node'] },
-	server: { host: '127.0.0.1', port: 5184, strictPort: true },
-	preview: { host: '127.0.0.1', port: 5184, strictPort: true }
+	server: { host: '127.0.0.1', port: 5173, strictPort: false },
+	preview: { host: '127.0.0.1', port: 5173, strictPort: false }
 });

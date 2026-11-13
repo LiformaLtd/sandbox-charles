@@ -110,8 +110,8 @@ export default defineConfig(() => {
   };
   return {
     plugins: [localStudio()],
-    server: { host: '127.0.0.1', headers },
-    preview: { host: '127.0.0.1', headers },
+    server: { host: '127.0.0.1', port: 5173, strictPort: false, headers },
+    preview: { host: '127.0.0.1', port: 5173, strictPort: false, headers },
     worker: { format: 'es' },
     optimizeDeps: { exclude: ['onnxruntime-web/webgpu', 'onnxruntime-web/wasm'] },
     build: {

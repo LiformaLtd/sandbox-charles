@@ -1,0 +1,528 @@
+{
+  "English (US)": [
+    {
+      "name": "Zoey",
+      "file": "voices/NbpkqMVS3CJeq2j8.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Juniper",
+      "file": "voices/NIWIOv5vTi5eRMj8.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Everly",
+      "file": "voices/vjFyp2BcCyTlUmYb.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Harper",
+      "file": "voices/4SZHfMpw-p46Ywgs.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Hadley",
+      "file": "voices/bXwrkHhURL1VFJdG.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Delia",
+      "file": "voices/nGzMHMPAWGaJFHOo.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Easton",
+      "file": "voices/LMDIYE0Oa377Qh6Z.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Micah",
+      "file": "voices/40QrMVgAxFiUnP9f.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Trevor",
+      "file": "voices/0zLApsZfVLLNaEGl.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Russell",
+      "file": "voices/_6Aslh2DxfmnRLmP.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Preston",
+      "file": "voices/qIxlZ7Ei8KvWlyQH.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Miles",
+      "file": "voices/d9XCyhjo4JhkHF1d.safetensors",
+      "language": "en"
+    }
+  ],
+  "English (UK)": [
+    {
+      "name": "Maeve",
+      "file": "voices/6PWnV0Nq4wu7RVBT.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Freya",
+      "file": "voices/GgfEkEJtxZR7gnpy.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Pippa",
+      "file": "voices/uem82D50GRv2Dwma.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Elodie-Rose",
+      "file": "voices/y9bQqIDnyxwqK01t.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Imogen",
+      "file": "voices/gDT1nz7Ie36ZhL-C.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Lottie",
+      "file": "voices/m9MxpY6IUGXtWp76.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Alfie",
+      "file": "voices/X6NceqF285Gr04gb.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Hugh",
+      "file": "voices/YyKcxPG7iIgS3jsK.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Edwin",
+      "file": "voices/zUCxzrOrugTSis03.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Spencer",
+      "file": "voices/JOW0vchyswkQUMDS.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Toby",
+      "file": "voices/dME3IWyZBvmh1n1q.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Teddy",
+      "file": "voices/Zn7g6NxLqXlJb7Qi.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Bryony",
+      "file": "voices/gfP44RlHwr2kEwk7.safetensors",
+      "language": "en"
+    }
+  ],
+  "Characters": [
+    {
+      "name": "Captain Silas Blackwater",
+      "file": "voices/xPDpsV3F592srkjA.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Morwenna of the Deep",
+      "file": "voices/nOykTmcH9ydsGGIc.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Old Mortlake",
+      "file": "voices/lX3LavMNdlIbgEHH.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Azgorath",
+      "file": "voices/dGyGDKo2osj7h3s7.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Fennick the Young Elf",
+      "file": "voices/cXoIXJ2llS8S0WOW.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "The Thing Under the Stairs",
+      "file": "voices/GXaSqMEmOg12OIYb.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Vyrmathrax the Ancient",
+      "file": "voices/xO8xQo3BrB8FuI6J.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Grub the Ogre",
+      "file": "voices/cYtsRSxV5q9IMehn.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Master Aldric",
+      "file": "voices/gSgG5Tor0GPEnqzC.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "The Snow Queen",
+      "file": "voices/NIWoEurJHMJjyUTe.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Sir Bramwell",
+      "file": "voices/y2eiKxtQo2B67deU.safetensors",
+      "language": "en"
+    },
+    {
+      "name": "Fairy Godmother",
+      "file": "voices/QXNr0SvkukLB4wPq.safetensors",
+      "language": "en"
+    }
+  ],
+  "Spanish (Spain)": [
+    {
+      "name": "Noa",
+      "file": "voices/b6FvJAiokjdqIti4.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Lucía-Sol",
+      "file": "voices/3p0eIGbkmny71GlA.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Candela",
+      "file": "voices/c9wqBDmQiBie5q6Y.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Celia",
+      "file": "voices/rmLBOdHrfkFym9MM.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Alba",
+      "file": "voices/u2UscyAnHilpiwmf.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Alicia",
+      "file": "voices/4701YgRXjkBcg6sL.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Marcos",
+      "file": "voices/jvPx8j8zLGQ3utZz.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Borja",
+      "file": "voices/tIjCgP8v3RY8UpgM.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Iker",
+      "file": "voices/t-_TS1e-0GzDAX02.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Nuno",
+      "file": "voices/fghJGlv90qu8OJ36.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Izan",
+      "file": "voices/Ejb29qHnSOK0cIHY.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Guillermo",
+      "file": "voices/FaLVVqpFQcDOtq45.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Nerea",
+      "file": "voices/EQcQFGkYfMn5YJgx.safetensors",
+      "language": "es"
+    }
+  ],
+  "Spanish (Mexico)": [
+    {
+      "name": "Rebeca",
+      "file": "voices/Sx8m6WdXBG06zwZT.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Regina",
+      "file": "voices/s58clrg2fe0MO7Y-.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Danae",
+      "file": "voices/evfxKSxpDIhmsNoq.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Azucena",
+      "file": "voices/KJpIQlbYrZPA4aLq.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Jimena",
+      "file": "voices/qG5BXOJYrKEnXLIX.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Ximena",
+      "file": "voices/VDwnGxAo68C8U8vC.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Lalo",
+      "file": "voices/F05gqkzX7WhKVpSL.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Aldo",
+      "file": "voices/ax7dW1XB0eiMfHgO.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Yael",
+      "file": "voices/ALczEazoF4n6PmGl.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Ulises",
+      "file": "voices/G5HLUsQd659UtRe7.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Leonel",
+      "file": "voices/BkuASiOJRrJEB5qA.safetensors",
+      "language": "es"
+    },
+    {
+      "name": "Nico",
+      "file": "voices/PwgPEaweQILZdGc4.safetensors",
+      "language": "es"
+    }
+  ],
+  "German": [
+    {
+      "name": "Nele",
+      "file": "voices/2A2fFf8SkDEJ8nzx.safetensors",
+      "language": "de"
+    },
+    {
+      "name": "Jette",
+      "file": "voices/4Mn9VfG2wsLLEzi5.safetensors",
+      "language": "de"
+    },
+    {
+      "name": "Annika",
+      "file": "voices/p6Uutkyi3j2iNAUu.safetensors",
+      "language": "de"
+    },
+    {
+      "name": "Jule",
+      "file": "voices/MxhgvuHuUER7qjmL.safetensors",
+      "language": "de"
+    },
+    {
+      "name": "Lotta",
+      "file": "voices/MOrDPn052KUlnKXk.safetensors",
+      "language": "de"
+    },
+    {
+      "name": "Josefine",
+      "file": "voices/yadpmqsHVrYC0NJp.safetensors",
+      "language": "de"
+    },
+    {
+      "name": "Anton",
+      "file": "voices/3ZKKapPOvuWFcw9f.safetensors",
+      "language": "de"
+    },
+    {
+      "name": "Mirko",
+      "file": "voices/Xn9xDzqSSr4xGTNg.safetensors",
+      "language": "de"
+    },
+    {
+      "name": "Mats",
+      "file": "voices/Kf5m22mROozoMWj3.safetensors",
+      "language": "de"
+    },
+    {
+      "name": "Henrik",
+      "file": "voices/yyS1KYWs6mXoEw7D.safetensors",
+      "language": "de"
+    },
+    {
+      "name": "Leon",
+      "file": "voices/20zdyYrQPzKlCwkk.safetensors",
+      "language": "de"
+    },
+    {
+      "name": "Mika",
+      "file": "voices/R3uU1GTAZJotUhUs.safetensors",
+      "language": "de"
+    },
+    {
+      "name": "Svea",
+      "file": "voices/Adoh4wA9tp5QXJi9.safetensors",
+      "language": "de"
+    }
+  ],
+  "French": [
+    {
+      "name": "Noémie",
+      "file": "voices/FXxJ9mANRq6BCTX5.safetensors",
+      "language": "fr"
+    },
+    {
+      "name": "Coralie",
+      "file": "voices/ZeSg853xFACESHHI.safetensors",
+      "language": "fr"
+    },
+    {
+      "name": "Tiphaine",
+      "file": "voices/0fvH6XAKvA748v2v.safetensors",
+      "language": "fr"
+    },
+    {
+      "name": "Maëlys",
+      "file": "voices/s048cR1l2Jmu4k3B.safetensors",
+      "language": "fr"
+    },
+    {
+      "name": "Orianne",
+      "file": "voices/TUk4X11S6UytB3G6.safetensors",
+      "language": "fr"
+    },
+    {
+      "name": "Solène",
+      "file": "voices/YhIHaAfQ0cQPDV9R.safetensors",
+      "language": "fr"
+    },
+    {
+      "name": "Augustin",
+      "file": "voices/Tek4tJXiX6_yvXq7.safetensors",
+      "language": "fr"
+    },
+    {
+      "name": "Arnaud",
+      "file": "voices/aXMVwiUhITMrwPzd.safetensors",
+      "language": "fr"
+    },
+    {
+      "name": "Jules",
+      "file": "voices/YKeBw3OV1RgpdhLh.safetensors",
+      "language": "fr"
+    },
+    {
+      "name": "Baptiste",
+      "file": "voices/rqqeErpASHVQXHDd.safetensors",
+      "language": "fr"
+    },
+    {
+      "name": "Lucien",
+      "file": "voices/LIv4NaG8ay4Mhqtd.safetensors",
+      "language": "fr"
+    },
+    {
+      "name": "Marius",
+      "file": "voices/biuhvu17TxVKOcyy.safetensors",
+      "language": "fr"
+    },
+    {
+      "name": "Ninon",
+      "file": "voices/qtPlUYAZ4EJDuWMm.safetensors",
+      "language": "fr"
+    },
+    {
+      "name": "Lilou",
+      "file": "voices/4iKxBtHBRzr1YOph.safetensors",
+      "language": "fr"
+    },
+    {
+      "name": "Hélène",
+      "file": "voices/Vvakv7iWZCUrBooR.safetensors",
+      "language": "fr"
+    }
+  ],
+  "Portuguese (Brazil)": [
+    {
+      "name": "Manuela-Lu",
+      "file": "voices/KgC2Nqnjj48NUiyV.safetensors",
+      "language": "pt"
+    },
+    {
+      "name": "Isadora",
+      "file": "voices/CtNvKUUMrx1h56ih.safetensors",
+      "language": "pt"
+    },
+    {
+      "name": "Débora",
+      "file": "voices/K8mj96kYHMy8q3Hb.safetensors",
+      "language": "pt"
+    },
+    {
+      "name": "Rafaela",
+      "file": "voices/6k6cRt7QJfm5ChrH.safetensors",
+      "language": "pt"
+    },
+    {
+      "name": "Clarice",
+      "file": "voices/sGCMzFIA53ppIngM.safetensors",
+      "language": "pt"
+    },
+    {
+      "name": "Flávia",
+      "file": "voices/gOc90Rjmv5CobHCj.safetensors",
+      "language": "pt"
+    },
+    {
+      "name": "Davi",
+      "file": "voices/NuUr_x5V90hSHzCJ.safetensors",
+      "language": "pt"
+    },
+    {
+      "name": "Igor",
+      "file": "voices/l7520SIXi14iEamd.safetensors",
+      "language": "pt"
+    },
+    {
+      "name": "Kauã",
+      "file": "voices/6HftnVU1XqVBJS8t.safetensors",
+      "language": "pt"
+    },
+    {
+      "name": "Vitor",
+      "file": "voices/mWgyMRkFED70QxQv.safetensors",
+      "language": "pt"
+    },
+    {
+      "name": "Otávio",
+      "file": "voices/JYtmeaysoaR0Wybf.safetensors",
+      "language": "pt"
+    },
+    {
+      "name": "Marcelo",
+      "file": "voices/qDeAnE4L4bk0BRz1.safetensors",
+      "language": "pt"
+    }
+  ]
+}

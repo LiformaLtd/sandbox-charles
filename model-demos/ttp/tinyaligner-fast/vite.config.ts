@@ -7,8 +7,8 @@ const benchmarkHeaders = process.env.BENCHMARK_ISOLATION === '1'
 	: undefined;
 
 export default defineConfig({
-	plugins: [sveltekit({ adapter: adapter(), paths: { origin: 'http://127.0.0.1:5196' } })],
+	plugins: [sveltekit({ adapter: adapter() })],
 	worker: { format: 'es' },
-	server: { host: '127.0.0.1', port: 5196, strictPort: true, headers: benchmarkHeaders },
-	preview: { host: '127.0.0.1', port: 5196, strictPort: true, headers: benchmarkHeaders }
+	server: { host: '127.0.0.1', port: 5173, strictPort: false, headers: benchmarkHeaders },
+	preview: { host: '127.0.0.1', port: 5173, strictPort: false, headers: benchmarkHeaders }
 });

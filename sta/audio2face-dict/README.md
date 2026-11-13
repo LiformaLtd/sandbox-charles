@@ -12,7 +12,7 @@ npm run assets
 npm run dev
 ```
 
-Open the URL printed by Vite. Development starts at port 5173 and preview at 4173, advancing to the next available port when needed. TinyAligner uses its English pronunciation dictionary and falls back to [Phonemize](https://github.com/hans00/phonemize) for unfamiliar words. Predicted pronunciations can differ from the audio, particularly for names. Spell out numbers. Open **Match coverage** after generation to see how much of the line used exact matches, single-phoneme fallback, or neutral motion.
+Open the URL printed by Vite. Development and preview start at port 5173 and advance to the first free port. Use the URL printed in the terminal. TinyAligner uses its English pronunciation dictionary and falls back to [Phonemize](https://github.com/hans00/phonemize) for unfamiliar words. Predicted pronunciations can differ from the audio, particularly for names. Spell out numbers. Open **Match coverage** after generation to see how much of the line used exact matches, single-phoneme fallback, or neutral motion.
 
 Use **Prev** and **Next** beside **Dialogue** to cycle through twenty editable manual test samples. They include introductions, tongue twisters, short Shakespeare excerpts, a public-domain *Animal Crackers* monologue, two original cinematic speeches, and tests for closures, rounding, consonants, pauses, connected speech, and unfamiliar names. Speech excerpts target roughly thirty seconds; actual duration depends on synthesis. Choosing a sample clears the previous playback and diagnostics; press **Generate & play** to run it. These samples are for manual inspection, separate from the fixed evaluation sets. The film excerpt is sourced from [Filmsite](https://www.filmsite.org/anim2.html).
 

@@ -5,8 +5,9 @@ import {
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import express from 'express';
+import { createServer } from 'node:http';
 
-const port = Number(process.env.PORT || 8188);
+let port = 5173;
 const dataDir = resolve(process.env.LITO_DATA_DIR || '.lito-data');
 const jobsDir = join(dataDir, 'jobs');
 const runtimeDir = join(dataDir, 'runtime');
@@ -199,7 +200,17 @@ app.use((error, _request, response, _next) => {
   console.error(error);
   response.status(500).json({ error: 'The local server could not complete the request. Check its log.' });
 });
-app.listen(port, '127.0.0.1', () => {
+const server = createServer(app);
+server.on('error', error => {
+  if (error.code === 'EADDRINUSE' && port < 65535) {
+    server.listen(++port, '127.0.0.1');
+  } else {
+    console.error('LiTo could not start its local server:', error);
+    process.exitCode = 1;
+  }
+});
+server.on('listening', () => {
   console.log(`LiTo demo listening at http://127.0.0.1:${port}`);
   runNext();
 });
+server.listen(port, '127.0.0.1');

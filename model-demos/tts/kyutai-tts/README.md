@@ -26,13 +26,13 @@ In another terminal from this directory:
 npm run dev
 ```
 
-Open http://127.0.0.1:5178. Both services bind to loopback. If you change the inference port, export `POCKET_TTS_URL` in the SvelteKit terminal before starting it. See `.env.example` for settings.
+Open the URL printed by Vite: port 5173, or the first free port after it. Both services bind to loopback. If you change the inference port, export `POCKET_TTS_URL` in the SvelteKit terminal before starting it. See `.env.example` for settings.
 
 The Python service lazily downloads model assets and stock voices from Hugging Face and reads them from `~/Source/liforma/ai-workflows/apple-silicon/.pocket-tts-cache` on later runs. Keep that directory out of Git. Set `HF_HUB_CACHE` in the Python terminal to use another cache. The first run needs internet access. Models and voice states stay in memory until the Python service restarts.
 
 Setup time includes any model and voice loading. Generation time measures synthesis after setup. Speed is audio duration divided by generation time. WAV clips can be played and downloaded from each model's card.
 
-Run `npm run check` and `npm run build` to validate the app. To serve the Node build locally, run `HOST=127.0.0.1 PORT=5178 BODY_SIZE_LIMIT=11M node build` with the Python service running.
+Run `npm run check` and `npm run build` to validate the app. To serve the Node build locally, run `npm run preview` with the Python service running.
 
 ## Clone a voice
 

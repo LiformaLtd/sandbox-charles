@@ -1,6 +1,6 @@
 # Audio2Face 2D Face Lab
 
-Standalone SvelteKit 3 / Svelte 5 visual experiment at **http://127.0.0.1:5181** by default. It animates actual 478-point avatar fits using the compact speech-to-ARKit model and the experimental avatar-specific maps. WebGL warps one neutral texture per avatar. This app imports no production player code and does not change the v1 animation path.
+Standalone SvelteKit 3 / Svelte 5 visual experiment. Development and preview start at port 5173 and advance to the first free port. It animates actual 478-point avatar fits using the compact speech-to-ARKit model and the experimental avatar-specific maps. WebGL warps one neutral texture per avatar. This app imports no production player code and does not change the v1 animation path.
 
 ## Run
 
@@ -18,7 +18,7 @@ npm run dev
 
 `prepare:demo` uses `uv` with pinned NumPy and Pillow. An existing Python environment with these packages may instead run `python scripts/prepare_demo.py` with the same arguments. Paths are explicit read-only input dependencies, not implicit sibling imports. The research mapping outputs must already exist. Preparation copies inputs into ignored `static/assets/`; weights, avatar textures, speech and generated maps are never committed. `provenance.json` records the input hashes and paths. One historical snapshot lacking its exact neutral texture is excluded, rather than substituting a different image. There are currently 18 usable fits, including one historical fit.
 
-Development uses port 5181; built preview uses 4181. If occupied, Vite exits with an error so another local service is not mistaken for this demo. For browser tests on a different port, set `TEST_BASE_URL` to that URL. `npm run build` creates a static build; `npm run preview` serves it with the same cross-origin isolation headers required by the speech runtime. No deployment is configured.
+Development and preview try port 5173, then the first free port. Use the printed URL. For browser tests on a different port, set `TEST_BASE_URL` to that URL. `npm run build` creates a static build; `npm run preview` serves it with the same cross-origin isolation headers required by the speech runtime. No deployment is configured.
 
 ## Visual checks
 

@@ -5,7 +5,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   return {
     plugins: [svelte()],
-    server: { proxy: { '/api': {
+    preview: { host: '127.0.0.1', port: 5173, strictPort: false },
+    server: { host: '127.0.0.1', port: 5173, strictPort: false, proxy: { '/api': {
       target: env.LTX25_API_URL || 'http://127.0.0.1:3026',
       rewrite: (path) => path.replace(/^\/api/, '')
     } } }

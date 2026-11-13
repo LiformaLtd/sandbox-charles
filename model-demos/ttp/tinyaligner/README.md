@@ -12,12 +12,12 @@ npm run assets
 npm run dev
 ```
 
-Open http://127.0.0.1:5186/. There is no required environment configuration. The asset command fetches the pinned TinyAligner model and prepares its English dictionary. The app downloads the Phonon Q8 weights (about 65 MB), tokenizer, and voice from Hugging Face on the first run. Synthesis and alignment run on the device. The text and audio are processed locally.
+Open the URL printed by Vite: port 5173, or the first free port after it. There is no required environment configuration. The asset command fetches the pinned TinyAligner model and prepares its English dictionary. The app downloads the Phonon Q8 weights (about 65 MB), tokenizer, and voice from Hugging Face on the first run. Synthesis and alignment run on the device. The text and audio are processed locally.
 
 ```sh
 npm run check
 npm run build
-HOST=127.0.0.1 PORT=5186 node build
+npm run preview
 ```
 
 ## Timing and input

@@ -1,0 +1,11 @@
+torch==2.10.0
+numpy==2.4.2
+scipy==1.17.1
+soundfile==0.13.1
+pyloudnorm==0.1.1
+safetensors==0.7.0
+packaging==26.0
+ptts==0.7.0
+fastapi==0.128.0
+uvicorn==0.40.0
+httpx==0.28.1

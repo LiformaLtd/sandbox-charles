@@ -1,0 +1,83 @@
+{
+  "31m-en": {
+    "name": "31M · English",
+    "repo": "gradium/phonon-31m-en",
+    "revision": "8c64b55ec301728e2d1695bfea87a08a267d0c2d",
+    "languages": [
+      "en"
+    ],
+    "bytes": 64500000,
+    "local": false,
+    "license": "Apache 2.0"
+  },
+  "40m-en": {
+    "name": "40M · English",
+    "repo": "gradium/phonon-40m-en",
+    "revision": "bc7e8ae7e543a7a3e4604753e42fbda76ddf0781",
+    "languages": [
+      "en"
+    ],
+    "bytes": 74553568,
+    "local": true,
+    "license": "CC BY-NC 4.0"
+  },
+  "40m-fr": {
+    "name": "40M · French",
+    "repo": "gradium/phonon-40m-fr",
+    "revision": "d91086970206b88efd2c88ca971d0628b5968f0f",
+    "languages": [
+      "fr"
+    ],
+    "bytes": 74553568,
+    "local": true,
+    "license": "CC BY-NC 4.0"
+  },
+  "40m-de": {
+    "name": "40M · German",
+    "repo": "gradium/phonon-40m-de",
+    "revision": "79cfc7b47fcfc0b666657b981eb366415023a862",
+    "languages": [
+      "de"
+    ],
+    "bytes": 74553568,
+    "local": true,
+    "license": "CC BY-NC 4.0"
+  },
+  "40m-es": {
+    "name": "40M · Spanish",
+    "repo": "gradium/phonon-40m-es",
+    "revision": "e5e052b26e31abd5918ade71d3135e69d51a66f8",
+    "languages": [
+      "es"
+    ],
+    "bytes": 74553568,
+    "local": true,
+    "license": "CC BY-NC 4.0"
+  },
+  "40m-pt": {
+    "name": "40M · Portuguese",
+    "repo": "gradium/phonon-40m-pt",
+    "revision": "4cbfd742a1555d60eb5399c6d296e9f2e07389e9",
+    "languages": [
+      "pt"
+    ],
+    "bytes": 74553568,
+    "local": true,
+    "license": "CC BY-NC 4.0"
+  },
+  "40m-multilingual": {
+    "name": "40M · Multilingual · all five languages",
+    "repo": "gradium/phonon-40m-multilingual",
+    "revision": "1537ce46c64f42903e0d608b132ccb073dac46d2",
+    "languages": [
+      "en",
+      "fr",
+      "de",
+      "es",
+      "pt"
+    ],
+    "bytes": 74553568,
+    "local": true,
+    "license": "CC BY-NC 4.0"
+  }
+}

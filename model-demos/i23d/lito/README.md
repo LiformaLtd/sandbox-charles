@@ -31,6 +31,6 @@ The server defaults to the `python` executable next to `LITO_CLI`. Set `LITO_PYT
 npm run dev
 ```
 
-Open http://127.0.0.1:8188. `PORT` changes the loopback port. Keep that port when reopening an existing browser session because IndexedDB is scoped to the origin.
+Open the URL printed by the server. It starts at port 5173 and advances to the first free port. IndexedDB is scoped to the origin, so saved browser sessions are associated with the port used for that session.
 
 The server queues jobs one at a time. It stores inputs, PLYs, and generation logs under `.lito-data/jobs/`, or under the directory configured with `LITO_DATA_DIR`. The browser also stores a copy of its current result. To reclaim space, stop the server and remove unneeded local job folders, then clear the site's browser data if desired.

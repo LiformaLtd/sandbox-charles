@@ -11,6 +11,6 @@ export default defineConfig({
 		}
 	},
 	optimizeDeps: { include: ['phonemize'], exclude: ['onnxruntime-web/wasm', 'phonon-tts/worker.js'] },
-	server: { host: '127.0.0.1' },
-	preview: { host: '127.0.0.1' }
+	server: { host: '127.0.0.1', port: 5173, strictPort: false },
+	preview: { host: '127.0.0.1', port: 5173, strictPort: false }
 });

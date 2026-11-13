@@ -12,12 +12,12 @@ npm run assets
 npm run dev
 ```
 
-Open http://127.0.0.1:5196/. There is no required environment configuration. The asset command fetches the pinned TinyAligner model and prepares its English dictionary. The app downloads the Phonon Q8 weights (about 65 MB), tokenizer, and voice from Hugging Face on the first run. Synthesis and alignment run on the device. The text and audio are processed locally.
+Open the URL printed by Vite: port 5173, or the first free port after it. There is no required environment configuration. The asset command fetches the pinned TinyAligner model and prepares its English dictionary. The app downloads the Phonon Q8 weights (about 65 MB), tokenizer, and voice from Hugging Face on the first run. Synthesis and alignment run on the device. The text and audio are processed locally.
 
 ```sh
 npm run check
 npm run build
-HOST=127.0.0.1 PORT=5196 node build
+npm run preview
 ```
 
 ## Timing and input
@@ -51,7 +51,7 @@ LOAD_WORKERS=2 RUNS=15 npm run benchmark
 
 `LOAD_WORKERS` runs that many independent single-thread WASM sessions continuously during the benchmark. Their CPU time and memory count toward process-wide totals. `mainThreadCpuMs` is reported where supported by Node. For native CPU comparison, install `onnxruntime-node@1.26.0` in a scratch directory and set `NATIVE_ORT` to the absolute path to its `dist/index.js`. Use `THREADS=2` or `THREADS=4` in a fresh process for threading experiments. `BENCHMARK_MODEL` can point at an alternate model for a timing trial.
 
-For browser WASM, open [the benchmark page](http://127.0.0.1:5196/benchmark) and select **Run benchmark**. To test threading, start with `BENCHMARK_ISOLATION=1 npm run dev` and open `/benchmark?threads=2` directly in a fresh tab. Check both `crossOriginIsolated` and `effectiveThreads` in the result. The demo defaults to one thread. The bundled runtime uses fixed-width SIMD even at one thread. Safari introduced this capability in 16.4, and the pinned package has no scalar binary. Changing the SIMD flag only changes feature detection. See [WebKit SIMD support](https://webkit.org/blog/13966/webkit-features-in-safari-16-4/) and [ONNX Runtime flags](https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html).
+For browser WASM, open [the benchmark page](/benchmark) and select **Run benchmark**. To test threading, start with `BENCHMARK_ISOLATION=1 npm run dev` and open `/benchmark?threads=2` directly in a fresh tab. Check both `crossOriginIsolated` and `effectiveThreads` in the result. The demo defaults to one thread. The bundled runtime uses fixed-width SIMD even at one thread. Safari introduced this capability in 16.4, and the pinned package has no scalar binary. Changing the SIMD flag only changes feature detection. See [WebKit SIMD support](https://webkit.org/blog/13966/webkit-features-in-safari-16-4/) and [ONNX Runtime flags](https://onnxruntime.ai/docs/api/js/interfaces/Env.WebAssemblyFlags.html).
 
 ### Apple M5 Max results
 

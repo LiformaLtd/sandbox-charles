@@ -5,6 +5,6 @@ import { defineConfig } from 'vite';
 export default defineConfig({
 	worker: { format: 'es' },
 	plugins: [sveltekit({ adapter: adapter() })],
-	server: { host: '127.0.0.1', port: 5178, strictPort: true },
-	preview: { host: '127.0.0.1', port: 5178, strictPort: true }
+	server: { host: '127.0.0.1', port: 5173, strictPort: false },
+	preview: { host: '127.0.0.1', port: 5173, strictPort: false }
 });

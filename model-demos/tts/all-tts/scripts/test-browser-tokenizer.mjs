@@ -29,7 +29,7 @@ const phrases = [
 const expected = phrases.map((text) => original.encodeIds(text));
 const root = new URL('../', import.meta.url);
 const { FORCE_COLOR, NO_COLOR, ...env } = process.env;
-const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5184', '--strictPort'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
+const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5173'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] });
 let logs = '';
 for (const stream of [server.stdout, server.stderr]) stream.on('data', (data) => { logs = (logs + data).slice(-20_000); });
 let browser;
@@ -37,7 +37,8 @@ try {
   let ready = false;
   for (let i = 0; i < 100; i++) {
     if (server.exitCode !== null) throw new Error(`Test server exited: ${logs}`);
-    try { if ((await fetch('http://127.0.0.1:5184/', { signal: AbortSignal.timeout(500) })).ok) { ready = true; break; } } catch {}
+    const address = logs.replace(/\u001b\[[0-9;]*m/g, '').match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+\/)/)?.[1];
+    try { if (address && (await fetch(address, { signal: AbortSignal.timeout(500) })).ok) { ready = true; break; } } catch {}
     await setTimeout(200);
   }
   assert.ok(ready, `Test server did not become ready: ${logs}`);
@@ -47,7 +48,9 @@ try {
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   await page.route('**/__tokenizer_fixture', (route) => route.fulfill({ body: model, contentType: 'application/octet-stream' }));
-  await page.goto('http://127.0.0.1:5184/');
+  const address = logs.replace(/\u001b\[[0-9;]*m/g, '').match(/Local:\s+(http:\/\/127\.0\.0\.1:\d+\/)/)?.[1];
+  assert.ok(address, 'Vite did not print its actual URL.');
+  await page.goto(address);
   assert.match(await page.title(), /TTS/i);
   const actual = await page.evaluate(async (inputs) => {
     const { createTokenizer } = await import('/src/lib/pocket/onnx/tokenizer.ts');
