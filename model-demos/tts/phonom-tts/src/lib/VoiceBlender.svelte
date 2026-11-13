@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import catalogue from './voices-catalogue.json';
-	import { blendDescription, MIN_BLEND_PERCENT, MAX_BLEND_PERCENT, type BlendRecipe, type SavedBlend } from './voice-blends';
+	import { blendDescription, type BlendRecipe, type SavedBlend } from './voice-blends';
 	let { disabled, canPreview, onpreview, onvoiceschange, onworking }: {
 		disabled: boolean; canPreview: boolean;
 		onpreview: (voice: { id: string; name: string; source: Blob }) => Promise<void>;
@@ -89,8 +89,7 @@
 	</div>
 	<label class="slider" for="blend-weight">Blend balance</label>
 	<div class="balance"><span>{sourceA} {100 - percentB}%</span><span>{sourceB} {percentB}%</span></div>
-	<input id="blend-weight" type="range" min={MIN_BLEND_PERCENT} max={MAX_BLEND_PERCENT} step="1" bind:value={percentB} disabled={disabled || preparing} />
-	<p class="hint">0% B is voice A alone; 100% B is voice B alone. Beyond either endpoint, one voice is subtracted from the other. Larger extrapolations may reduce clarity.</p>
+	<input id="blend-weight" type="range" min="0" max="100" step="1" bind:value={percentB} disabled={disabled || preparing} />
 	<label class="name">New voice name <input type="text" bind:value={name} placeholder={description} maxlength="80" disabled={disabled || preparing} /></label>
 	<div class="actions">
 		<button type="button" onclick={() => create(false)} disabled={disabled || preparing || !canPreview}>Preview blend · Browser Q8</button>
