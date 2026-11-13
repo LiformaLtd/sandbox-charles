@@ -49,7 +49,9 @@ variables when running setup and dev; no credentials are needed.
    voice version. Recording again does not replace existing saved audio.
 2. **Create a fitted version** (optional). Choose a method and explicitly create
    a linear-fit or iterative-fit version from the saved recording. Iterative fits
-   start from the version currently selected in section 3. Creating a fit saves and selects the new
+   start from **Starting voice for iterative fit** in section 2. This choice is
+   independent of the playback voice in section 3, so you can refine a linear-fit
+   version while listening to another version. Creating a fit saves and selects the new
    version; changing the method alone does not change the version used for speech.
 3. **Choose a voice and listen.** Select an existing version of the recording
    (initial clone or fitted versions). Selecting it does not run fitting. Saved
@@ -58,7 +60,9 @@ variables when running setup and dev; no credentials are needed.
    **Generate with selected version**. **Generate default comparison** uses the
    checkpoint preset. Generating speech does not run fitting.
 
-Reloading restores the last selected voice version in the same browser origin;
+Reloading restores the playback version and fitting starting voice independently
+in the same browser origin. Changing the recording resets an incompatible fitting
+starting voice to that recording’s initial clone;
 no recording, fitting or speech generation runs automatically. Recordings and
 versions persist on disk across frontend port changes; browser selection storage
 is per origin. New, unsaved microphone captures and generated-speech players are

@@ -9,7 +9,9 @@
   let health = $state<Health>();
   let voices = $state<Voice[]>([]);
   let selectedId = $state('');
+  let fitSourceId = $state('');
   const selected = $derived(voices.find(voice => voice.id === selectedId));
+  const fitSource = $derived(voices.find(voice => voice.id === fitSourceId));
   const recordingSource = $derived(selected ? recordingFor(selected, voices) : undefined);
   const recordings = $derived([...new Map(voices.map(voice => {
     const source = recordingFor(voice, voices); return [source.id, source] as const;
@@ -17,6 +19,7 @@
   const family = $derived(recordingSource ? voices.filter(voice => recordingFor(voice, voices).id === recordingSource.id)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt)) : []);
   const selectedVersion = $derived(selected ? versionName(selected, family) : '');
+  const fitSourceVersion = $derived(fitSource ? versionName(fitSource, family) : '');
   const parentVersion = $derived(selected?.parentId ? voices.find(voice => voice.id === selected.parentId) : undefined);
   const hasChildren = $derived(voices.some(voice => voice.parentId === selectedId));
   let name = $state('My voice');
@@ -81,16 +84,21 @@
       if (!loadedSelection || !voices.some(voice => voice.id === selectedId)) {
         const existing = voices.find(voice => voice.id === selectedId);
         selectVersion(existing?.id || (voices.length ? recordingFor(voices[0], voices).id : ''));
+        if (!loadedSelection) selectFitSource(fitSourceId);
         if (!loadedSelection) captureOpen = !voices.length;
         loadedSelection = true;
       }
+      ensureFitSource();
     } catch (cause) {
       if (!disposed && version === refreshVersion) { health = undefined; fail(cause); }
     }
   }
 
   onMount(() => {
-    try { selectedId = localStorage.getItem('phonon-voice-lab:selected-version') || ''; }
+    try {
+      selectedId = localStorage.getItem('phonon-voice-lab:selected-version') || '';
+      fitSourceId = localStorage.getItem('phonon-voice-lab:fit-source') || '';
+    }
     catch { selectionNote = 'This browser cannot remember your selected version. Saved voices are still kept on this computer.'; }
     void refresh(); poll = setInterval(() => { void refresh(); }, 2000);
   });
@@ -198,17 +206,31 @@
   function selectVersion(id: string) {
     selectedId = id;
     confirmingDelete = false;
-    transcript = voices.find(voice => voice.id === id)?.transcript || '';
-    transcriptConfirmed = false;
+    ensureFitSource();
     try { localStorage.setItem('phonon-voice-lab:selected-version', id); }
     catch { selectionNote = 'This browser cannot remember your selected version. Saved voices are still kept on this computer.'; }
   }
 
+  function ensureFitSource() {
+    const playback = voices.find(voice => voice.id === selectedId);
+    const source = playback ? recordingFor(playback, voices) : undefined;
+    const start = voices.find(voice => voice.id === fitSourceId);
+    if (!source || !start || recordingFor(start, voices).id !== source.id) selectFitSource(source?.id || '');
+  }
+
+  function selectFitSource(id: string) {
+    fitSourceId = id;
+    transcript = voices.find(voice => voice.id === id)?.transcript || '';
+    transcriptConfirmed = false;
+    try { localStorage.setItem('phonon-voice-lab:fit-source', id); }
+    catch { selectionNote = 'This browser cannot remember your fitting starting voice. Saved voices are still kept on this computer.'; }
+  }
+
   async function transcribe() {
-    if (!selected || busy) return;
+    if (!fitSource || busy) return;
     operation = 'Transcribing your saved recording locally…'; error = ''; message = '';
     try {
-      const result = await api<{ text: string }>(`voices/${selected.id}/transcribe`, { method: 'POST' });
+      const result = await api<{ text: string }>(`voices/${fitSource.id}/transcribe`, { method: 'POST' });
       transcript = result.text; transcriptConfirmed = false;
       message = 'Check these words against your recording and correct any mistakes.';
     } catch (cause) { fail(cause); }
@@ -216,8 +238,8 @@
   }
 
   async function refine() {
-    if (!selected || busy || (fitMethod === 'iterative' && (!transcriptConfirmed || !transcript.trim())) || (fitMethod === 'linear' && !health?.linearReady)) return;
-    const id = selected.id;
+    if (!recordingSource || !fitSource || busy || (fitMethod === 'iterative' && (!transcriptConfirmed || !transcript.trim())) || (fitMethod === 'linear' && !health?.linearReady)) return;
+    const id = fitMethod === 'iterative' ? fitSource.id : recordingSource.id;
     fitting = true; operation = 'Fitting your voice…'; error = ''; message = ''; pausePlayers();
     try {
       const candidate = await api<Voice | { cancelled: true }>(`voices/${id}/refine`, { method: 'POST',
@@ -330,10 +352,12 @@
                 </select>
                 {#if fitMethod === 'linear'}
                   <p>Uses the saved recording “{recordingSource.name}” to make a new voice estimate. You do not need to record again or type a transcript.</p>
-                  <p class="fine-print">The selected version stays available as the “before” comparison. A linear fit may sound better or worse.</p>
+                  <p class="fine-print">The initial clone is used for the “before” comparison. A linear fit may sound better or worse.</p>
                   {#if !health.linearReady}<p>Fast fitting data is not installed yet. Run npm run setup:linear in this lab, then refresh.</p>{/if}
                 {:else}
-                <p>Starts from {selectedVersion}, currently selected in section 3, and uses the saved recording “{recordingSource.name}”. Check the words spoken in that recording before fitting.</p>
+                <label for="fit-source">Starting voice for iterative fit</label>
+                <select id="fit-source" value={fitSourceId} disabled={busy} onchange={event => selectFitSource(event.currentTarget.value)}>{#each family as version (version.id)}<option value={version.id}>{versionName(version, family)} · {new Date(version.createdAt).toLocaleString()}</option>{/each}</select>
+                <p>Starts from {fitSourceVersion} and uses the saved recording “{recordingSource.name}”. This choice is separate from the playback voice in section 3. Check the words spoken in the recording before fitting.</p>
                 <button class="secondary full" onclick={transcribe} disabled={busy}>Get transcript from saved recording</button>
                 <label for="reference-transcript">The actual words in your recording</label>
                 <textarea id="reference-transcript" rows="3" maxlength="1000" bind:value={transcript} oninput={() => { transcriptConfirmed = false; }} disabled={busy} placeholder="Transcribe locally, or type exactly what you said."></textarea>

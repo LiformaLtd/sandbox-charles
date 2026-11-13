@@ -19,8 +19,16 @@ test('transcribe, cancel and fit a separate voice with the real local models', a
   await page.getByRole('button', { name: 'Save recording & create initial clone', exact: true }).click();
   const source = await (await create).json();
   let candidateId: string | undefined;
+  let linearId: string | undefined;
   try {
+    const linearResponse = page.waitForResponse(response => response.url().endsWith('/refine') && response.request().method() === 'POST');
+    await page.getByRole('button', { name: 'Create linear-fit version', exact: true }).click();
+    const linear = await (await linearResponse).json(); linearId = linear.id;
+    expect(linear.parentId).toBe(source.id);
     await page.getByLabel('New version method', { exact: true }).selectOption('iterative');
+    await page.getByLabel('Starting voice for iterative fit', { exact: true }).selectOption(linear.id);
+    await page.getByLabel('Voice version', { exact: true }).selectOption(source.id);
+    await expect(page.getByLabel('Starting voice for iterative fit', { exact: true })).toHaveValue(linear.id);
     await page.getByRole('button', { name: 'Get transcript from saved recording' }).click();
     await expect(page.getByText('Check these words against your recording and correct any mistakes.')).toBeVisible({ timeout: 30_000 });
     await expect(page.getByLabel('The actual words in your recording')).not.toHaveValue('');
@@ -30,7 +38,9 @@ test('transcribe, cancel and fit a separate voice with the real local models', a
     const cancelling = page.waitForResponse(response => response.url().endsWith('/refine') && response.request().method() === 'POST');
     await page.getByRole('button', { name: 'Create iterative-fit version', exact: true }).click();
     await page.getByRole('button', { name: 'Cancel fitting', exact: true }).click({ timeout: 15_000 });
-    expect((await (await cancelling).json()).cancelled).toBe(true);
+    const cancelledResponse = await cancelling;
+    expect(cancelledResponse.url()).toContain(`/voices/${linear.id}/refine`);
+    expect((await cancelledResponse.json()).cancelled).toBe(true);
     await expect(page.getByText('Voice fitting cancelled. Your original voice is unchanged.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Create iterative-fit version', exact: true })).toBeEnabled();
     const fitting = page.waitForResponse(response => response.url().endsWith('/refine') && response.request().method() === 'POST');
@@ -41,16 +51,17 @@ test('transcribe, cancel and fit a separate voice with the real local models', a
       expect(rejected.detail).toMatch(/^The pronunciation fit weakened voice similarity|^The search did not find a better-fitting profile/);
       await expect(page.getByRole('alert')).toContainText(rejected.detail);
       await expect(page.getByLabel('Voice version', { exact: true })).toHaveValue(source.id);
-      await expect(page.getByLabel('Voice version', { exact: true }).locator('option')).toHaveCount(1);
+      await expect(page.getByLabel('Voice version', { exact: true }).locator('option')).toHaveCount(2);
       expect(errors.filter(error => !error.includes(rejected.detail) && !error.includes('400 (Bad Request)'))).toEqual([]);
       return;
     }
     expect(response.status()).toBe(200);
     const candidate = await response.json(); candidateId = candidate.id;
-    expect(candidate.parentId).toBe(source.id);
+    expect(candidate.parentId).toBe(linear.id);
     expect(candidate.fit.focus).toBe('pronunciation');
     expect(candidate.fit.after.loss).toBeLessThan(candidate.fit.before.loss);
     await expect(page.getByLabel('Voice version', { exact: true })).toHaveValue(candidate.id);
+    await expect(page.getByLabel('Starting voice for iterative fit', { exact: true })).toHaveValue(linear.id);
     await expect(page.getByLabel('Before fit comparison', { exact: true })).toBeVisible();
     await expect(page.getByLabel('After fit comparison', { exact: true })).toBeVisible();
     await page.screenshot({ path: '.data/testing/fitting.png', fullPage: true });
@@ -58,18 +69,9 @@ test('transcribe, cancel and fit a separate voice with the real local models', a
     console.log(JSON.stringify({ fitSeconds: candidate.fit.elapsedSeconds,
       before: candidate.fit.heldOutBefore.speakerCosine, after: candidate.fit.heldOutAfter.speakerCosine }));
   } finally {
-    for (const id of [candidateId, source.id].filter(Boolean)) {
+    for (const id of [candidateId, linearId, source.id].filter(Boolean)) {
       const response = await request.delete(`/api/voices/${id}`, { headers: { origin: baseURL! } });
-      if (response.status() === 400) {
-      const rejected = await response.json();
-      expect(rejected.detail).toMatch(/^The pronunciation fit weakened voice similarity|^The search did not find a better-fitting profile/);
-      await expect(page.getByRole('alert')).toContainText(rejected.detail);
-      await expect(page.getByLabel('Voice version', { exact: true })).toHaveValue(source.id);
-      await expect(page.getByLabel('Voice version', { exact: true }).locator('option')).toHaveCount(1);
-      expect(errors.filter(error => !error.includes(rejected.detail) && !error.includes('400 (Bad Request)'))).toEqual([]);
-      return;
-    }
-    expect(response.status()).toBe(200);
+      expect(response.status()).toBe(200);
     }
   }
 });
