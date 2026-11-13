@@ -365,6 +365,7 @@ class Fitter:
         return {
             "before": before,
             "after": after,
+            "finalError": after["loss"],
             "searchHeldOutBefore": held_before,
             "searchHeldOutAfter": held_after,
             "heldOutBefore": playback_before_metrics,

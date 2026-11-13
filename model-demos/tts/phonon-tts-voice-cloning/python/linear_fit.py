@@ -21,6 +21,16 @@ BANK_TEXTS = (
 )
 
 
+def linear_error(features, target, weights, ridge=RIDGE):
+    """The exact objective minimized by solve_weights, including the ridge term."""
+    features, target, weights = (
+        np.asarray(value, dtype=np.float64) for value in (features, target, weights)
+    )
+    residual = float(np.sum((weights @ features - target) ** 2))
+    penalty = float(ridge * np.sum((weights - 1 / len(weights)) ** 2))
+    return residual + penalty, residual, penalty
+
+
 def solve_weights(features, target, ridge=RIDGE):
     """Fit all N-1 contrasts; sum(weights)=1, with ridge allowing negative weights.
 
@@ -110,6 +120,9 @@ class LinearFitter:
         reference = self.scorer.features(prepared)
         solve_started = perf_counter()
         weights, rank = solve_weights(self.features, reference["embedding"])
+        final_error, residual_error, ridge_penalty = linear_error(
+            self.features, reference["embedding"], weights
+        )
         voice = np.tensordot(weights, self.voices, axes=(0, 0)).astype(np.float32)[None]
         solve_ms = (perf_counter() - solve_started) * 1000
         if not np.isfinite(voice).all():
@@ -159,6 +172,9 @@ class LinearFitter:
             "catalogueVoices": 37,
             "referenceSeconds": len(prepared) / SAMPLE_RATE,
             "ridge": RIDGE,
+            "finalError": final_error,
+            "residualError": residual_error,
+            "ridgePenalty": ridge_penalty,
             "solveMs": solve_ms,
             "elapsedSeconds": perf_counter() - started,
             "weights": [

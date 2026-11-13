@@ -2,12 +2,22 @@
   import { onMount, onDestroy, tick } from 'svelte';
   import { api, type Voice, type Health, type Speech } from '../lib/api';
   import { Recorder, normalizeFile } from '../lib/recorder';
+  import { recordingFor, methodName, versionName, finalError, formatError } from '../lib/voice-workflow';
   import '../app.css';
 
   let health = $state<Health>();
   let voices = $state<Voice[]>([]);
   let selectedId = $state('');
   const selected = $derived(voices.find(voice => voice.id === selectedId));
+  const recordingSource = $derived(selected ? recordingFor(selected, voices) : undefined);
+  const recordings = $derived([...new Map(voices.map(voice => {
+    const source = recordingFor(voice, voices); return [source.id, source] as const;
+  })).values()]);
+  const family = $derived(recordingSource ? voices.filter(voice => recordingFor(voice, voices).id === recordingSource.id)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt)) : []);
+  const selectedVersion = $derived(selected ? versionName(selected, family) : '');
+  const parentVersion = $derived(selected?.parentId ? voices.find(voice => voice.id === selected.parentId) : undefined);
+  const hasChildren = $derived(voices.some(voice => voice.parentId === selectedId));
   let name = $state('My voice');
   let consent = $state(false);
   let recording = $state(false);
@@ -31,22 +41,26 @@
   let transcript = $state('');
   let transcriptConfirmed = $state(false);
   let fitIterations = $state(20);
-  let fitMethod = $state<'iterative' | 'linear'>('iterative');
+  let fitMethod = $state<'iterative' | 'linear'>('linear');
   let fitFocus = $state<'voice' | 'pronunciation'>('voice');
   let fitting = $state(false);
-  let fitPanelOpen = $state(false);
+  let captureOpen = $state(false);
+  let selectionNote = $state('');
   let cancelling = $state(false);
   let beforeFitAudio = $state<HTMLAudioElement>();
   let afterFitAudio = $state<HTMLAudioElement>();
+  let referenceAudio = $state<HTMLAudioElement>();
+  let captureAudio = $state<HTMLAudioElement>();
   let recorder: Recorder | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
   let poll: ReturnType<typeof setInterval> | undefined;
   let disposed = false;
   let refreshVersion = 0;
+  let loadedSelection = false;
   const busy = $derived(Boolean(operation) || starting || recording || Boolean(health?.busy));
 
   function pausePlayers(except?: HTMLAudioElement) {
-    for (const player of [outputAudio, defaultAudio, beforeFitAudio, afterFitAudio]) {
+    for (const player of [outputAudio, defaultAudio, beforeFitAudio, afterFitAudio, referenceAudio, captureAudio]) {
       if (player && player !== except) player.pause();
     }
   }
@@ -63,19 +77,22 @@
       const [nextHealth, nextVoices] = await Promise.all([api<Health>('health'), api<Voice[]>('voices')]);
       if (disposed || version !== refreshVersion) return;
       health = nextHealth; voices = nextVoices;
-      if (!selectedId && voices.length) {
-        selectedId = voices[0].id; transcript = voices[0].transcript || '';
-        fitPanelOpen = Boolean(voices[0].fit);
-        fitMethod = voices[0].fit?.algorithm === 'linear' ? 'linear' : 'iterative';
-        fitFocus = voices[0].fit?.focus || 'voice';
+      if (!loadedSelection || !voices.some(voice => voice.id === selectedId)) {
+        const existing = voices.find(voice => voice.id === selectedId);
+        selectVersion(existing?.id || (voices.length ? recordingFor(voices[0], voices).id : ''));
+        if (!loadedSelection) captureOpen = !voices.length;
+        loadedSelection = true;
       }
-      if (health.refinement) fitPanelOpen = true;
     } catch (cause) {
       if (!disposed && version === refreshVersion) { health = undefined; fail(cause); }
     }
   }
 
-  onMount(() => { void refresh(); poll = setInterval(() => { void refresh(); }, 2000); });
+  onMount(() => {
+    try { selectedId = localStorage.getItem('phonon-voice-lab:selected-version') || ''; }
+    catch { selectionNote = 'This browser cannot remember your selected version. Saved voices are still kept on this computer.'; }
+    void refresh(); poll = setInterval(() => { void refresh(); }, 2000);
+  });
   onDestroy(() => {
     disposed = true;
     clearInterval(timer); clearInterval(poll);
@@ -86,7 +103,7 @@
   function useClip(next: Blob) {
     if (clipUrl) URL.revokeObjectURL(clipUrl);
     clip = next; clipUrl = URL.createObjectURL(next);
-    message = 'Recording ready. Listen back, then create your voice.';
+    message = 'New recording captured. Save it below to create its initial voice.';
   }
 
   async function startRecording() {
@@ -135,9 +152,9 @@
         method: 'POST', headers: { 'Content-Type': 'audio/wav', 'X-Voice-Consent': 'own-voice' }, body: clip
       });
       ++refreshVersion;
-      voices = [voice, ...voices]; selectedId = voice.id; confirmingDelete = false;
-      fitPanelOpen = false; transcript = ''; transcriptConfirmed = false;
-      message = `“${voice.name}” is ready. Try it with some new text.`;
+      voices = [voice, ...voices]; selectVersion(voice.id); captureOpen = false;
+      clip = undefined; if (clipUrl) URL.revokeObjectURL(clipUrl); clipUrl = ''; consent = false; seconds = 0;
+      message = `Saved “${voice.name}” and selected its initial clone. You can speak with it now or create a fitted version.`;
     } catch (cause) { fail(cause); }
     finally { operation = ''; }
   }
@@ -145,7 +162,7 @@
   async function generate(baseline = false) {
     if (busy || (!baseline && !selected) || !text.trim()) return;
     const voiceId = baseline ? 'default' : selected!.id;
-    const label = baseline ? 'Default Phonon voice' : selected!.name;
+    const label = baseline ? 'Default Phonon voice' : `${recordingSource!.name} · ${selectedVersion}`;
     const spokenText = text.trim();
     operation = 'Generating speech…'; error = ''; message = ''; pausePlayers();
     try {
@@ -168,20 +185,22 @@
     try {
       await api(`voices/${id}`, { method: 'DELETE' });
       ++refreshVersion;
-      voices = voices.filter(voice => voice.id !== id); selectedId = voices[0]?.id || '';
+      voices = voices.filter(voice => voice.id !== id);
+      selectVersion(voices.length ? recordingFor(voices[0], voices).id : '');
+      if (!voices.length) captureOpen = true;
       if (result?.voiceId === id) { outputAudio?.pause(); result = undefined; }
-      confirmingDelete = false; message = 'Voice and its saved recordings deleted.';
+      confirmingDelete = false; message = 'Voice version deleted.';
     } catch (cause) { fail(cause); }
     finally { operation = ''; }
   }
 
-  function changeVoice() {
+  function selectVersion(id: string) {
+    selectedId = id;
     confirmingDelete = false;
-    transcript = selected?.transcript || '';
+    transcript = voices.find(voice => voice.id === id)?.transcript || '';
     transcriptConfirmed = false;
-    fitPanelOpen = Boolean(selected?.fit);
-    fitFocus = selected?.fit?.focus || 'voice';
-    fitMethod = selected?.fit?.algorithm === 'linear' ? 'linear' : 'iterative';
+    try { localStorage.setItem('phonon-voice-lab:selected-version', id); }
+    catch { selectionNote = 'This browser cannot remember your selected version. Saved voices are still kept on this computer.'; }
   }
 
   async function transcribe() {
@@ -206,8 +225,8 @@
       if ('cancelled' in candidate) message = 'Voice fitting cancelled. Your original voice is unchanged.';
       else {
         ++refreshVersion;
-        voices = [candidate, ...voices]; selectedId = candidate.id;
-        message = 'A separate fitted voice is ready. Compare both clips below; the original is kept.';
+        voices = [candidate, ...voices]; selectVersion(candidate.id);
+        message = 'New fitted version saved and selected. Listen to the before-and-after clips in step 3. Earlier versions are kept.';
       }
     } catch (cause) { fail(cause); }
     finally { fitting = false; cancelling = false; operation = ''; await refresh(); }
@@ -236,7 +255,7 @@
     <div class="intro">
       <p class="eyebrow">EXPERIMENT 02 · VOICE CLONING</p>
       <h1>A little recording.<br />A voice of your own.</h1>
-      <p class="lede">Record yourself, create a voice, and hear it say something new.<br class="desktop-break" /> Your recordings and speech stay on this computer.</p>
+      <p class="lede">Choose a saved recording, compare voice versions, and hear them speak.<br class="desktop-break" /> Your recordings and speech stay on this computer.</p>
     </div>
 
     {#if error}
@@ -247,9 +266,21 @@
     {/if}
     <div class="live-status" role="status" aria-live="polite">{operation || message}</div>
 
+    <div class="workflow-guide"><strong>Recording → Voice version → Speech</strong><p>Your recording and voice versions are saved. Reloading restores your last selected version. New fitting starts only when you press its create button.</p></div>
+    {#if selectionNote}<p class="helper">{selectionNote}</p>{/if}
     <div class="workspace">
-      <section class="card capture-card" aria-labelledby="record-heading">
-        <div class="step-heading"><span class="step">01</span><div><p class="eyebrow">THE REFERENCE</p><h2 id="record-heading">Capture your voice</h2></div></div>
+      <section class="card library-card" aria-labelledby="record-heading">
+        <div class="step-heading"><span class="step">01</span><div><p class="eyebrow">THE SAVED AUDIO</p><h2 id="record-heading">Choose a recording</h2></div></div>
+        {#if recordingSource}
+          <p class="helper">Use a recording already saved here, or record a new sample below.</p>
+          <div class="source-grid">
+            <div><label for="recording-select">Saved recording</label><select id="recording-select" value={recordingSource.id} disabled={busy} onchange={event => selectVersion(event.currentTarget.value)}>{#each recordings as source (source.id)}<option value={source.id}>{source.name} · {source.recordingSeconds.toFixed(1)}s</option>{/each}</select><p class="fine-print">Saved {new Date(recordingSource.createdAt).toLocaleString()} · reused by the fitting in section 2 and voice versions in section 3.</p></div>
+            <div><label for="saved-reference">Your actual recorded voice</label><audio id="saved-reference" bind:this={referenceAudio} aria-label="Saved voice reference" src={`/api/voices/${selectedId}/reference`} controls onplay={event => pausePlayers(event.currentTarget)}></audio><p class="fine-print">Listen here to check which recording will be used for fitting.</p></div>
+          </div>
+        {:else}<p class="helper">Start by recording a short sample. You only need to do this once for each recording you want to keep.</p>{/if}
+        <details class="new-recording" bind:open={captureOpen}>
+          <summary>Record a new sample</summary>
+          <p class="helper">This creates a separate saved recording. Your existing recordings and versions are kept.</p>
         <p class="helper">Speak naturally in a quiet room for 10–15 seconds. Keep the microphone at a comfortable distance.</p>
 
         <div class="reading-prompt"><span class="small-label">SOMETHING TO READ · OPTIONAL</span><p>“I’m trying something a little different today. The window is open, the coffee is warm, and there’s plenty of time to see where this takes us.”</p><small>Or say anything naturally. Your recording does not need to match the text in the speech box.</small></div>
@@ -268,44 +299,41 @@
         </div>
 
         {#if clipUrl}
-          <div class="recording-preview"><label for="reference-preview" class="small-label">YOUR RECORDING</label><audio id="reference-preview" aria-label="Your recorded voice" src={clipUrl} controls></audio></div>
+          <p class="notice">New recording, not saved yet. Save it below before fitting or generating speech with it.</p>
+          <div class="recording-preview"><label for="reference-preview" class="small-label">YOUR RECORDING</label><audio id="reference-preview" bind:this={captureAudio} onplay={() => pausePlayers(captureAudio)} aria-label="Your recorded voice" src={clipUrl} controls></audio></div>
         {/if}
 
         <div class="create-form">
-          <label for="voice-name">Voice name</label>
+          <label for="voice-name">Recording name</label>
           <input id="voice-name" bind:value={name} maxlength="60" placeholder="My voice" disabled={busy} />
           <label class="consent"><input type="checkbox" bind:checked={consent} disabled={busy} /><span>This is my own voice, and I want to create a synthetic version of it.</span></label>
-          <button class="primary full" onclick={clone} disabled={!clip || !consent || !name.trim() || busy || !health?.ready}>{operation === 'Creating your voice…' ? 'Creating your voice…' : 'Create my voice'}<span aria-hidden="true">↗</span></button>
-          <p class="fine-print">Uses up to 10 seconds of speech. No model retraining required.</p>
+          <button class="primary full" onclick={clone} disabled={!clip || !consent || !name.trim() || busy || !health?.ready}>{operation === 'Creating your voice…' ? 'Creating your voice…' : 'Save recording & create initial clone'}<span aria-hidden="true">↗</span></button>
+          <p class="fine-print">Saving keeps this recording and creates its initial clone. Fitted versions are optional.</p>
         </div>
+
+        </details>
       </section>
 
-      <section class="card speech-card" aria-labelledby="speech-heading">
-        <div class="step-heading"><span class="step">02</span><div><p class="eyebrow">THE NEW WORDS</p><h2 id="speech-heading">Hear yourself differently</h2></div></div>
-        <p class="helper">Choose your saved voice and give it something to say. Phonon 31M speaks English.</p>
-
-        {#if voices.length}
-          <label for="voice-select">Your voices <span class="count">{voices.length}</span></label>
-          <select id="voice-select" bind:value={selectedId} disabled={busy} onchange={changeVoice}>{#each voices as voice}<option value={voice.id}>{voice.name}</option>{/each}</select>
-          {#if selected}
-            <div class="voice-detail"><span>{selected.usedSeconds.toFixed(1)}s reference · created in {(selected.creationMs / 1000).toFixed(1)}s</span><button class="text-button danger" onclick={() => { confirmingDelete = !confirmingDelete; }} disabled={busy}>Delete voice</button></div>
-            {#if confirmingDelete}<div class="delete-confirm">Delete this voice, its reference and its generated speech?<div><button class="danger-button" onclick={removeVoice} disabled={busy}>Delete permanently</button><button class="text-button" onclick={() => { confirmingDelete = false; }}>Keep voice</button></div></div>{/if}
-            <details class="reference-details"><summary>Listen to the saved reference</summary><audio aria-label="Saved voice reference" src={`/api/voices/${selected.id}/reference`} controls></audio><a href={`/api/voices/${selected.id}/embedding`} download>Download voice file</a></details>
-            <details class="fitting-panel" bind:open={fitPanelOpen}>
-              <summary>Refine this voice <span class="synthetic-tag">Experimental</span></summary>
-              <p>Fit a personal voice profile to your recording and save a separate voice. Compare methods on the same saved recording. Accent preservation still needs a listening check.</p>
+      <section class="card versions-card" aria-labelledby="versions-heading">
+        <div class="step-heading"><span class="step">02</span><div><p class="eyebrow">MAKE A NEW VERSION · OPTIONAL</p><h2 id="versions-heading">Create a fitted version</h2></div></div>
+        {#if selected && recordingSource}
+          <p class="helper">Create a new fitted version from the saved recording “{recordingSource.name}”. This is optional: you can play any existing version in section 3.</p>
+          <div class="fitting-panel">
+            <h3>Choose a fitting method</h3>
+            <p>Choose a method below and press its create button. The new version is saved separately and selected when it finishes.</p>
               {#if health?.refinementReady}
-                <label for="fit-method">Fitting method</label>
+                <label for="fit-method">New version method</label>
                 <select id="fit-method" bind:value={fitMethod} disabled={busy}>
-                  <option value="iterative">Iterative fitting · 20 or 60 steps</option>
-                  <option value="linear" disabled={!health.supportsLinear}>Fast linear fit · all 36 directions</option>
+                  <option value="iterative">Iterative fit · about 1–5 minutes</option>
+                  <option value="linear" disabled={!health.supportsLinear}>Fast linear fit · usually seconds</option>
                 </select>
                 {#if fitMethod === 'linear'}
-                  <p>Make an independent estimate from your saved recording using all 37 English catalogue voices. One regularized linear solve uses all 36 centred directions; no transcript or iterative speech search is needed.</p>
-                  <p class="fine-print">The catalogue is prepared once. Each fit measures your recording, solves for voice weights, then generates two comparison clips. An improved likeness is not guaranteed.</p>
+                  <p>Uses the saved recording “{recordingSource.name}” to make a new voice estimate. You do not need to record again or type a transcript.</p>
+                  <p class="fine-print">The selected version stays available as the “before” comparison. A linear fit may sound better or worse.</p>
                   {#if !health.linearReady}<p>Fast fitting data is not installed yet. Run npm run setup:linear in this lab, then refresh.</p>{/if}
                 {:else}
-                <button class="secondary full" onclick={transcribe} disabled={busy}>Transcribe saved recording locally</button>
+                <p>Starts from {selectedVersion}, currently selected in section 3, and uses the saved recording “{recordingSource.name}”. Check the words spoken in that recording before fitting.</p>
+                <button class="secondary full" onclick={transcribe} disabled={busy}>Get transcript from saved recording</button>
                 <label for="reference-transcript">The actual words in your recording</label>
                 <textarea id="reference-transcript" rows="3" maxlength="1000" bind:value={transcript} oninput={() => { transcriptConfirmed = false; }} disabled={busy} placeholder="Transcribe locally, or type exactly what you said."></textarea>
                 <label class="consent"><input type="checkbox" bind:checked={transcriptConfirmed} disabled={busy} /><span>I checked this transcript against my recording and corrected any mistakes.</span></label>
@@ -313,30 +341,54 @@
                 {#if fitFocus === 'pronunciation'}<p>This gives recorded pronunciation more weight. Acoustic matching can improve, but accent and voice likeness still need listening checks.</p>{/if}
                 <label for="fit-duration">Fitting time</label><select id="fit-duration" bind:value={fitIterations} disabled={busy}><option value={20}>Quick · about 1–2 minutes</option><option value={60}>Longer · about 3–5 minutes</option></select>
                 {/if}
-                <button class="secondary full" onclick={refine} disabled={busy || (fitMethod === 'linear' ? !health.linearReady : !transcriptConfirmed || transcript.trim().length < 3)}>Create fitted voice</button>
+                <button class="secondary full" onclick={refine} disabled={busy || (fitMethod === 'linear' ? !health.linearReady : !transcriptConfirmed || transcript.trim().length < 3)}>{fitMethod === 'linear' ? 'Create linear-fit version' : 'Create iterative-fit version'}</button>
                 {#if health.refinement}
                   <div class="fit-progress" role="status"><strong>{health.refinement.stage}</strong><progress value={health.refinement.step} max={health.refinement.total}></progress><span>{health.refinement.step} / {health.refinement.total} steps</span><button class="text-button" onclick={cancelFit} disabled={cancelling}>{cancelling ? 'Cancelling…' : 'Cancel fitting'}</button></div>
                 {/if}
               {:else if health?.refinementReady === false}<p>Local fitting models are not installed. Setup instructions are in this lab’s README.</p>
               {:else if health?.ready}<p>Restart this lab to enable the new fitting controls.</p>
               {:else}<p>Waiting for the local voice engine…</p>{/if}
-              {#if selected.fit}
-                {#if selected.fit.algorithm === 'linear'}<p class="fine-print">Fast linear fit · {selected.fit.components} directions · solve {selected.fit.solveMs?.toFixed(1)} ms · total {selected.fit.elapsedSeconds.toFixed(2)} s including recording analysis and comparisons.</p>
-                {:else}<p class="fine-print">Iterative fit · total {selected.fit.elapsedSeconds.toFixed(1)} s.</p>{/if}
-                <div class="fit-comparison"><span class="small-label">LISTEN ON A NEW SENTENCE</span><p>“{selected.fit.heldOutText}”</p><label for="before-fit">Original clone</label><audio id="before-fit" bind:this={beforeFitAudio} aria-label="Original clone comparison" src={`/api/voices/${selected.id}/original-comparison`} controls onplay={() => pausePlayers(beforeFitAudio)}></audio><label for="after-fit">Fitted clone</label><audio id="after-fit" bind:this={afterFitAudio} aria-label="Fitted clone comparison" src={`/api/voices/${selected.id}/fitted-comparison`} controls onplay={() => pausePlayers(afterFitAudio)}></audio><p class="fine-print">{selected.fit.focus === 'pronunciation' ? 'This sentence was used to check voice similarity, not match the recorded words.' : 'This sentence was excluded from fitting.'} Speaker comparison score: {selected.fit.heldOutBefore.speakerCosine.toFixed(2)} → {selected.fit.heldOutAfter.speakerCosine.toFixed(2)}. This measures similarity on one model, not accent accuracy or a percentage match.</p>{#if !selected.fit.generalized}<p class="comparison-warning">The automated score did not improve on new text. Listen carefully before choosing this candidate.</p>{/if}</div>
-              {/if}
-            </details>
-          {/if}
-        {:else}
-          <div class="empty-voice"><span class="empty-wave">ııııııı</span><strong>Your voice goes here</strong><p>Create a voice from your recording to get started.</p></div>
-        {/if}
 
-        <label for="speech-text" class="text-label">What would you like to say?</label>
+          </div>
+
+        {:else}<div class="empty-voice"><strong>No saved versions yet</strong><p>Save a recording in step 1 to create its initial clone.</p></div>{/if}
+      </section>
+
+      <section class="card speech-card" aria-labelledby="speech-heading">
+        <div class="step-heading"><span class="step">03</span><div><p class="eyebrow">CHOOSE WHAT TO PLAY</p><h2 id="speech-heading">Choose a voice and listen</h2></div></div>
+        {#if selected && recordingSource}
+          <p class="helper">These versions all use the recording “{recordingSource.name}”. Selecting one makes it ready to use; it does not run fitting.</p>
+          <label for="voice-select">Voice version</label>
+          <select id="voice-select" value={selectedId} disabled={busy} onchange={event => selectVersion(event.currentTarget.value)}>{#each family as version (version.id)}<option value={version.id}>{versionName(version, family)} · {new Date(version.createdAt).toLocaleString()}</option>{/each}</select>
+          <div class="selected-version"><span class="small-label">SELECTED FOR SPEECH</span><strong>{selectedVersion}</strong><span>{selected.fit ? `Saved fit · ${selected.fit.elapsedSeconds.toFixed(2)}s to create` : 'The first clone made when this recording was saved.'}</span>{#if selected.fit}<strong class="fit-error" data-testid="fit-error">Final fitting error: {formatError(finalError(selected))}</strong><small>{selected.fit.algorithm === 'linear' ? 'Linear fit objective' : 'Iterative fitting objective'}. Lower is better within the same method and settings; errors from different methods are not directly comparable.</small>{/if}</div>
+
+          <details class="version-management"><summary>Manage this saved version</summary><p class="fine-print">Saved name: {selected.name}</p><a href={`/api/voices/${selected.id}/embedding`} download>Download voice file</a>
+            <button class="text-button danger" onclick={() => { confirmingDelete = !confirmingDelete; }} disabled={busy || hasChildren}>Delete version</button>
+            {#if hasChildren}<p class="fine-print">Other versions were made from this one. Delete those versions first to keep the recording’s history together.</p>{/if}
+            {#if confirmingDelete}<div class="delete-confirm">Delete this version and its generated speech?<div><button class="danger-button" onclick={removeVoice} disabled={busy}>Delete permanently</button><button class="text-button" onclick={() => { confirmingDelete = false; }}>Keep version</button></div></div>{/if}
+          </details>
+          <p class="helper">Using <strong>{selectedVersion}</strong> from “{recordingSource.name}”.</p>
+          {#if selected.fit}
+            <div class="fit-comparison">
+              <h3>Saved before-and-after comparison</h3>
+              <p class="helper">These clips were saved when this version was created. They use the same sentence and speech settings.</p>
+              <p class="comparison-sentence">“{selected.fit.heldOutText}”</p>
+              <label for="before-fit">Before: {parentVersion ? versionName(parentVersion, family) : 'Previous version'}</label><audio id="before-fit" bind:this={beforeFitAudio} aria-label="Before fit comparison" src={`/api/voices/${selected.id}/original-comparison`} controls onplay={() => pausePlayers(beforeFitAudio)}></audio>
+              <label for="after-fit">After: {selectedVersion}</label><audio id="after-fit" bind:this={afterFitAudio} aria-label="After fit comparison" src={`/api/voices/${selected.id}/fitted-comparison`} controls onplay={() => pausePlayers(afterFitAudio)}></audio>
+              <p class="fine-print">The text box below creates new speech. It does not change these saved comparison clips.</p>
+              {#if !selected.fit.generalized}<p class="comparison-warning">The automated similarity check did not improve. Listen before choosing this version.</p>{/if}
+              <details class="fit-measurements"><summary>Fit measurements</summary>
+                <p class="fine-print">{methodName(selected)} · total {selected.fit.elapsedSeconds.toFixed(2)}s.{#if selected.fit.algorithm === 'linear'} {selected.fit.components} directions · solve {selected.fit.solveMs?.toFixed(1)}ms.{/if}</p>
+                <p class="fine-print">Speaker comparison score: {selected.fit.heldOutBefore.speakerCosine.toFixed(2)} → {selected.fit.heldOutAfter.speakerCosine.toFixed(2)}. This is a diagnostic score, not an accent score or percentage match.</p>
+              </details>
+            </div>
+          {:else}<p class="helper">This is the initial clone. You can generate speech now, or optionally make a fitted version in step 2.</p>{/if}
+        <label for="speech-text" class="text-label">Text to generate</label>
         <textarea id="speech-text" bind:value={text} maxlength="1000" rows="7" disabled={busy}></textarea>
         <div class="text-meta"><span>Try a sentence you didn’t record.</span><span>{text.length}/1,000</span></div>
-        <button class="primary full" onclick={() => generate()} disabled={busy || !selected || !text.trim() || !health?.ready}>{operation === 'Generating speech…' ? 'Generating speech…' : 'Generate speech'}<span aria-hidden="true">▷</span></button>
-        <button class="secondary full" onclick={() => generate(true)} disabled={busy || !text.trim() || !health?.ready}>Generate default voice</button>
-        <p class="fine-print">The default is Phonon’s original voice. Both clips stay available below.</p>
+        <button class="primary full" onclick={() => generate()} disabled={busy || !selected || !text.trim() || !health?.ready}>{operation === 'Generating speech…' ? 'Generating speech…' : 'Generate with selected version'}<span aria-hidden="true">▷</span></button>
+        <button class="secondary full" onclick={() => generate(true)} disabled={busy || !text.trim() || !health?.ready}>Generate default comparison</button>
+        <p class="fine-print">Generating reads the text above with {selectedVersion}. It does not run fitting. The default comparison uses Phonon’s preset voice.</p>
 
         {#if result}
           <div class="result" data-testid="speech-result"><div class="result-heading"><span class="small-label">CLONED VOICE</span><span class="synthetic-tag">Synthetic</span></div><h3>{resultVoice}</h3><audio bind:this={outputAudio} aria-label="Generated speech" src={result.url} controls onplay={() => pausePlayers(outputAudio)}></audio><div class="result-meta"><span>{result.durationSeconds.toFixed(1)}s audio · {(result.generationMs / 1000).toFixed(2)}s generation</span><a href={result.url} download="phonon-cloned-voice.wav">Download WAV ↓</a></div><details class="spoken-text"><summary>Text used</summary><p>{resultText}</p></details></div>
@@ -345,6 +397,8 @@
           <div class="result baseline-result" data-testid="default-result"><div class="result-heading"><span class="small-label">DEFAULT VOICE · COMPARISON</span><span class="synthetic-tag">Synthetic</span></div><h3>Default Phonon voice</h3><audio bind:this={defaultAudio} aria-label="Default voice speech" src={defaultResult.url} controls onplay={() => pausePlayers(defaultAudio)}></audio><div class="result-meta"><span>{defaultResult.durationSeconds.toFixed(1)}s audio · {(defaultResult.generationMs / 1000).toFixed(2)}s generation</span><a href={defaultResult.url} download="phonon-default-voice.wav">Download WAV ↓</a></div><details class="spoken-text"><summary>Text used</summary><p>{defaultText}</p></details></div>
           {#if result && resultText !== defaultText}<p class="comparison-warning">These clips use different text. Generate both again with the same sentence for a fair comparison.</p>{/if}
         {/if}
+
+        {:else}<div class="empty-voice"><strong>Choose a voice first</strong><p>Your saved voice versions will be ready to speak here.</p></div>{/if}
       </section>
     </div>
 

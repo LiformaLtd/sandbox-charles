@@ -5,10 +5,25 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "python"))
-from linear_fit import solve_weights
+from linear_fit import linear_error, solve_weights
 
 
 class LinearSolve(unittest.TestCase):
+    def test_reported_error_is_the_minimized_regularized_objective(self):
+        rng = np.random.default_rng(19)
+        features, target = rng.normal(size=(37, 64)), rng.normal(size=64)
+        weights, _ = solve_weights(features, target)
+        error, residual, penalty = linear_error(features, target, weights)
+        self.assertAlmostEqual(error, residual + penalty)
+        uniform_error = linear_error(features, target, np.ones(37) / 37)[0]
+        self.assertLess(error, uniform_error)
+        for _ in range(5):
+            perturbation = rng.normal(size=37)
+            perturbation -= perturbation.mean()
+            self.assertLess(
+                error, linear_error(features, target, weights + perturbation * 0.01)[0]
+            )
+
     def test_recovers_a_known_affine_combination_using_all_36_directions(self):
         rng = np.random.default_rng(12)
         features = rng.normal(size=(37, 64))

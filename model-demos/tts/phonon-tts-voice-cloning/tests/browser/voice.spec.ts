@@ -6,23 +6,24 @@ test('record, clone, generate, reload and delete a voice with the real local mod
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   await page.goto('/');
   await expect(page.getByText('Running locally', { exact: true })).toBeVisible({ timeout: 45_000 });
+  if (await page.locator('.new-recording').getAttribute('open') === null) await page.locator('.new-recording > summary').click();
   await page.getByRole('button', { name: 'Record my voice', exact: true }).click();
   await expect(page.getByText('Listening to you', { exact: true })).toBeVisible();
   await page.waitForTimeout(10_200);
   await page.getByRole('button', { name: 'Stop recording' }).click();
   await expect(page.getByLabel('Your recorded voice')).toBeVisible();
-  await page.getByLabel('Voice name', { exact: true }).fill('QA synthetic reference');
+  await page.getByLabel('Recording name', { exact: true }).fill('QA synthetic reference');
   await page.getByRole('checkbox', { name: /This is my own voice/ }).check();
   const created = page.waitForResponse(response => response.url().includes('/api/voices?') && response.request().method() === 'POST');
-  await page.getByRole('button', { name: 'Create my voice', exact: true }).click();
+  await page.getByRole('button', { name: 'Save recording & create initial clone', exact: true }).click();
   const profileResponse = await created;
   expect(profileResponse.status()).toBe(200);
   const profile = await profileResponse.json();
   try {
-    await expect(page.getByLabel('Your voices')).toHaveValue(profile.id);
-    await page.getByLabel('What would you like to say?').fill('This is a new sentence spoken with a cloned voice. It was generated entirely on this computer.');
+    await expect(page.getByLabel('Voice version', { exact: true })).toHaveValue(profile.id);
+    await page.getByLabel('Text to generate').fill('This is a new sentence spoken with a cloned voice. It was generated entirely on this computer.');
     const generated = page.waitForResponse(response => response.url().endsWith('/api/speech') && response.request().method() === 'POST');
-    await page.getByRole('button', { name: 'Generate speech', exact: true }).click();
+    await page.getByRole('button', { name: 'Generate with selected version', exact: true }).click();
     const speechResponse = await generated;
     expect(speechResponse.status()).toBe(200);
     const speech = await speechResponse.json();
@@ -38,7 +39,7 @@ test('record, clone, generate, reload and delete a voice with the real local mod
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: '.data/testing/mobile.png', fullPage: true });
     const baseline = page.waitForResponse(response => response.url().endsWith('/api/speech') && response.request().method() === 'POST');
-    await page.getByRole('button', { name: 'Generate default voice' }).click();
+    await page.getByRole('button', { name: 'Generate default comparison' }).click();
     const original = await (await baseline).json();
     expect(original.voiceId).toBe('default');
     await expect(page.getByTestId('speech-result')).toContainText('QA synthetic reference');
@@ -47,16 +48,17 @@ test('record, clone, generate, reload and delete a voice with the real local mod
     const originalAudio = await request.get(original.url);
     expect(Buffer.compare(await originalAudio.body(), await audio.body())).not.toBe(0);
     await page.reload();
-    await expect(page.getByLabel('Your voices')).toHaveValue(profile.id);
-    await expect(page.getByRole('button', { name: 'Generate speech', exact: true })).toBeEnabled();
+    await expect(page.getByLabel('Voice version', { exact: true })).toHaveValue(profile.id);
+    await expect(page.getByRole('button', { name: 'Generate with selected version', exact: true })).toBeEnabled();
     const denied = await request.post('/api/speech', { data: { voiceId: 'default', text: 'Test' }, headers: { origin: 'https://untrusted.invalid' } });
     expect(denied.status()).toBe(403);
     expect(errors).toEqual([]);
     console.log(JSON.stringify({ cloneMs: profile.creationMs, usedSeconds: profile.usedSeconds, generationMs: speech.generationMs, audioSeconds: speech.durationSeconds }));
   } finally {
-    await page.getByRole('button', { name: 'Delete voice', exact: true }).click();
+    await page.locator('.version-management > summary').click();
+    await page.getByRole('button', { name: 'Delete version', exact: true }).click();
     await page.getByRole('button', { name: 'Delete permanently' }).click();
-    await expect(page.getByText('Voice and its saved recordings deleted.')).toBeVisible();
+    await expect(page.getByText('Voice version deleted.')).toBeVisible();
     expect((await request.get(`/api/voices/${profile.id}/reference`)).status()).toBe(404);
   }
 });

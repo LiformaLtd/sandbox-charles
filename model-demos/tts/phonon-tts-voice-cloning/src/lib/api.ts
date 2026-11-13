@@ -2,7 +2,7 @@ export interface Voice {
   id: string; name: string; createdAt: string; recordingSeconds: number; usedSeconds: number; creationMs: number;
   parentId?: string; method?: string;
   transcript?: string;
-  fit?: { before: FitScore; after: FitScore; heldOutBefore: FitScore; heldOutAfter: FitScore; elapsedSeconds: number; generalized: boolean; heldOutText: string; focus?: 'voice' | 'pronunciation'; algorithm?: 'linear'; components?: number; effectiveRank?: number; solveMs?: number };
+  fit?: { before: FitScore; after: FitScore; heldOutBefore: FitScore; heldOutAfter: FitScore; elapsedSeconds: number; generalized: boolean; heldOutText: string; focus?: 'voice' | 'pronunciation'; algorithm?: 'linear'; components?: number; effectiveRank?: number; solveMs?: number; iterations?: number; finalError?: number };
 }
 interface FitScore { speakerCosine: number; loss: number }
 export interface Health {

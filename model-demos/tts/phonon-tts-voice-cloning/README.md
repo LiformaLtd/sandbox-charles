@@ -43,14 +43,27 @@ variables when running setup and dev; no credentials are needed.
 
 ## Use
 
-1. Record 10–15 seconds in a quiet room. The recorder stops at 20 seconds, closes
-   the microphone and converts the audio to mono 24 kHz WAV. An existing 5–20
-   second recording can also be used.
-2. Listen back, name the voice, confirm it is your own and choose **Create my voice**.
-3. Enter a new English sentence and choose **Generate speech**.
-4. Choose **Generate default voice** to compare it with Phonon's checkpoint preset.
-   Both results remain playable. Each records its text; a message identifies
-   comparisons made with different sentences. WAV downloads are available.
+1. **Choose a recording.** Select saved audio, or open **Record a new sample**.
+   Record 10–15 seconds (maximum 20), listen back, name it, confirm it is yours,
+   then choose **Save recording & create initial clone**. This creates the first
+   voice version. Recording again does not replace existing saved audio.
+2. **Create a fitted version** (optional). Choose a method and explicitly create
+   a linear-fit or iterative-fit version from the saved recording. Iterative fits
+   start from the version currently selected in section 3. Creating a fit saves and selects the new
+   version; changing the method alone does not change the version used for speech.
+3. **Choose a voice and listen.** Select an existing version of the recording
+   (initial clone or fitted versions). Selecting it does not run fitting. Saved
+   fitting comparisons label the actual
+   before/after versions. To speak new words, enter **Text to generate** and choose
+   **Generate with selected version**. **Generate default comparison** uses the
+   checkpoint preset. Generating speech does not run fitting.
+
+Reloading restores the last selected voice version in the same browser origin;
+no recording, fitting or speech generation runs automatically. Recordings and
+versions persist on disk across frontend port changes; browser selection storage
+is per origin. New, unsaved microphone captures and generated-speech players are
+not restored. A saved recording can be reused for fitting without recording again.
+Saved fitting clips and their source labels remain available after reload.
 
 The reference preparation follows the community experiment: 80 Hz high-pass,
 relative silence removal with margins, up to 10 seconds and -18 LUFS normalization.
@@ -59,7 +72,7 @@ does not identify speakers or guarantee that a recording contains speech.
 
 Voice profiles, source recordings, embeddings and generated WAVs are stored in
 ignored `.data/` with private filesystem permissions. Voices survive app/browser
-restarts and port changes. **Delete voice** removes its reference, embedding and
+restarts and port changes. **Delete version**, under **Manage this saved version**, removes its reference, embedding and
 associated generated speech. Default comparison clips are independent of a voice.
 Generated players are per-page; saved profiles remain selectable after reload.
 Changing the frontend port changes the browser permission/storage origin.
@@ -75,12 +88,12 @@ npm run setup                 # installs the Python dependencies
 npm run setup:refinement      # additional public local models; no recordings uploaded
 ```
 
-Select a saved voice and open **Refine this voice**. Transcribe its recording
+Choose a saved recording and voice version, then use **Create a fitted version** in section 2. Transcribe its recording
 locally, or type exactly what was spoken. Correct the transcript and confirm it
 matches the recording. The suggested reading passage is optional; the words in
 the speech-generation box are not a recording transcript.
 
-**Create fitted voice** makes a separate profile. In iterative mode, quick fitting runs 20 search
+The method-specific **Create … version** button makes a separate profile. In iterative mode, quick fitting runs 20 search
 steps (about 1–2 minutes on the tested Mac); longer fitting runs 60 steps. Runtime
 depends on reference length and CPU. Progress and cancellation are available;
 leaving the page does not overwrite the source voice. If iterative fitting finds no better-fitting profile
@@ -153,7 +166,7 @@ personal recordings. This preparation is slower than an individual fit and is
 not repeated per person. Rebuild it after changing the base model or speaker
 comparison model; it is tied to the local model manifest.
 
-Under **Refine this voice**, choose **Fast linear fit · all 36 directions**.
+Under **Create a fitted version**, choose **Fast linear fit**.
 It analyses the saved reference (up to 20 seconds), makes one regularized
 least-squares solve and saves a separate **· linear fit** voice. No recording
 transcript is required. The existing 20/60-step iterative modes are unchanged.
@@ -173,6 +186,14 @@ does not improve; a warning identifies this. Its reference is copied from the
 source, and the source voice remains unchanged. The two cache sentences exclude
 the comparison sentence. Cache weights, features and personal fit weights remain
 in ignored `.models/` and `.data/` folders.
+
+## Final fitting errors
+
+Section 3 shows the selected fitted version's final objective value. Iterative
+fits report their final acoustic/speaker search loss; linear fits report the
+squared speaker-feature residual plus the ridge penalty. Lower values are better
+within the same method, reference and settings. These objectives are different
+scales, so compare methods by listening as well as checking speaker similarity.
 
 ## Quality and provenance
 
