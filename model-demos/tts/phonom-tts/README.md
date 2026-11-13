@@ -19,6 +19,38 @@ Run `npm run check` and `npm run build` to validate. Run the production build wi
 
 Place downloaded Phonon `.safetensors` voice files in `src/lib/local-voices/` to list them under **Local voices**. The filename becomes the picker label. The directory is ignored by Git. A build made with those files present includes them as browser assets.
 
+## Voice blending
+
+**Blend voices** offers all 102 catalogue voices in two selectors. The balance
+slider sets A's and B's shares (0 means entirely A, 100 means entirely B).
+**Preview blend · Browser Q8** reads the text above with the selected model and
+Q8 device, and plays it in Streaming result. The model still needs to be available.
+Previewing does not save a voice or change your selected saved voice.
+
+**Save as new voice** creates a named entry under **Saved blends** in the Voice
+menu and selects Browser Q8. Saved blends can be used, downloaded as safetensors,
+or deleted. They survive page reloads, app restarts and frontend port changes.
+They currently work with Browser Q8 only; ONNX and local native/MLX continue to
+offer their existing presets. The voice files use a weighted average of the two
+catalogue tensors, without model retraining. Intermediate voices are experimental:
+identity, accent and clarity are not guaranteed, especially across languages.
+
+The local Node app fetches the pinned catalogue voice files once and caches them
+under ignored `.data/voice-blends/catalogue/`. Saved tensors and recipes live in
+`.data/voice-blends/saved/`, outside Git and the production bundle. Keep this
+directory with the local Node app for persistence. `PHONON_BLEND_DIR` can relocate
+the store. The catalogue uses Apache 2.0; the selected speech model's licence
+continues to apply. No credentials or additional inference service are needed.
+
+To run the API integration checks with the app already running:
+
+```sh
+TEST_BASE_URL=http://127.0.0.1:<printed-port> node --test tests/voice-blends.test.mjs
+```
+
+The checks create and remove only their own test blend. They verify slider
+endpoints and midpoint arithmetic, validation, saving, listing, download and deletion.
+
 ## Local native and MLX
 
 Use **Run on** to choose Browser WASM, Local native (official Rust runtime, CPU/Q8), or Local MLX (Apple GPU, standard weights). Both local modes use the existing Phonon service in `ai-workflows/apple-silicon/phonon`, at http://127.0.0.1:8184. Start it there with `./phonon/run.sh`. Set `PHONON_TTS_URL` in this app’s environment to use another service address.

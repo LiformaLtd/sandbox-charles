@@ -8,6 +8,8 @@
 	import { onnxVersions, onnxVersion, type RuntimeMode, type OnnxDevice } from '../lib/onnx-options';
 	import type { PhononTTS } from 'phonon-tts';
 	import catalogue from '../lib/voices-catalogue.json';
+	import VoiceBlender from '../lib/VoiceBlender.svelte';
+	import { blendVoiceKey, blendVoiceUrl, type SavedBlend } from '../lib/voice-blends';
 	let { data }: { data: PageData } = $props();
 	let mounted = $state(false);
 	onMount(() => { mounted = true; });
@@ -49,6 +51,8 @@
 	let recordedRuntime = $state('');
 	let recordedMode = $state('browser');
 	let busy = $state(false);
+	let blendPreparing = $state(false);
+	let savedBlends = $state<SavedBlend[]>([]);
 	let status = $state('Ready');
 	let failure = $state('');
 	let first = $state<number>();
@@ -66,10 +70,18 @@
 	const addedVoices = new Set<string>();
 	let destroyed = false;
 
+	function updateBlends(voices: SavedBlend[], selectedId?: string) {
+		for (const previous of savedBlends) voiceFiles.delete(blendVoiceKey(previous.id));
+		savedBlends = voices;
+		for (const item of voices) voiceFiles.set(blendVoiceKey(item.id), blendVoiceUrl(item.id));
+		if (selectedId) { voice = blendVoiceKey(selectedId); mode = 'browser'; }
+		else if (voice.startsWith('blend-') && !voiceFiles.has(voice)) voice = Object.values(catalogue).flat().find(v => v.language === language)!.name;
+	}
+
 	function chooseLanguage(next: Language) {
 		language = next;
 		const matching = Object.values(catalogue).flat().filter(v => v.language === language);
-		if (!matching.some(v => v.name === voice)) voice = matching[0]?.name || 'Easton';
+		if (!savedBlends.some(v => blendVoiceKey(v.id) === voice) && !matching.some(v => v.name === voice)) voice = matching[0]?.name || 'Easton';
 		if (Object.values(sampleText).includes(text) || Object.values(englishPrompts).includes(text)) text = sampleText[language];
 	}
 
@@ -94,7 +106,7 @@
 		if (wav) URL.revokeObjectURL(wav);
 	});
 
-	async function generate() {
+	async function generate(preview?: { id: string; name: string; source: Blob }) {
 		if (busy || !text.trim() || !available) return;
 		stop();
 		replay?.pause();
@@ -172,10 +184,10 @@
 				engine = loaded; engineKey = desiredEngine;
 			}
 			signal.throwIfAborted();
-			const chosenVoice = voice;
+			const chosenVoice = preview?.id || voice;
 			if (!addedVoices.has(chosenVoice)) {
 				status = `Loading ${chosenVoice}…`;
-				const file = voiceFiles.get(chosenVoice);
+				const file = preview?.source || voiceFiles.get(chosenVoice);
 				if (!file) throw new Error('Choose an available voice.');
 				await engine.addVoice(chosenVoice, file);
 				addedVoices.add(chosenVoice);
@@ -215,7 +227,7 @@
 			const pcm = concatPcm(chunks);
 			duration = pcm.length / engine.sampleRate;
 			wav = URL.createObjectURL(encodeWav(pcm, engine.sampleRate));
-			recordedVoice = chosenVoice;
+			recordedVoice = preview?.name || savedBlends.find(v => blendVoiceKey(v.id) === chosenVoice)?.name || chosenVoice;
 			status = 'Generation complete';
 		} catch (error) {
 			if (signal.aborted) {
@@ -246,6 +258,7 @@
 	</header>
 
 	<form onsubmit={(event) => { event.preventDefault(); void generate(); }}>
+		<fieldset disabled={blendPreparing}>
 		<div class="controls model-controls">
 			<label for="model">Model</label>
 			<select id="model" value={modelKey} disabled={busy || !mounted} onchange={e => chooseModel(e.currentTarget.value as ModelKey)}>
@@ -319,6 +332,9 @@
 						{#each localVoices as { name } (name)}<option value={name}>{name}</option>{/each}
 					</optgroup>
 				{/if}
+				{#if mode === 'browser' && savedBlends.length}
+					<optgroup label="Saved blends">{#each savedBlends as item (item.id)}<option value={blendVoiceKey(item.id)}>{item.name}</option>{/each}</optgroup>
+				{/if}
 			</select>
 			<div class="buttons">
 				<button type="submit" disabled={busy || !mounted || !text.trim() || !available}>Generate</button>
@@ -326,7 +342,12 @@
 			</div>
 		</div>
 		<p class="hint">{onnxVersion(mode) ? 'Downloads the selected ONNX version once and caches it in this browser. Sizes include both graphs and weights; voices are extra. FP16 on WebGPU requires shader-f16 support.' : mode === 'browser' ? 'The first browser run downloads the selected model. Later runs reuse the browser cache. Changing model or language prepares a new runtime.' : 'Uses the Phonon service on port 8184. Models and all 37 voices are stored locally.'}</p>
+		</fieldset>
 	</form>
+
+	<VoiceBlender disabled={busy || !mounted} canPreview={available && Boolean(text.trim())}
+		onworking={working => { blendPreparing = working; }} onvoiceschange={updateBlends}
+		onpreview={async preview => { mode = 'browser'; await generate(preview); }} />
 
 	<section aria-labelledby="result">
 		<div class="row"><h2 id="result">Streaming result</h2><span role="status">{status}</span></div>
@@ -356,6 +377,7 @@
 	header p { margin: 0; color: #bcbfda; }
 	header .eyebrow { color: #bfb0ff; font: .8rem ui-monospace, monospace; letter-spacing: .13em; }
 	form, section { border: 1px solid #3c4061; background: #1b2035; border-radius: 16px; padding: clamp(14px, 4vw, 24px); }
+	fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 	section { margin-top: 16px; }
 	.row, .controls, .buttons, .examples { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 	.row { justify-content: space-between; margin-bottom: 8px; }

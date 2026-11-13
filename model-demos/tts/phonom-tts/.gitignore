@@ -27,3 +27,6 @@ vite.config.ts.timestamp-*
 
 # Gated model downloads (kept outside the production bundle)
 /.models/
+
+# Saved blends and downloaded catalogue voice files
+/.data/
