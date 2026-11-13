@@ -21,7 +21,22 @@ Place downloaded Phonon `.safetensors` voice files in `src/lib/local-voices/` to
 
 ## Voice blending
 
-**Blend voices** offers all 102 catalogue voices in two selectors. The balance
+The **Voice** picker and both blending selectors include **Average US male**,
+**Average US female**, **Average UK male**, and **Average UK female** under
+**Averaged English voices**. They give equal weight to all regular catalogue
+voices of that locale and gender: 6, 6, 6, and 7 voices respectively. The 12
+character voices are excluded. Membership follows the pinned publisher catalogue.
+These are arithmetic means of Phonon voice tensors, not averaged recordings or
+a claim about the average person’s voice.
+
+Use an averaged voice directly in **Browser Q8**, or combine it with another
+preset or averaged voice and preview/save the result. The local app prepares
+each average on first use and caches it under ignored `.data/voice-blends/averages/`.
+It needs the internet for any group members not already cached. No retraining or
+additional inference service is needed. Native/MLX and ONNX keep their preset-only
+voice lists; averaged voices, like other custom voices, use Browser Q8.
+
+**Blend voices** offers all 102 catalogue voices plus the four averaged voices in two selectors. The balance
 slider sets A's and B's shares (0 means entirely A, 100 means entirely B).
 **Preview blend · Browser Q8** reads the text above with the selected model and
 Q8 device, and plays it in Streaming result. The model still needs to be available.

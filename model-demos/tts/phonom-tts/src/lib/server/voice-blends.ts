@@ -1,24 +1,26 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { env } from 'node:process';
 import catalogue from '../voices-catalogue.json';
+import averages from '../average-voices.json';
 import type { BlendRecipe, SavedBlend } from '../voice-blends';
 
 const root = resolve(env.PHONON_BLEND_DIR || '.data/voice-blends');
-const revision = '0ee17205f254b5abc43b266c8a0f215565c352f7';
+const revision = averages.revision;
 const presets = new Map(Object.values(catalogue).flat().map(v => [v.name, v.file]));
+const knownSource = (name: string) => presets.has(name) || averages.groups.some(group => group.name === name);
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 const count = 512 * 125;
 const pending = new Map<string, Promise<Buffer>>();
 
 export function validId(id: string) { return uuid.test(id); }
 export function validateRecipe(value: unknown): BlendRecipe {
-	if (!value || typeof value !== 'object') throw new Error('Choose two catalogue voices and a blend percentage.');
+	if (!value || typeof value !== 'object') throw new Error('Choose two available voices and a blend percentage.');
 	const v = value as Record<string, unknown>;
-	if (typeof v.sourceA !== 'string' || typeof v.sourceB !== 'string' || !presets.has(v.sourceA) || !presets.has(v.sourceB) ||
+	if (typeof v.sourceA !== 'string' || typeof v.sourceB !== 'string' || !knownSource(v.sourceA) || !knownSource(v.sourceB) ||
 		typeof v.percentB !== 'number' || !Number.isInteger(v.percentB) || v.percentB < 0 || v.percentB > 100) {
-		throw new Error('Choose two catalogue voices and a blend percentage from 0 to 100.');
+		throw new Error('Choose two available voices and a blend percentage from 0 to 100.');
 	}
 	return { sourceA: v.sourceA, sourceB: v.sourceB, percentB: v.percentB };
 }
@@ -43,11 +45,17 @@ export function decodeVoice(bytes: Buffer): Float32Array {
 export function mixVoices(a: Buffer, b: Buffer, percentB: number): Buffer {
 	const left = decodeVoice(a), right = decodeVoice(b);
 	const weight = percentB / 100;
+	const mixed = new Float64Array(count);
+	for (let i = 0; i < count; i++) mixed[i] = left[i] * (1 - weight) + right[i] * weight;
+	return encodeVoice(mixed);
+}
+
+function encodeVoice(values: Float64Array): Buffer {
 	const raw = JSON.stringify({ __metadata__: { sig: 'ba7a5a45', epoch: '300' }, speaker_wavs: { dtype: 'F32', shape: [1, 512, 125], data_offsets: [0, count * 4] } });
 	const header = Buffer.from(raw.padEnd(Math.ceil(Buffer.byteLength(raw) / 8) * 8, ' '));
 	const result = Buffer.alloc(8 + header.length + count * 4);
 	result.writeBigUInt64LE(BigInt(header.length)); header.copy(result, 8);
-	for (let i = 0; i < count; i++) result.writeFloatLE(left[i] * (1 - weight) + right[i] * weight, 8 + header.length + i * 4);
+	for (let i = 0; i < count; i++) result.writeFloatLE(values[i], 8 + header.length + i * 4);
 	return result;
 }
 
@@ -70,8 +78,35 @@ async function catalogueVoice(name: string): Promise<Buffer> {
 }
 
 export async function createBlend(recipe: BlendRecipe) {
-	const [a, b] = await Promise.all([catalogueVoice(recipe.sourceA), catalogueVoice(recipe.sourceB)]);
+	const [a, b] = await Promise.all([sourceVoice(recipe.sourceA), sourceVoice(recipe.sourceB)]);
 	return mixVoices(a, b, recipe.percentB);
+}
+
+async function sourceVoice(name: string): Promise<Buffer> {
+	const group = averages.groups.find(group => group.name === name);
+	return group ? averageVoice(group.id) : catalogueVoice(name);
+}
+
+export async function averageVoice(id: string): Promise<Buffer> {
+	const group = averages.groups.find(group => group.id === id);
+	if (!group) throw new Error('Unknown averaged voice.');
+	const fingerprint = createHash('sha256').update(JSON.stringify({ group, revision, formula: 'equal-mean-f32-v1' })).digest('hex').slice(0, 16);
+	const folder = join(root, 'averages');
+	const path = join(folder, `${id}-${fingerprint}.safetensors`);
+	try { const bytes = await readFile(path); decodeVoice(bytes); return bytes; }
+	catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+	const sources = await Promise.all(group.members.map(catalogueVoice));
+	const mean = new Float64Array(count);
+	for (const source of sources) {
+		const values = decodeVoice(source);
+		for (let i = 0; i < count; i++) mean[i] += values[i];
+	}
+	for (let i = 0; i < count; i++) mean[i] /= sources.length;
+	const bytes = encodeVoice(mean);
+	await mkdir(folder, { recursive: true, mode: 0o700 });
+	const temporary = `${path}.${randomUUID()}.tmp`;
+	await writeFile(temporary, bytes, { mode: 0o600 }); await rename(temporary, path);
+	return bytes;
 }
 
 export async function listBlends(): Promise<SavedBlend[]> {

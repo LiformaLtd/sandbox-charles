@@ -9,7 +9,7 @@
 	import type { PhononTTS } from 'phonon-tts';
 	import catalogue from '../lib/voices-catalogue.json';
 	import VoiceBlender from '../lib/VoiceBlender.svelte';
-	import { blendVoiceKey, blendVoiceUrl, type SavedBlend } from '../lib/voice-blends';
+	import { blendVoiceKey, blendVoiceUrl, averagedVoices, averageVoiceUrl, type SavedBlend } from '../lib/voice-blends';
 	let { data }: { data: PageData } = $props();
 	let mounted = $state(false);
 	onMount(() => { mounted = true; });
@@ -34,6 +34,7 @@
 		Object.values(catalogue).flat().map(({ name, file }) => [name, voiceBase + file])
 	);
 	for (const { name, url } of localVoices) voiceFiles.set(name, url);
+	for (const group of averagedVoices) voiceFiles.set(group.name, averageVoiceUrl(group.id));
 	let text = $state(englishPrompts['Pocket TTS comparison']);
 	let modelKey = $state<ModelKey>('31m-en');
 	let language = $state<Language>('en');
@@ -81,7 +82,7 @@
 	function chooseLanguage(next: Language) {
 		language = next;
 		const matching = Object.values(catalogue).flat().filter(v => v.language === language);
-		if (!savedBlends.some(v => blendVoiceKey(v.id) === voice) && !matching.some(v => v.name === voice)) voice = matching[0]?.name || 'Easton';
+		if (!averagedVoices.some(v => v.name === voice) && !savedBlends.some(v => blendVoiceKey(v.id) === voice) && !matching.some(v => v.name === voice)) voice = matching[0]?.name || 'Easton';
 		if (Object.values(sampleText).includes(text) || Object.values(englishPrompts).includes(text)) text = sampleText[language];
 	}
 
@@ -334,6 +335,9 @@
 				{/if}
 				{#if mode === 'browser' && savedBlends.length}
 					<optgroup label="Saved blends">{#each savedBlends as item (item.id)}<option value={blendVoiceKey(item.id)}>{item.name}</option>{/each}</optgroup>
+				{/if}
+				{#if mode === 'browser'}
+					<optgroup label="Averaged English voices">{#each averagedVoices as group (group.id)}<option value={group.name}>{group.name} · {group.members.length} voices</option>{/each}</optgroup>
 				{/if}
 			</select>
 			<div class="buttons">

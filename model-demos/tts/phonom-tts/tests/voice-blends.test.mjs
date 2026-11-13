@@ -55,3 +55,30 @@ test('blend arithmetic, persistence and safe input handling', { skip: !base, tim
 	}
 	assert.equal((await fetch(`${base}/api/blends/${voice.id}`)).status, 404);
 });
+
+test('four averaged voices contain the equal-weight group mean and can be blended', { skip: !base, timeout: 180_000 }, async () => {
+	const specs = JSON.parse(await readFile(new URL('../src/lib/average-voices.json', import.meta.url), 'utf8'));
+	const catalogue = JSON.parse(await readFile(new URL('../src/lib/voices-catalogue.json', import.meta.url), 'utf8'));
+	assert.deepEqual(specs.groups.map(group => [group.name, group.members.length]), [
+		['Average US male', 6], ['Average US female', 6], ['Average UK male', 6], ['Average UK female', 7]
+	]);
+	const averages = [];
+	for (const group of specs.groups) {
+		const response = await fetch(`${base}/api/average-voices/${group.id}`);
+		assert.equal(response.status, 200, await response.clone().text());
+		const bytes = await response.arrayBuffer(), average = values(bytes);
+		const sources = await Promise.all(group.members.map(async name => {
+			const source = Object.values(catalogue).flat().find(voice => voice.name === name);
+			assert.ok(catalogue[`English (${group.locale === 'en-us' ? 'US' : 'UK'})`].includes(source));
+			return values(await readFile(resolve(process.env.PHONON_BLEND_DIR || '.data/voice-blends', 'catalogue', basename(source.file))), false);
+		}));
+		for (let i = 0; i < average.length; i++) assert.equal(average[i], Math.fround(sources.reduce((sum, voice) => sum + voice[i], 0) / sources.length));
+		assert.deepEqual(Buffer.from(await (await fetch(`${base}/api/average-voices/${group.id}`)).arrayBuffer()), Buffer.from(bytes));
+		averages.push(average);
+	}
+	assert.equal((await fetch(`${base}/api/average-voices/not-a-group`)).status, 404);
+	const response = await post({ sourceA: 'Average US male', sourceB: 'Average UK female', percentB: 50, action: 'preview' });
+	assert.equal(response.status, 200);
+	const blend = values(await response.arrayBuffer());
+	for (let i = 0; i < blend.length; i++) assert.equal(blend[i], Math.fround((averages[0][i] + averages[3][i]) / 2));
+});

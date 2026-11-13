@@ -1,0 +1,62 @@
+{
+  "revision": "0ee17205f254b5abc43b266c8a0f215565c352f7",
+  "groups": [
+    {
+      "id": "average-us-male",
+      "name": "Average US male",
+      "locale": "en-us",
+      "gender": "male",
+      "members": [
+        "Easton",
+        "Micah",
+        "Trevor",
+        "Russell",
+        "Preston",
+        "Miles"
+      ]
+    },
+    {
+      "id": "average-us-female",
+      "name": "Average US female",
+      "locale": "en-us",
+      "gender": "female",
+      "members": [
+        "Zoey",
+        "Juniper",
+        "Everly",
+        "Harper",
+        "Hadley",
+        "Delia"
+      ]
+    },
+    {
+      "id": "average-uk-male",
+      "name": "Average UK male",
+      "locale": "en-gb",
+      "gender": "male",
+      "members": [
+        "Alfie",
+        "Hugh",
+        "Edwin",
+        "Spencer",
+        "Toby",
+        "Teddy"
+      ]
+    },
+    {
+      "id": "average-uk-female",
+      "name": "Average UK female",
+      "locale": "en-gb",
+      "gender": "female",
+      "members": [
+        "Maeve",
+        "Freya",
+        "Pippa",
+        "Elodie-Rose",
+        "Imogen",
+        "Lottie",
+        "Bryony"
+      ]
+    }
+  ]
+}

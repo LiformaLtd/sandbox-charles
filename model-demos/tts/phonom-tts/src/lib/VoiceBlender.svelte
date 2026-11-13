@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import catalogue from './voices-catalogue.json';
-	import { blendDescription, type BlendRecipe, type SavedBlend } from './voice-blends';
+	import { blendDescription, averagedVoices, type BlendRecipe, type SavedBlend } from './voice-blends';
 	let { disabled, canPreview, onpreview, onvoiceschange, onworking }: {
 		disabled: boolean; canPreview: boolean;
 		onpreview: (voice: { id: string; name: string; source: Blob }) => Promise<void>;
@@ -75,7 +75,7 @@
 
 <section aria-labelledby="blend-heading">
 	<h2 id="blend-heading">Blend voices <span>Experimental</span></h2>
-	<p>Combine two catalogue voices to make a new voice. Preview uses the text above and Browser Q8 with your selected model and device.</p>
+	<p>Combine two voices to make a new voice. Preview uses the text above and Browser Q8 with your selected model and device.</p>
 	<div class="sources">
 		{#each ['A', 'B'] as letter}
 			<label>Voice {letter}
@@ -83,6 +83,7 @@
 					{#each Object.entries(catalogue) as [group, voices]}
 						<optgroup label={group}>{#each voices as voice}<option value={voice.name}>{voice.name}</option>{/each}</optgroup>
 					{/each}
+					<optgroup label="Averaged English voices">{#each averagedVoices as group (group.id)}<option value={group.name}>{group.name} · {group.members.length} voices</option>{/each}</optgroup>
 				</select>
 			</label>
 		{/each}
@@ -99,6 +100,7 @@
 	{#if message}<p role="status">{message}</p>{/if}
 	{#if failure}<p class="error" role="alert">{failure} <button type="button" class="secondary" onclick={load} disabled={disabled || preparing}>Reload saved blends</button></p>{/if}
 	<p class="hint">Preview plays in Streaming result below. Blends are experimental; tone, accent and clarity may change unpredictably. Saved blends work in Browser Q8 and stay on this computer across reloads and port changes.</p>
+	<p class="hint">The four averaged English voices give equal weight to every regular catalogue voice in that group. Character voices are excluded.</p>
 	{#if saved.length}
 		<h3>Saved blends</h3>
 		<ul>{#each saved as item (item.id)}
