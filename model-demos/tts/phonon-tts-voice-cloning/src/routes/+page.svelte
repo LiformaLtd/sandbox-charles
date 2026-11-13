@@ -306,7 +306,7 @@
           <p class="helper">This creates a separate saved recording. Your existing recordings and versions are kept.</p>
         <p class="helper">Speak naturally in a quiet room for 10–15 seconds. Keep the microphone at a comfortable distance.</p>
 
-        <div class="reading-prompt"><span class="small-label">SOMETHING TO READ · OPTIONAL</span><p>“I’m trying something a little different today. The window is open, the coffee is warm, and there’s plenty of time to see where this takes us.”</p><small>Or say anything naturally. Your recording does not need to match the text in the speech box.</small></div>
+        <div class="reading-prompt"><span class="small-label">SOMETHING TO READ · OPTIONAL</span><p>“After parking the car near the old castle, I asked for a glass of water. The cheerful woman thought the weather might improve. Would you rather walk through the village, or catch the next train?”</p><small>Or say anything naturally. Your recording does not need to match the text in the speech box.</small></div>
 
         <div class:recording class="recorder">
           <div class="mic-orbit" style={`--level:${level}`}><span class="mic-symbol">{recording ? '●' : '↟'}</span></div>
