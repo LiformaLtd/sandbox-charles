@@ -28,11 +28,27 @@
   let outputAudio = $state<HTMLAudioElement>();
   let defaultAudio = $state<HTMLAudioElement>();
   let confirmingDelete = $state(false);
+  let transcript = $state('');
+  let transcriptConfirmed = $state(false);
+  let fitIterations = $state(20);
+  let fitFocus = $state<'voice' | 'pronunciation'>('voice');
+  let fitting = $state(false);
+  let fitPanelOpen = $state(false);
+  let cancelling = $state(false);
+  let beforeFitAudio = $state<HTMLAudioElement>();
+  let afterFitAudio = $state<HTMLAudioElement>();
   let recorder: Recorder | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
   let poll: ReturnType<typeof setInterval> | undefined;
   let disposed = false;
-  const busy = $derived(Boolean(operation) || starting || recording);
+  let refreshVersion = 0;
+  const busy = $derived(Boolean(operation) || starting || recording || Boolean(health?.busy));
+
+  function pausePlayers(except?: HTMLAudioElement) {
+    for (const player of [outputAudio, defaultAudio, beforeFitAudio, afterFitAudio]) {
+      if (player && player !== except) player.pause();
+    }
+  }
 
   function fail(cause: unknown) {
     console.error('Voice lab operation failed', cause);
@@ -41,18 +57,22 @@
   }
 
   async function refresh() {
+    const version = ++refreshVersion;
     try {
       const [nextHealth, nextVoices] = await Promise.all([api<Health>('health'), api<Voice[]>('voices')]);
-      if (disposed) return;
+      if (disposed || version !== refreshVersion) return;
       health = nextHealth; voices = nextVoices;
-      if (!selectedId && voices.length) selectedId = voices[0].id;
-      if (health.ready && poll) { clearInterval(poll); poll = undefined; }
+      if (!selectedId && voices.length) {
+        selectedId = voices[0].id; transcript = voices[0].transcript || '';
+        fitPanelOpen = Boolean(voices[0].fit);
+      }
+      if (health.refinement) fitPanelOpen = true;
     } catch (cause) {
-      if (!disposed) { health = undefined; fail(cause); }
+      if (!disposed && version === refreshVersion) { health = undefined; fail(cause); }
     }
   }
 
-  onMount(() => { void refresh(); poll = setInterval(() => { void refresh(); }, 3000); });
+  onMount(() => { void refresh(); poll = setInterval(() => { void refresh(); }, 2000); });
   onDestroy(() => {
     disposed = true;
     clearInterval(timer); clearInterval(poll);
@@ -69,6 +89,7 @@
   async function startRecording() {
     if (busy) return;
     error = ''; message = ''; starting = true; seconds = 0;
+    pausePlayers();
     try {
       recorder = new Recorder();
       await recorder.start(value => { if (!disposed) level = value; });
@@ -110,7 +131,9 @@
       const voice = await api<Voice>(`voices?name=${encodeURIComponent(name.trim())}`, {
         method: 'POST', headers: { 'Content-Type': 'audio/wav', 'X-Voice-Consent': 'own-voice' }, body: clip
       });
+      ++refreshVersion;
       voices = [voice, ...voices]; selectedId = voice.id; confirmingDelete = false;
+      fitPanelOpen = false; transcript = ''; transcriptConfirmed = false;
       message = `“${voice.name}” is ready. Try it with some new text.`;
     } catch (cause) { fail(cause); }
     finally { operation = ''; }
@@ -121,7 +144,7 @@
     const voiceId = baseline ? 'default' : selected!.id;
     const label = baseline ? 'Default Phonon voice' : selected!.name;
     const spokenText = text.trim();
-    operation = 'Generating speech…'; error = ''; message = ''; outputAudio?.pause(); defaultAudio?.pause();
+    operation = 'Generating speech…'; error = ''; message = ''; pausePlayers();
     try {
       const speech = await api<Speech>('speech', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: spokenText, voiceId }) });
       if (baseline) { defaultResult = speech; defaultText = spokenText; }
@@ -141,11 +164,56 @@
     operation = 'Deleting voice…'; error = '';
     try {
       await api(`voices/${id}`, { method: 'DELETE' });
+      ++refreshVersion;
       voices = voices.filter(voice => voice.id !== id); selectedId = voices[0]?.id || '';
       if (result?.voiceId === id) { outputAudio?.pause(); result = undefined; }
       confirmingDelete = false; message = 'Voice and its saved recordings deleted.';
     } catch (cause) { fail(cause); }
     finally { operation = ''; }
+  }
+
+  function changeVoice() {
+    confirmingDelete = false;
+    transcript = selected?.transcript || '';
+    transcriptConfirmed = false;
+    fitPanelOpen = Boolean(selected?.fit);
+    fitFocus = selected?.fit?.focus || 'voice';
+  }
+
+  async function transcribe() {
+    if (!selected || busy) return;
+    operation = 'Transcribing your saved recording locally…'; error = ''; message = '';
+    try {
+      const result = await api<{ text: string }>(`voices/${selected.id}/transcribe`, { method: 'POST' });
+      transcript = result.text; transcriptConfirmed = false;
+      message = 'Check these words against your recording and correct any mistakes.';
+    } catch (cause) { fail(cause); }
+    finally { operation = ''; await refresh(); }
+  }
+
+  async function refine() {
+    if (!selected || busy || !transcriptConfirmed || !transcript.trim()) return;
+    const id = selected.id;
+    fitting = true; operation = 'Fitting your voice…'; error = ''; message = ''; pausePlayers();
+    try {
+      const candidate = await api<Voice | { cancelled: true }>(`voices/${id}/refine`, { method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transcript: transcript.trim(), confirmed: transcriptConfirmed, iterations: fitIterations, focus: fitFocus }) });
+      if ('cancelled' in candidate) message = 'Voice fitting cancelled. Your original voice is unchanged.';
+      else {
+        ++refreshVersion;
+        voices = [candidate, ...voices]; selectedId = candidate.id;
+        message = 'A separate fitted voice is ready. Compare both clips below; the original is kept.';
+      }
+    } catch (cause) { fail(cause); }
+    finally { fitting = false; cancelling = false; operation = ''; await refresh(); }
+  }
+
+  async function cancelFit() {
+    if (!health?.refinement || cancelling) return;
+    cancelling = true;
+    try { await api(`refinements/${health.refinement.id}/cancel`, { method: 'POST' }); }
+    catch (cause) { fail(cause); cancelling = false; }
   }
 </script>
 
@@ -180,7 +248,7 @@
         <div class="step-heading"><span class="step">01</span><div><p class="eyebrow">THE REFERENCE</p><h2 id="record-heading">Capture your voice</h2></div></div>
         <p class="helper">Speak naturally in a quiet room for 10–15 seconds. Keep the microphone at a comfortable distance.</p>
 
-        <div class="reading-prompt"><span class="small-label">SOMETHING TO READ</span><p>“I’m trying something a little different today. The window is open, the coffee is warm, and there’s plenty of time to see where this takes us.”</p></div>
+        <div class="reading-prompt"><span class="small-label">SOMETHING TO READ · OPTIONAL</span><p>“I’m trying something a little different today. The window is open, the coffee is warm, and there’s plenty of time to see where this takes us.”</p><small>Or say anything naturally. Your recording does not need to match the text in the speech box.</small></div>
 
         <div class:recording class="recorder">
           <div class="mic-orbit" style={`--level:${level}`}><span class="mic-symbol">{recording ? '●' : '↟'}</span></div>
@@ -214,11 +282,33 @@
 
         {#if voices.length}
           <label for="voice-select">Your voices <span class="count">{voices.length}</span></label>
-          <select id="voice-select" bind:value={selectedId} disabled={busy} onchange={() => { confirmingDelete = false; }}>{#each voices as voice}<option value={voice.id}>{voice.name}</option>{/each}</select>
+          <select id="voice-select" bind:value={selectedId} disabled={busy} onchange={changeVoice}>{#each voices as voice}<option value={voice.id}>{voice.name}</option>{/each}</select>
           {#if selected}
             <div class="voice-detail"><span>{selected.usedSeconds.toFixed(1)}s reference · created in {(selected.creationMs / 1000).toFixed(1)}s</span><button class="text-button danger" onclick={() => { confirmingDelete = !confirmingDelete; }} disabled={busy}>Delete voice</button></div>
             {#if confirmingDelete}<div class="delete-confirm">Delete this voice, its reference and its generated speech?<div><button class="danger-button" onclick={removeVoice} disabled={busy}>Delete permanently</button><button class="text-button" onclick={() => { confirmingDelete = false; }}>Keep voice</button></div></div>{/if}
             <details class="reference-details"><summary>Listen to the saved reference</summary><audio aria-label="Saved voice reference" src={`/api/voices/${selected.id}/reference`} controls></audio><a href={`/api/voices/${selected.id}/embedding`} download>Download voice file</a></details>
+            <details class="fitting-panel" bind:open={fitPanelOpen}>
+              <summary>Refine this voice <span class="synthetic-tag">Experimental</span></summary>
+              <p>Fit a personal voice profile to your recording. This takes a few minutes and saves a separate voice. Accent preservation still needs a listening check.</p>
+              {#if health?.refinementReady}
+                <button class="secondary full" onclick={transcribe} disabled={busy}>Transcribe saved recording locally</button>
+                <label for="reference-transcript">The actual words in your recording</label>
+                <textarea id="reference-transcript" rows="3" maxlength="1000" bind:value={transcript} oninput={() => { transcriptConfirmed = false; }} disabled={busy} placeholder="Transcribe locally, or type exactly what you said."></textarea>
+                <label class="consent"><input type="checkbox" bind:checked={transcriptConfirmed} disabled={busy} /><span>I checked this transcript against my recording and corrected any mistakes.</span></label>
+                <label for="fit-focus">Fitting focus</label><select id="fit-focus" bind:value={fitFocus} disabled={busy}><option value="voice">Voice similarity</option><option value="pronunciation" disabled={!health.supportsPronunciation}>Voice and pronunciation · experimental</option></select>
+                {#if fitFocus === 'pronunciation'}<p>This gives recorded pronunciation more weight. Acoustic matching can improve, but accent and voice likeness still need listening checks.</p>{/if}
+                <label for="fit-duration">Fitting time</label><select id="fit-duration" bind:value={fitIterations} disabled={busy}><option value={20}>Quick · about 1–2 minutes</option><option value={60}>Longer · about 3–5 minutes</option></select>
+                <button class="secondary full" onclick={refine} disabled={busy || !transcriptConfirmed || transcript.trim().length < 3}>Create fitted voice</button>
+                {#if health.refinement}
+                  <div class="fit-progress" role="status"><strong>{health.refinement.stage}</strong><progress value={health.refinement.step} max={health.refinement.total}></progress><span>{health.refinement.step} / {health.refinement.total} steps</span><button class="text-button" onclick={cancelFit} disabled={cancelling}>{cancelling ? 'Cancelling…' : 'Cancel fitting'}</button></div>
+                {/if}
+              {:else if health?.refinementReady === false}<p>Local fitting models are not installed. Setup instructions are in this lab’s README.</p>
+              {:else if health?.ready}<p>Restart this lab to enable the new fitting controls.</p>
+              {:else}<p>Waiting for the local voice engine…</p>{/if}
+              {#if selected.fit}
+                <div class="fit-comparison"><span class="small-label">LISTEN ON A NEW SENTENCE</span><p>“{selected.fit.heldOutText}”</p><label for="before-fit">Original clone</label><audio id="before-fit" bind:this={beforeFitAudio} aria-label="Original clone comparison" src={`/api/voices/${selected.id}/original-comparison`} controls onplay={() => pausePlayers(beforeFitAudio)}></audio><label for="after-fit">Fitted clone</label><audio id="after-fit" bind:this={afterFitAudio} aria-label="Fitted clone comparison" src={`/api/voices/${selected.id}/fitted-comparison`} controls onplay={() => pausePlayers(afterFitAudio)}></audio><p class="fine-print">{selected.fit.focus === 'pronunciation' ? 'This sentence was used to check voice similarity, not match the recorded words.' : 'This sentence was excluded from fitting.'} Speaker comparison score: {selected.fit.heldOutBefore.speakerCosine.toFixed(2)} → {selected.fit.heldOutAfter.speakerCosine.toFixed(2)}. This measures similarity on one model, not accent accuracy or a percentage match.</p>{#if !selected.fit.generalized}<p class="comparison-warning">The automated score did not improve on new text. Listen carefully before choosing this candidate.</p>{/if}</div>
+              {/if}
+            </details>
           {/if}
         {:else}
           <div class="empty-voice"><span class="empty-wave">ııııııı</span><strong>Your voice goes here</strong><p>Create a voice from your recording to get started.</p></div>
@@ -232,10 +322,10 @@
         <p class="fine-print">The default is Phonon’s original voice. Both clips stay available below.</p>
 
         {#if result}
-          <div class="result" data-testid="speech-result"><div class="result-heading"><span class="small-label">CLONED VOICE</span><span class="synthetic-tag">Synthetic</span></div><h3>{resultVoice}</h3><audio bind:this={outputAudio} aria-label="Generated speech" src={result.url} controls onplay={() => defaultAudio?.pause()}></audio><div class="result-meta"><span>{result.durationSeconds.toFixed(1)}s audio · {(result.generationMs / 1000).toFixed(2)}s generation</span><a href={result.url} download="phonon-cloned-voice.wav">Download WAV ↓</a></div><details class="spoken-text"><summary>Text used</summary><p>{resultText}</p></details></div>
+          <div class="result" data-testid="speech-result"><div class="result-heading"><span class="small-label">CLONED VOICE</span><span class="synthetic-tag">Synthetic</span></div><h3>{resultVoice}</h3><audio bind:this={outputAudio} aria-label="Generated speech" src={result.url} controls onplay={() => pausePlayers(outputAudio)}></audio><div class="result-meta"><span>{result.durationSeconds.toFixed(1)}s audio · {(result.generationMs / 1000).toFixed(2)}s generation</span><a href={result.url} download="phonon-cloned-voice.wav">Download WAV ↓</a></div><details class="spoken-text"><summary>Text used</summary><p>{resultText}</p></details></div>
         {/if}
         {#if defaultResult}
-          <div class="result baseline-result" data-testid="default-result"><div class="result-heading"><span class="small-label">DEFAULT VOICE · COMPARISON</span><span class="synthetic-tag">Synthetic</span></div><h3>Default Phonon voice</h3><audio bind:this={defaultAudio} aria-label="Default voice speech" src={defaultResult.url} controls onplay={() => outputAudio?.pause()}></audio><div class="result-meta"><span>{defaultResult.durationSeconds.toFixed(1)}s audio · {(defaultResult.generationMs / 1000).toFixed(2)}s generation</span><a href={defaultResult.url} download="phonon-default-voice.wav">Download WAV ↓</a></div><details class="spoken-text"><summary>Text used</summary><p>{defaultText}</p></details></div>
+          <div class="result baseline-result" data-testid="default-result"><div class="result-heading"><span class="small-label">DEFAULT VOICE · COMPARISON</span><span class="synthetic-tag">Synthetic</span></div><h3>Default Phonon voice</h3><audio bind:this={defaultAudio} aria-label="Default voice speech" src={defaultResult.url} controls onplay={() => pausePlayers(defaultAudio)}></audio><div class="result-meta"><span>{defaultResult.durationSeconds.toFixed(1)}s audio · {(defaultResult.generationMs / 1000).toFixed(2)}s generation</span><a href={defaultResult.url} download="phonon-default-voice.wav">Download WAV ↓</a></div><details class="spoken-text"><summary>Text used</summary><p>{defaultText}</p></details></div>
           {#if result && resultText !== defaultText}<p class="comparison-warning">These clips use different text. Generate both again with the same sentence for a fair comparison.</p>{/if}
         {/if}
       </section>

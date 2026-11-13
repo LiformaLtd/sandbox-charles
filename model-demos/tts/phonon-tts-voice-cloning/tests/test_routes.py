@@ -43,6 +43,25 @@ class LocalAccess(unittest.TestCase):
             )
             self.assertIn(response.status_code, [400, 422])
 
+    def test_fitting_requires_confirmed_recording_transcript(self):
+        with patch.object(server, "voice_folder", return_value=Path("/unused")):
+            response = self.client.post(
+                "/voices/00000000-0000-0000-0000-000000000001/refine",
+                headers=self.headers,
+                json={
+                    "transcript": "The words I actually recorded.",
+                    "confirmed": False,
+                },
+            )
+        self.assertEqual(response.status_code, 400)
+
+    def test_cancelling_unknown_fitting_job_is_rejected(self):
+        response = self.client.post(
+            "/refinements/00000000-0000-0000-0000-000000000001/cancel",
+            headers=self.headers,
+        )
+        self.assertEqual(response.status_code, 404)
+
 
 if __name__ == "__main__":
     unittest.main()

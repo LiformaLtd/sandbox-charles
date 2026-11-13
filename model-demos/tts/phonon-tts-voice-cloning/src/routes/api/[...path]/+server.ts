@@ -3,13 +3,14 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 const uuid = '[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}';
-const readable = new RegExp(`^(health|voices|voices/${uuid}/(reference|embedding)|audio/${uuid})$`);
+const readable = new RegExp(`^(health|voices|voices/${uuid}/(reference|embedding|original-comparison|fitted-comparison)|audio/${uuid})$`);
 const deletable = new RegExp(`^voices/${uuid}$`);
+const writable = new RegExp(`^(voices|speech|voices/${uuid}/(transcribe|refine)|refinements/${uuid}/cancel)$`);
 
 const proxy: RequestHandler = async ({ request, params, url }) => {
   const path = params.path || '';
   const method = request.method;
-  if (!(method === 'GET' && readable.test(path)) && !(method === 'POST' && ['voices', 'speech'].includes(path)) && !(method === 'DELETE' && deletable.test(path))) {
+  if (!(method === 'GET' && readable.test(path)) && !(method === 'POST' && writable.test(path)) && !(method === 'DELETE' && deletable.test(path))) {
     return json({ detail: 'Not found.' }, { status: 404 });
   }
   if (method !== 'GET' && request.headers.get('origin') !== url.origin) {
@@ -23,11 +24,11 @@ const proxy: RequestHandler = async ({ request, params, url }) => {
   let body: Uint8Array | undefined;
   if (method === 'POST') {
     const reader = request.body?.getReader();
-    if (!reader) return json({ detail: 'Request body missing.' }, { status: 400 });
+    if (!reader && !path.endsWith('/transcribe') && !path.endsWith('/cancel')) return json({ detail: 'Request body missing.' }, { status: 400 });
     const chunks: Uint8Array[] = [];
     let length = 0;
     const limit = path === 'voices' ? 2_000_000 : 10_000;
-    while (true) {
+    while (reader) {
       const next = await reader.read();
       if (next.done) break;
       length += next.value.length;
@@ -45,7 +46,7 @@ const proxy: RequestHandler = async ({ request, params, url }) => {
   if (path === 'voices' && method === 'POST') target.searchParams.set('name', url.searchParams.get('name') || 'My voice');
   try {
     const response = await fetch(target, { method, headers, body: body as BodyInit | undefined,
-      signal: AbortSignal.any([request.signal, AbortSignal.timeout(180_000)]) });
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(path.endsWith('/refine') ? 900_000 : 180_000)]) });
     const outgoing = new Headers({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
     for (const name of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'content-disposition']) {
       const value = response.headers.get(name);

@@ -42,7 +42,7 @@ def read_recording(raw):
     return pcm
 
 
-def prepare_reference(pcm):
+def prepare_reference(pcm, max_seconds=10):
     # Match the author's 80 Hz high-pass, relative silence gate with 150 ms
     # margins, 10 second cap, and -18 LUFS target. This is not speaker detection.
     w = 2 * math.pi * 80 / SAMPLE_RATE
@@ -57,7 +57,7 @@ def prepare_reference(pcm):
     condensed = frames[keep].reshape(-1)
     if len(condensed) < SAMPLE_RATE // 2:
         condensed = filtered
-    prepared = condensed[: 10 * SAMPLE_RATE].copy()
+    prepared = condensed[: int(max_seconds * SAMPLE_RATE)].copy()
     prepared -= prepared.mean()
     loudness = pyloudnorm.Meter(SAMPLE_RATE).integrated_loudness(
         prepared.astype(np.float64)

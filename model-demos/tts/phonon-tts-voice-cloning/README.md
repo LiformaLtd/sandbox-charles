@@ -64,6 +64,81 @@ associated generated speech. Default comparison clips are independent of a voice
 Generated players are per-page; saved profiles remain selectable after reload.
 Changing the frontend port changes the browser permission/storage origin.
 
+## Experimental personal fitting
+
+The quick encoder pass may change timbre while losing the reference accent. An
+optional second pass searches for a closer personal voice prompt while keeping
+the encoder, Phonon weights and native synthesis engine fixed.
+
+```sh
+npm run setup                 # installs the Python dependencies
+npm run setup:refinement      # additional public local models; no recordings uploaded
+```
+
+Select a saved voice and open **Refine this voice**. Transcribe its recording
+locally, or type exactly what was spoken. Correct the transcript and confirm it
+matches the recording. The suggested reading passage is optional; the words in
+the speech-generation box are not a recording transcript.
+
+**Create fitted voice** makes a separate profile. Quick fitting runs 20 search
+steps (about 1–2 minutes on the tested Mac); longer fitting runs 60 steps. Runtime
+depends on reference length and CPU. Progress and cancellation are available;
+leaving the page does not overwrite the source voice. If no better-fitting profile
+is found, the app reports that and retains the original. A cancelled search does
+not publish a partial candidate.
+
+Choose **Voice and pronunciation** for an experimental accent-sensitive pass.
+It gives aligned acoustic matching substantially more weight and permits bounded
+channel-gain adjustments in addition to mean/timbre offsets. Starting from a fitted
+voice preserves that earlier candidate as a separate profile. A new sentence
+containing words such as “car”, “castle” and “water” helps listening comparisons.
+If speaker similarity drops materially on that comparison sentence, the search
+tries smaller adjustments and rejects the candidate if none pass. That sentence
+is excluded from the acoustic objective but used for this safeguard; it is not
+an independent evaluation. The automated acoustic loss is still not an accent classifier or proof
+that the desired accent was preserved. Accurate reference words matter more for
+this mode; verify the transcript before fitting.
+
+The search uses paired perturbations in a small PCA space derived from the public
+English voice catalogue. A frozen ERes2Net speaker model supplies an identity
+comparison; transcript-aligned log-mel DTW, spectral shape and duration terms
+encourage acoustic similarity. Fixed seeds and zero sampling temperature make
+candidate comparisons repeatable. Synthetic fitting audio is never mistaken for
+the original recording.
+
+The saved candidate includes separate **Original clone** and **Fitted clone**
+players for the same sentence, which was excluded from the acoustic objective.
+Pronunciation mode also uses it to reject changes that weaken voice similarity.
+Automated speaker
+cosines are diagnostic numbers, not percentages, proof of identity, or accent
+scores. A score can improve while perceived likeness remains poor. Use new
+sentences and listen before choosing a fitted voice. The model's underlying
+language/accent limitations still apply. This fits a voice prompt, not a globally
+improved audio encoder.
+
+Fitting uses the whole saved recording up to 20 seconds, without the quick
+encoder's 10-second truncation. Both profiles keep their own reference copy, so
+deleting one does not remove the other. Transcripts, search audio and metrics are
+private `.data/` files. User-specific profiles are never committed.
+
+Additional provenance:
+
+- The fitting approach is informed by the public frozen-TTS voice-style search
+  in [DavidValin/supertonic3-tts](https://github.com/DavidValin/supertonic3-tts#how-it-works)
+  and [saurabhv749/supertonic3-voice-clone](https://github.com/saurabhv749/supertonic3-voice-clone).
+  The Phonon search here is implemented independently; their style tensors are
+  incompatible with Phonon and are not imported.
+- Speaker comparison: [3D-Speaker ERes2Net English VoxCeleb model](https://github.com/k2-fsa/sherpa-onnx/releases/tag/speaker-recongition-models),
+  asset `3dspeaker_speech_eres2net_sv_en_voxceleb_16k.onnx`, Apache 2.0. Model
+  authors: 3D-Speaker/ModelScope; ONNX export: sherpa-onnx. Pinned SHA-256 in setup.
+- Transcription: [OpenAI Whisper base.en](https://huggingface.co/openai/whisper-base.en),
+  revision `911407f4214e0e1d82085af863093ec0b66f9cd6`, Apache 2.0 model-card licence.
+- Voice search directions: [Gradium public voice catalogue](https://huggingface.co/gradium/phonon-voices),
+  revision `0ee17205f254b5abc43b266c8a0f215565c352f7`, Apache 2.0.
+
+The optional assets are kept in `.models/refinement/`. Setup downloads them once
+and records checksums; transcription and fitting then work offline.
+
 ## Quality and provenance
 
 This is an experimental clone, not a verified replica. The original author's
@@ -91,11 +166,14 @@ npm run check
 npm run build
 ```
 
-The real-model browser test needs the app running and an explicitly supplied
+The real-model browser tests need the app running, `npm run setup:refinement`
+completed, and an explicitly supplied
 5–20 second WAV fixture for Chrome's synthetic microphone. It creates and deletes
 only a test profile; it checks microphone capture, encoding, real synthesis,
 default comparison, reload persistence, downloads, mobile overflow and origin
-rejection. Existing profiles are preserved.
+rejection. The additional fitting test verifies local transcription, transcript
+confirmation, cancellation, creation of a separate fitted voice and comparison
+playback. Existing profiles are preserved.
 
 ```sh
 TEST_BASE_URL=http://127.0.0.1:<printed-port> \

@@ -12,7 +12,7 @@ test('record, clone, generate, reload and delete a voice with the real local mod
   await page.getByRole('button', { name: 'Stop recording' }).click();
   await expect(page.getByLabel('Your recorded voice')).toBeVisible();
   await page.getByLabel('Voice name', { exact: true }).fill('QA synthetic reference');
-  await page.getByRole('checkbox').check();
+  await page.getByRole('checkbox', { name: /This is my own voice/ }).check();
   const created = page.waitForResponse(response => response.url().includes('/api/voices?') && response.request().method() === 'POST');
   await page.getByRole('button', { name: 'Create my voice', exact: true }).click();
   const profileResponse = await created;
