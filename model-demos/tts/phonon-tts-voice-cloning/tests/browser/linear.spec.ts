@@ -30,7 +30,7 @@ test('fast linear fitting saves a separate 36-direction voice without a transcri
     expect(candidate.fit.algorithm).toBe('linear');
     expect(candidate.fit.components).toBe(36);
     expect(candidate.fit.finalError).toBeGreaterThanOrEqual(0);
-    await expect(page.getByTestId('fit-error')).toContainText('Final fitting error:');
+    await expect(page.getByTestId('fit-error')).toContainText('Linear fitting error:');
     expect(candidate.fit.weights).toHaveLength(37);
     expect(candidate.fit.comparisonSettings.temperature).toBe(0.3);
     await expect(page.getByLabel('Voice version', { exact: true })).toHaveValue(candidate.id);
