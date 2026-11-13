@@ -26,6 +26,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from safetensors.torch import load_file, save_file
+from synthesis import PLAYBACK_SETTINGS
 
 os.umask(0o077)
 ROOT = Path(__file__).resolve().parents[1]
@@ -136,7 +137,7 @@ class Engine:
                 self.synth.add_voice(voice_id, str(folder / "voice.safetensors"))
                 self.registered.add(voice_id)
         chunks = []
-        with self.synth.stream(text, voice=voice_id) as stream:
+        with self.synth.stream(text, voice=voice_id, **PLAYBACK_SETTINGS) as stream:
             for pcm in stream:
                 chunks.append(np.array(pcm, dtype=np.float32, copy=True))
         if not chunks:

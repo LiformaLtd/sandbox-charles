@@ -106,6 +106,11 @@ encourage acoustic similarity. Fixed seeds and zero sampling temperature make
 candidate comparisons repeatable. Synthetic fitting audio is never mistaken for
 the original recording.
 
+Saved listening comparisons use temperature **0.3** and seed `4242424242424242`,
+the same shared settings as **Generate speech**. The displayed speaker scores
+describe these playback clips. The search and its safeguard retain temperature
+0 and seed 42; their diagnostic scores are stored separately.
+
 The saved candidate includes separate **Original clone** and **Fitted clone**
 players for the same sentence, which was excluded from the acoustic objective.
 Pronunciation mode also uses it to reject changes that weaken voice similarity.

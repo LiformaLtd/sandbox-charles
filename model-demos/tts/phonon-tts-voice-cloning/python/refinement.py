@@ -19,6 +19,7 @@ from audio import SAMPLE_RATE, prepare_reference
 from safetensors.torch import load_file, save_file
 from scipy.signal import resample_poly
 from scipy.spatial.distance import cdist
+from synthesis import PLAYBACK_SETTINGS
 
 HOLDOUT = "The old stone bridge looks beautiful in the afternoon sunshine."
 PRONUNCIATION_HOLDOUT = (
@@ -33,6 +34,31 @@ class Cancelled(Exception):
 def check_cancel(event):
     if event is not None and event.is_set():
         raise Cancelled("Voice fitting was cancelled.")
+
+
+def comparison_audio(base, original, fitted, text, cancel=None):
+    """Render both listening clips exactly as normal Generate speech does."""
+    synth = ptts.TTS(str(base), lang="en", device="cpu", quant="q8")
+    results = []
+    for name, path in (("original", original), ("fitted", fitted)):
+        check_cancel(cancel)
+        synth.add_voice(name, str(path))
+        parts, count = [], 0
+        with synth.stream(text, voice=name, **PLAYBACK_SETTINGS) as stream:
+            for chunk in stream:
+                check_cancel(cancel)
+                pcm = np.array(chunk, dtype=np.float32, copy=True)
+                parts.append(pcm)
+                count += len(pcm)
+                if count > 30 * SAMPLE_RATE:
+                    raise ValueError("A comparison clip produced overlong speech.")
+        if not parts:
+            raise ValueError("A comparison clip produced no speech.")
+        audio = np.concatenate(parts)
+        if not np.isfinite(audio).all() or np.sqrt(np.mean(audio**2)) < 0.001:
+            raise ValueError("A comparison clip produced invalid or silent speech.")
+        results.append(audio)
+    return results
 
 
 class Scorer:
@@ -228,7 +254,7 @@ class Fitter:
 
         center = np.zeros(dimension, dtype=np.float64)
         before, before_audio = evaluate(center)
-        held_before, held_before_audio = evaluate(center, holdout_text, False)
+        held_before, _ = evaluate(center, holdout_text, False)
         best, best_metrics = center.copy(), before.copy()
         rng = np.random.default_rng(42)
         momentum, variance = np.zeros(dimension), np.zeros(dimension)
@@ -272,7 +298,7 @@ class Fitter:
                     }
                 )
         after, after_audio = evaluate(best)
-        held_after, held_after_audio = evaluate(best, holdout_text, False)
+        held_after, _ = evaluate(best, holdout_text, False)
         retained_scale = 1.0
         # A stronger acoustic objective can overfit the recorded words. Backtrack
         # toward the starting profile until a smaller, still useful change also
@@ -286,29 +312,17 @@ class Fitter:
                 trial_metrics, trial_audio = evaluate(trial)
                 if trial_metrics["loss"] >= before["loss"] - 0.001:
                     continue
-                trial_held, trial_held_audio = evaluate(trial, holdout_text, False)
+                trial_held, _ = evaluate(trial, holdout_text, False)
                 if trial_held["speakerCosine"] >= held_before["speakerCosine"] - 0.02:
                     best, retained_scale = trial, scale
                     after, after_audio = trial_metrics, trial_audio
-                    held_after, held_after_audio = trial_held, trial_held_audio
+                    held_after = trial_held
                     break
             else:
                 raise ValueError(
                     "The pronunciation fit weakened voice similarity on new text, so it was not saved. Your previous voice is unchanged."
                 )
         sf.write(Path(output) / "after.wav", after_audio, SAMPLE_RATE, subtype="PCM_16")
-        sf.write(
-            Path(output) / "original-comparison.wav",
-            held_before_audio,
-            SAMPLE_RATE,
-            subtype="PCM_16",
-        )
-        sf.write(
-            Path(output) / "fitted-comparison.wav",
-            held_after_audio,
-            SAMPLE_RATE,
-            subtype="PCM_16",
-        )
         temporary.unlink(missing_ok=True)
         if after["loss"] >= before["loss"] - 0.001:
             raise ValueError(
@@ -323,15 +337,44 @@ class Fitter:
                 "source": "experimental-personal-voice-fit",
             },
         )
+        playback_before, playback_after = comparison_audio(
+            self.base,
+            Path(folder) / "voice.safetensors",
+            Path(output) / "voice.safetensors",
+            holdout_text,
+            cancel,
+        )
+        sf.write(
+            Path(output) / "original-comparison.wav",
+            playback_before,
+            SAMPLE_RATE,
+            subtype="PCM_16",
+        )
+        sf.write(
+            Path(output) / "fitted-comparison.wav",
+            playback_after,
+            SAMPLE_RATE,
+            subtype="PCM_16",
+        )
+        playback_before_metrics = self.scorer.compare(
+            self.scorer.features(playback_before), reference, False, focus
+        )
+        playback_after_metrics = self.scorer.compare(
+            self.scorer.features(playback_after), reference, False, focus
+        )
         return {
             "before": before,
             "after": after,
-            "heldOutBefore": held_before,
-            "heldOutAfter": held_after,
+            "searchHeldOutBefore": held_before,
+            "searchHeldOutAfter": held_after,
+            "heldOutBefore": playback_before_metrics,
+            "heldOutAfter": playback_after_metrics,
+            "comparisonSettings": dict(PLAYBACK_SETTINGS),
             "elapsedSeconds": perf_counter() - started,
             "iterations": iterations,
             "focus": focus,
             "retainedScale": retained_scale,
             "heldOutText": holdout_text,
-            "generalized": held_after["speakerCosine"] > held_before["speakerCosine"],
+            "generalized": playback_after_metrics["speakerCosine"]
+            > playback_before_metrics["speakerCosine"],
         }
