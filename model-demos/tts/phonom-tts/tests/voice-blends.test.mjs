@@ -19,13 +19,13 @@ function values(bytes, generated = true) {
 
 test('blend arithmetic, persistence and safe input handling', { skip: !base, timeout: 180_000 }, async () => {
 	const initial = await (await fetch(`${base}/api/blends`)).json();
-	for (const invalid of [{ percentB: -1 }, { percentB: 101 }, { percentB: 1.5 }, { sourceA: '../file' }, { sourceB: 'https://example.com' }]) {
+	for (const invalid of [{ percentB: -101 }, { percentB: 201 }, { percentB: 1.5 }, { sourceA: '../file' }, { sourceB: 'https://example.com' }]) {
 		assert.equal((await post({ ...recipe, ...invalid })).status, 400);
 	}
 	assert.equal((await post(recipe, 'https://example.com')).status, 403);
 	assert.equal((await fetch(`${base}/api/blends/not-an-id`)).status, 404);
 	const vectors = [];
-	for (const percentB of [0, 50, 100]) {
+	for (const percentB of [0, 50, 100, -100, 200]) {
 		const response = await post({ ...recipe, percentB });
 		assert.equal(response.status, 200, await response.clone().text());
 		vectors.push(values(await response.arrayBuffer()));
@@ -37,9 +37,13 @@ test('blend arithmetic, persistence and safe input handling', { skip: !base, tim
 		const bytes = await readFile(resolve(process.env.PHONON_BLEND_DIR || '.data/voice-blends', 'catalogue', basename(source.file)));
 		assert.deepEqual(vectors[endpoint], values(bytes, false));
 	}
-	for (let i = 0; i < vectors[0].length; i++) assert.equal(vectors[1][i], Math.fround((vectors[0][i] + vectors[2][i]) / 2));
+	for (let i = 0; i < vectors[0].length; i++) {
+		assert.equal(vectors[1][i], Math.fround((vectors[0][i] + vectors[2][i]) / 2));
+		assert.equal(vectors[3][i], Math.fround(2 * vectors[0][i] - vectors[2][i]));
+		assert.equal(vectors[4][i], Math.fround(2 * vectors[2][i] - vectors[0][i]));
+	}
 	assert.equal((await (await fetch(`${base}/api/blends`)).json()).length, initial.length, 'Previews must not save voices');
-	const response = await post({ ...recipe, action: 'save', name: 'QA blend persistence' });
+	const response = await post({ ...recipe, percentB: 200, action: 'save', name: 'QA blend persistence' });
 	assert.equal(response.status, 201);
 	const voice = await response.json();
 	try {
@@ -48,7 +52,8 @@ test('blend arithmetic, persistence and safe input handling', { skip: !base, tim
 		assert.equal(listed.find(v => v.id === voice.id)?.name, 'QA blend persistence');
 		const file = await fetch(`${base}/api/blends/${voice.id}`);
 		assert.equal(file.status, 200);
-		assert.deepEqual(values(await file.arrayBuffer()), vectors[1]);
+		assert.equal(listed.find(v => v.id === voice.id)?.percentB, 200);
+		assert.deepEqual(values(await file.arrayBuffer()), vectors[4]);
 		assert.equal((await fetch(`${base}/api/blends/${voice.id}`, { method: 'DELETE', headers: { Origin: 'https://example.com' } })).status, 403);
 	} finally {
 		assert.equal((await fetch(`${base}/api/blends/${voice.id}`, { method: 'DELETE', headers: { Origin: base } })).status, 200);

@@ -22,7 +22,10 @@ Place downloaded Phonon `.safetensors` voice files in `src/lib/local-voices/` to
 ## Voice blending
 
 **Blend voices** offers all 102 catalogue voices in two selectors. The balance
-slider sets A's and B's shares (0 means entirely A, 100 means entirely B).
+slider sets A's and B's shares from **−100% to 200% B** (0 means entirely A,
+100 means entirely B). Outside 0–100 it extrapolates: for example, 120% B means
+120% B minus 20% A. Negative contributions are shown explicitly. Larger
+extrapolations may reduce clarity; 0–100 remains the ordinary blending range.
 **Preview blend · Browser Q8** reads the text above with the selected model and
 Q8 device, and plays it in Streaming result. The model still needs to be available.
 Previewing does not save a voice or change your selected saved voice.
@@ -49,7 +52,8 @@ TEST_BASE_URL=http://127.0.0.1:<printed-port> node --test tests/voice-blends.tes
 ```
 
 The checks create and remove only their own test blend. They verify slider
-endpoints and midpoint arithmetic, validation, saving, listing, download and deletion.
+endpoints, midpoint and extrapolation arithmetic, validation, saving, listing,
+download and deletion.
 
 ## Local native and MLX
 

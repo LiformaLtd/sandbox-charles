@@ -3,7 +3,7 @@ import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promise
 import { resolve, join } from 'node:path';
 import { env } from 'node:process';
 import catalogue from '../voices-catalogue.json';
-import type { BlendRecipe, SavedBlend } from '../voice-blends';
+import { MIN_BLEND_PERCENT, MAX_BLEND_PERCENT, type BlendRecipe, type SavedBlend } from '../voice-blends';
 
 const root = resolve(env.PHONON_BLEND_DIR || '.data/voice-blends');
 const revision = '0ee17205f254b5abc43b266c8a0f215565c352f7';
@@ -17,8 +17,8 @@ export function validateRecipe(value: unknown): BlendRecipe {
 	if (!value || typeof value !== 'object') throw new Error('Choose two catalogue voices and a blend percentage.');
 	const v = value as Record<string, unknown>;
 	if (typeof v.sourceA !== 'string' || typeof v.sourceB !== 'string' || !presets.has(v.sourceA) || !presets.has(v.sourceB) ||
-		typeof v.percentB !== 'number' || !Number.isInteger(v.percentB) || v.percentB < 0 || v.percentB > 100) {
-		throw new Error('Choose two catalogue voices and a blend percentage from 0 to 100.');
+		typeof v.percentB !== 'number' || !Number.isInteger(v.percentB) || v.percentB < MIN_BLEND_PERCENT || v.percentB > MAX_BLEND_PERCENT) {
+		throw new Error(`Choose two catalogue voices and a blend percentage from ${MIN_BLEND_PERCENT} to ${MAX_BLEND_PERCENT}.`);
 	}
 	return { sourceA: v.sourceA, sourceB: v.sourceB, percentB: v.percentB };
 }
