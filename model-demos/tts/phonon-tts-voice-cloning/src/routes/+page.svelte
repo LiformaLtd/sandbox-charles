@@ -31,6 +31,7 @@
   let transcript = $state('');
   let transcriptConfirmed = $state(false);
   let fitIterations = $state(20);
+  let fitMethod = $state<'iterative' | 'linear'>('iterative');
   let fitFocus = $state<'voice' | 'pronunciation'>('voice');
   let fitting = $state(false);
   let fitPanelOpen = $state(false);
@@ -65,6 +66,8 @@
       if (!selectedId && voices.length) {
         selectedId = voices[0].id; transcript = voices[0].transcript || '';
         fitPanelOpen = Boolean(voices[0].fit);
+        fitMethod = voices[0].fit?.algorithm === 'linear' ? 'linear' : 'iterative';
+        fitFocus = voices[0].fit?.focus || 'voice';
       }
       if (health.refinement) fitPanelOpen = true;
     } catch (cause) {
@@ -178,6 +181,7 @@
     transcriptConfirmed = false;
     fitPanelOpen = Boolean(selected?.fit);
     fitFocus = selected?.fit?.focus || 'voice';
+    fitMethod = selected?.fit?.algorithm === 'linear' ? 'linear' : 'iterative';
   }
 
   async function transcribe() {
@@ -192,13 +196,13 @@
   }
 
   async function refine() {
-    if (!selected || busy || !transcriptConfirmed || !transcript.trim()) return;
+    if (!selected || busy || (fitMethod === 'iterative' && (!transcriptConfirmed || !transcript.trim())) || (fitMethod === 'linear' && !health?.linearReady)) return;
     const id = selected.id;
     fitting = true; operation = 'Fitting your voice…'; error = ''; message = ''; pausePlayers();
     try {
       const candidate = await api<Voice | { cancelled: true }>(`voices/${id}/refine`, { method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transcript: transcript.trim(), confirmed: transcriptConfirmed, iterations: fitIterations, focus: fitFocus }) });
+        body: JSON.stringify({ transcript: transcript.trim(), confirmed: transcriptConfirmed, iterations: fitIterations, focus: fitFocus, method: fitMethod }) });
       if ('cancelled' in candidate) message = 'Voice fitting cancelled. Your original voice is unchanged.';
       else {
         ++refreshVersion;
@@ -289,8 +293,18 @@
             <details class="reference-details"><summary>Listen to the saved reference</summary><audio aria-label="Saved voice reference" src={`/api/voices/${selected.id}/reference`} controls></audio><a href={`/api/voices/${selected.id}/embedding`} download>Download voice file</a></details>
             <details class="fitting-panel" bind:open={fitPanelOpen}>
               <summary>Refine this voice <span class="synthetic-tag">Experimental</span></summary>
-              <p>Fit a personal voice profile to your recording. This takes a few minutes and saves a separate voice. Accent preservation still needs a listening check.</p>
+              <p>Fit a personal voice profile to your recording and save a separate voice. Compare methods on the same saved recording. Accent preservation still needs a listening check.</p>
               {#if health?.refinementReady}
+                <label for="fit-method">Fitting method</label>
+                <select id="fit-method" bind:value={fitMethod} disabled={busy}>
+                  <option value="iterative">Iterative fitting · 20 or 60 steps</option>
+                  <option value="linear" disabled={!health.supportsLinear}>Fast linear fit · all 36 directions</option>
+                </select>
+                {#if fitMethod === 'linear'}
+                  <p>Make an independent estimate from your saved recording using all 37 English catalogue voices. One regularized linear solve uses all 36 centred directions; no transcript or iterative speech search is needed.</p>
+                  <p class="fine-print">The catalogue is prepared once. Each fit measures your recording, solves for voice weights, then generates two comparison clips. An improved likeness is not guaranteed.</p>
+                  {#if !health.linearReady}<p>Fast fitting data is not installed yet. Run npm run setup:linear in this lab, then refresh.</p>{/if}
+                {:else}
                 <button class="secondary full" onclick={transcribe} disabled={busy}>Transcribe saved recording locally</button>
                 <label for="reference-transcript">The actual words in your recording</label>
                 <textarea id="reference-transcript" rows="3" maxlength="1000" bind:value={transcript} oninput={() => { transcriptConfirmed = false; }} disabled={busy} placeholder="Transcribe locally, or type exactly what you said."></textarea>
@@ -298,7 +312,8 @@
                 <label for="fit-focus">Fitting focus</label><select id="fit-focus" bind:value={fitFocus} disabled={busy}><option value="voice">Voice similarity</option><option value="pronunciation" disabled={!health.supportsPronunciation}>Voice and pronunciation · experimental</option></select>
                 {#if fitFocus === 'pronunciation'}<p>This gives recorded pronunciation more weight. Acoustic matching can improve, but accent and voice likeness still need listening checks.</p>{/if}
                 <label for="fit-duration">Fitting time</label><select id="fit-duration" bind:value={fitIterations} disabled={busy}><option value={20}>Quick · about 1–2 minutes</option><option value={60}>Longer · about 3–5 minutes</option></select>
-                <button class="secondary full" onclick={refine} disabled={busy || !transcriptConfirmed || transcript.trim().length < 3}>Create fitted voice</button>
+                {/if}
+                <button class="secondary full" onclick={refine} disabled={busy || (fitMethod === 'linear' ? !health.linearReady : !transcriptConfirmed || transcript.trim().length < 3)}>Create fitted voice</button>
                 {#if health.refinement}
                   <div class="fit-progress" role="status"><strong>{health.refinement.stage}</strong><progress value={health.refinement.step} max={health.refinement.total}></progress><span>{health.refinement.step} / {health.refinement.total} steps</span><button class="text-button" onclick={cancelFit} disabled={cancelling}>{cancelling ? 'Cancelling…' : 'Cancel fitting'}</button></div>
                 {/if}
@@ -306,6 +321,8 @@
               {:else if health?.ready}<p>Restart this lab to enable the new fitting controls.</p>
               {:else}<p>Waiting for the local voice engine…</p>{/if}
               {#if selected.fit}
+                {#if selected.fit.algorithm === 'linear'}<p class="fine-print">Fast linear fit · {selected.fit.components} directions · solve {selected.fit.solveMs?.toFixed(1)} ms · total {selected.fit.elapsedSeconds.toFixed(2)} s including recording analysis and comparisons.</p>
+                {:else}<p class="fine-print">Iterative fit · total {selected.fit.elapsedSeconds.toFixed(1)} s.</p>{/if}
                 <div class="fit-comparison"><span class="small-label">LISTEN ON A NEW SENTENCE</span><p>“{selected.fit.heldOutText}”</p><label for="before-fit">Original clone</label><audio id="before-fit" bind:this={beforeFitAudio} aria-label="Original clone comparison" src={`/api/voices/${selected.id}/original-comparison`} controls onplay={() => pausePlayers(beforeFitAudio)}></audio><label for="after-fit">Fitted clone</label><audio id="after-fit" bind:this={afterFitAudio} aria-label="Fitted clone comparison" src={`/api/voices/${selected.id}/fitted-comparison`} controls onplay={() => pausePlayers(afterFitAudio)}></audio><p class="fine-print">{selected.fit.focus === 'pronunciation' ? 'This sentence was used to check voice similarity, not match the recorded words.' : 'This sentence was excluded from fitting.'} Speaker comparison score: {selected.fit.heldOutBefore.speakerCosine.toFixed(2)} → {selected.fit.heldOutAfter.speakerCosine.toFixed(2)}. This measures similarity on one model, not accent accuracy or a percentage match.</p>{#if !selected.fit.generalized}<p class="comparison-warning">The automated score did not improve on new text. Listen carefully before choosing this candidate.</p>{/if}</div>
               {/if}
             </details>

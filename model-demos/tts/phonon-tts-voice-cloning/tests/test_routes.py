@@ -1,7 +1,7 @@
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -61,6 +61,29 @@ class LocalAccess(unittest.TestCase):
             headers=self.headers,
         )
         self.assertEqual(response.status_code, 404)
+
+    def test_linear_fit_does_not_require_a_transcript(self):
+        voice_id = "00000000-0000-0000-0000-000000000001"
+        with (
+            patch.object(server, "voice_folder", return_value=Path("/unused")),
+            patch.object(server, "work", new_callable=AsyncMock) as work,
+        ):
+            work.return_value = {"method": "personal-linear-fit"}
+            response = self.client.post(
+                f"/voices/{voice_id}/refine",
+                headers=self.headers,
+                json={"method": "linear"},
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(work.await_args.args[-1], "linear")
+
+    def test_unknown_fit_method_is_rejected(self):
+        response = self.client.post(
+            "/voices/00000000-0000-0000-0000-000000000001/refine",
+            headers=self.headers,
+            json={"method": "unknown"},
+        )
+        self.assertEqual(response.status_code, 422)
 
 
 if __name__ == "__main__":

@@ -52,6 +52,7 @@ class Engine:
     error = "Starting the local voice engine…"
     refinement = None
     fitter = None
+    linear_fitter = None
     transcriber = None
 
     def load(self):
@@ -231,7 +232,9 @@ class Engine:
             )
         return {"text": text, "needsReview": True}
 
-    def refine(self, voice_id, transcript, iterations, focus="voice"):
+    def refine(
+        self, voice_id, transcript, iterations, focus="voice", method="iterative"
+    ):
         from refinement import Cancelled, Fitter
 
         source = voice_folder(voice_id)
@@ -244,35 +247,58 @@ class Engine:
             "voiceId": voice_id,
             "stage": "Preparing local fitting",
             "step": 0,
-            "total": iterations,
+            "total": 3 if method == "linear" else iterations,
         }
         try:
-            if self.fitter is None:
+            if method == "iterative" and self.fitter is None:
                 self.fitter = Fitter(self.verify_refinement_assets(), self.base)
 
             def progress(values):
                 self.refinement = {**self.refinement, **values}
 
-            metrics = self.fitter.run(
-                source,
-                transcript,
-                folder,
-                iterations,
-                progress=progress,
-                cancel=self.cancel_refinement,
-                focus=focus,
-            )
+            if method == "linear":
+                from linear_fit import LinearFitter
+
+                if self.linear_fitter is None:
+                    self.linear_fitter = LinearFitter(
+                        self.verify_refinement_assets(), self.base
+                    )
+                metrics = self.linear_fitter.run(
+                    source, folder, progress=progress, cancel=self.cancel_refinement
+                )
+            else:
+                metrics = self.fitter.run(
+                    source,
+                    transcript,
+                    folder,
+                    iterations,
+                    progress=progress,
+                    cancel=self.cancel_refinement,
+                    focus=focus,
+                )
             shutil.copyfile(source / "reference.wav", folder / "reference.wav")
             profile = {
                 **original,
                 "id": candidate_id,
                 "name": original["name"][:40]
-                + (" · pronunciation fit" if focus == "pronunciation" else " · fitted"),
+                + (
+                    " · linear fit"
+                    if method == "linear"
+                    else " · pronunciation fit"
+                    if focus == "pronunciation"
+                    else " · fitted"
+                ),
                 "createdAt": datetime.now(UTC).isoformat(),
                 "parentId": voice_id,
-                "method": "personal-fit",
-                "transcript": transcript,
+                "method": "personal-linear-fit"
+                if method == "linear"
+                else "personal-fit",
+                "transcript": original.get("transcript", "")
+                if method == "linear"
+                else transcript,
                 "fit": metrics,
+                "creationMs": metrics["elapsedSeconds"] * 1000,
+                "usedSeconds": metrics.get("referenceSeconds", original["usedSeconds"]),
             }
             (folder / "profile.json").write_text(json.dumps(profile))
             return profile
@@ -374,6 +400,8 @@ def health():
         "device": "Local CPU · Q8",
         "refinementReady": (MODELS / "refinement" / "manifest.json").is_file(),
         "supportsPronunciation": True,
+        "supportsLinear": True,
+        "linearReady": (MODELS / "refinement" / "linear" / "manifest.json").is_file(),
         "refinement": engine.refinement,
     }
 
@@ -410,8 +438,9 @@ class SpeechRequest(BaseModel):
 
 
 class RefinementRequest(BaseModel):
-    transcript: str = Field(min_length=3, max_length=1000)
-    confirmed: bool
+    transcript: str = Field(default="", max_length=1000)
+    confirmed: bool = False
+    method: Literal["iterative", "linear"] = "iterative"
     iterations: int = Field(default=40, ge=10, le=80)
     focus: Literal["voice", "pronunciation"] = "voice"
 
@@ -425,14 +454,19 @@ async def transcribe_voice(voice_id: str):
 @app.post("/voices/{voice_id}/refine")
 async def refine_voice(voice_id: str, body: RefinementRequest):
     voice_folder(voice_id)
-    if not body.confirmed:
+    if body.method == "iterative" and not body.confirmed:
         raise HTTPException(
             400, "Check the transcript against your recording before fitting."
         )
-    if len(body.transcript.strip()) < 3:
+    if body.method == "iterative" and len(body.transcript.strip()) < 3:
         raise HTTPException(400, "Enter the actual words spoken in the recording.")
     return await work(
-        engine.refine, voice_id, body.transcript.strip(), body.iterations, body.focus
+        engine.refine,
+        voice_id,
+        body.transcript.strip(),
+        body.iterations,
+        body.focus,
+        body.method,
     )
 
 

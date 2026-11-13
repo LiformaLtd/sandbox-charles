@@ -80,10 +80,10 @@ locally, or type exactly what was spoken. Correct the transcript and confirm it
 matches the recording. The suggested reading passage is optional; the words in
 the speech-generation box are not a recording transcript.
 
-**Create fitted voice** makes a separate profile. Quick fitting runs 20 search
+**Create fitted voice** makes a separate profile. In iterative mode, quick fitting runs 20 search
 steps (about 1–2 minutes on the tested Mac); longer fitting runs 60 steps. Runtime
 depends on reference length and CPU. Progress and cancellation are available;
-leaving the page does not overwrite the source voice. If no better-fitting profile
+leaving the page does not overwrite the source voice. If iterative fitting finds no better-fitting profile
 is found, the app reports that and retains the original. A cancelled search does
 not publish a partial candidate.
 
@@ -143,6 +143,36 @@ Additional provenance:
 
 The optional assets are kept in `.models/refinement/`. Setup downloads them once
 and records checksums; transcription and fitting then work offline.
+
+## Fast linear fitting
+
+Run `npm run setup:linear` once after `setup:refinement`. It downloads the pinned
+37 English catalogue voice files and synthesises two fixed sentences per voice,
+then caches their speaker features and full voice tensors locally. It uses no
+personal recordings. This preparation is slower than an individual fit and is
+not repeated per person. Rebuild it after changing the base model or speaker
+comparison model; it is tied to the local model manifest.
+
+Under **Refine this voice**, choose **Fast linear fit · all 36 directions**.
+It analyses the saved reference (up to 20 seconds), makes one regularized
+least-squares solve and saves a separate **· linear fit** voice. No recording
+transcript is required. The existing 20/60-step iterative modes are unchanged.
+The comparison clips use the same sentence, temperature 0.3 and seed as other
+fits; total runtime and solve-only time are shown separately.
+
+The solve uses all 36 orthonormal contrasts of the 37 voices, spanning the full
+centred catalogue space, with no 16-direction truncation or temporal averaging.
+It fits ERes2Net speaker features, not audio waveforms. Weights sum to one, may
+be negative, and use fixed ridge regularization 0.05 to discourage unstable
+extrapolation. This assumes feature mixtures predict mixtures of Phonon prompts;
+the actual speech model is nonlinear. It is a fast approximation, not an exact
+audio fit, an improved encoder, or a guarantee of speaker/accent likeness.
+
+The candidate is retained for listening even when its diagnostic speaker score
+does not improve; a warning identifies this. Its reference is copied from the
+source, and the source voice remains unchanged. The two cache sentences exclude
+the comparison sentence. Cache weights, features and personal fit weights remain
+in ignored `.models/` and `.data/` folders.
 
 ## Quality and provenance
 

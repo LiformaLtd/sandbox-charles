@@ -6,6 +6,7 @@
   "scripts": {
     "setup": "bash scripts/setup.sh",
     "setup:refinement": ".venv/bin/python python/setup_refinement.py",
+    "setup:linear": ".venv/bin/python python/setup_linear.py",
     "dev": "node scripts/dev.mjs",
     "preview": "node scripts/dev.mjs --preview",
     "build": "vite build",
