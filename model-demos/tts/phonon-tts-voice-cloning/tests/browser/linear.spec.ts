@@ -41,15 +41,32 @@ test('fast linear fitting saves a separate 36-direction voice without a transcri
       const clip = await request.get(`/api/voices/${candidate.id}/${asset}`);
       expect(clip.status()).toBe(200); expect((await clip.body()).length).toBeGreaterThan(1000);
     }
+    await expect(page.getByRole('button', { name: 'Measure shared errors for all versions', exact: true })).toBeDisabled();
+    await page.getByRole('button', { name: 'Get recording transcript for comparison', exact: true }).click();
+    await expect(page.getByLabel('Words spoken in the saved recording', { exact: true })).not.toHaveValue('');
+    await page.getByRole('checkbox', { name: 'I checked these comparison words against the saved recording.' }).check();
+    const measuring = page.waitForResponse(r => r.url().endsWith('/compare') && r.request().method() === 'POST');
+    await page.getByRole('button', { name: 'Measure shared errors for all versions', exact: true }).click();
+    const measured = await measuring; expect(measured.status()).toBe(200);
+    const batch = await measured.json(); expect(batch.results).toHaveLength(2);
+    expect(batch.protocol.parameterPenalty).toBe(false); expect(batch.protocol.sampling.temperature).toBe(0.3);
+    for (const row of batch.results) {
+      expect(row.error).toBeCloseTo(4 * (1 - row.speakerCosine) + 0.25 * row.melDistance + 0.15 * row.spectrumDistance + 0.2 * row.durationDistance, 8);
+    }
+    await expect(page.getByRole('table', { name: 'Shared comparison errors' }).locator('tbody tr')).toHaveCount(2);
+    const stored = await (await request.get('/api/voices')).json();
+    expect(stored.find((v: { id: string }) => v.id === source.id).sharedComparison.comparisonKey).toBe(batch.comparisonKey);
+    expect(stored.find((v: { id: string }) => v.id === candidate.id).sharedComparison.comparisonKey).toBe(batch.comparisonKey);
     let fitRequestsAfterReload = 0;
-    page.on('request', request => { if (request.url().endsWith('/refine') && request.method() === 'POST') fitRequestsAfterReload++; });
-    await expect(page.getByLabel('Saved recording')).toHaveValue(source.id);
+    page.on('request', request => { if ((request.url().endsWith('/refine') || request.url().endsWith('/compare')) && request.method() === 'POST') fitRequestsAfterReload++; });
+    await expect(page.getByLabel('Saved recording', { exact: true })).toHaveValue(source.id);
     await expect(page.getByLabel('Voice version', { exact: true }).locator('option')).toHaveCount(2);
     await page.reload();
     await expect(page.getByLabel('Voice version', { exact: true })).toHaveValue(candidate.id);
-    await expect(page.getByLabel('Saved recording')).toHaveValue(source.id);
+    await expect(page.getByLabel('Saved recording', { exact: true })).toHaveValue(source.id);
     await expect(page.locator('.new-recording')).not.toHaveAttribute('open', '');
     expect(fitRequestsAfterReload).toBe(0);
+    await expect(page.getByRole('table', { name: 'Shared comparison errors' }).locator('tbody tr')).toHaveCount(2);
     await page.getByLabel('Voice version', { exact: true }).selectOption(source.id);
     await expect(page.getByRole('button', { name: 'Generate with selected version', exact: true })).toBeEnabled();
     await page.getByLabel('Voice version', { exact: true }).selectOption(candidate.id);

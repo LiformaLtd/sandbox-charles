@@ -195,6 +195,30 @@ squared speaker-feature residual plus the ridge penalty. Lower values are better
 within the same method, reference and settings. These objectives are different
 scales, so compare methods by listening as well as checking speaker similarity.
 
+### Shared comparison error
+
+Section 3 has **Compare versions on one shared error**. Get or type the words in
+the saved recording, check them against the recording, confirm the checkbox and
+choose **Measure shared errors for all versions**. This scores existing versions,
+including the initial clone, without rerunning their fitting. Linear fitting itself
+still needs no transcript; this optional comparison does.
+
+Each version generates that same confirmed transcript once, using the normal
+temperature 0.3 and seed. The shared objective is the voice-focused iterative data
+loss: `4*(1-speaker cosine) + 0.25*aligned mel distance + 0.15*spectrum distance +
+0.2*log-duration-ratio²`. It excludes both fitting methods' parameter penalties.
+Reference preparation and all scoring weights are identical for every version.
+This is a check on reproducing the reference, not an independent held-out test.
+
+Completed batches persist atomically in ignored `.data/evaluations/`. Scores carry
+a context key covering recording bytes, transcript, model/scorer checksums,
+preparation and sampling/scoring settings. The table marks scores from other
+contexts **Measure again** and new versions **Not measured**, rather than mixing
+incomparable numbers. Reloading restores results and does not run measurements.
+Cancellation or failed synthesis publishes no partial batch; previous results
+remain available. Deleting a version removes its evaluation entries; deleting the
+last evaluated version removes the corresponding saved batch and transcript.
+
 ## Quality and provenance
 
 This is an experimental clone, not a verified replica. The original author's

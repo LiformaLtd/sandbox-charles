@@ -85,6 +85,45 @@ class LocalAccess(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 422)
 
+    def test_shared_error_requires_confirmed_transcript_and_unique_versions(self):
+        voice_id = "00000000-0000-0000-0000-000000000001"
+        with patch.object(server, "voice_folder", return_value=Path("/unused")):
+            for confirmed, ids in [(False, [voice_id]), (True, [voice_id, voice_id])]:
+                response = self.client.post(
+                    f"/voices/{voice_id}/compare",
+                    headers=self.headers,
+                    json={
+                        "transcript": "Actual recorded words.",
+                        "confirmed": confirmed,
+                        "voiceIds": ids,
+                    },
+                )
+                self.assertEqual(response.status_code, 400)
+
+    def test_shared_error_has_a_distinct_route_and_worker_operation(self):
+        voice_id = "00000000-0000-0000-0000-000000000001"
+        with (
+            patch.object(server, "voice_folder", return_value=Path("/unused")),
+            patch.object(server, "work", new_callable=AsyncMock) as work,
+        ):
+            work.return_value = {"results": []}
+            response = self.client.post(
+                f"/voices/{voice_id}/compare",
+                headers=self.headers,
+                json={
+                    "transcript": " Actual recorded words. ",
+                    "confirmed": True,
+                    "voiceIds": [voice_id],
+                },
+            )
+        self.assertEqual(response.status_code, 200)
+        work.assert_awaited_once_with(
+            server.engine.compare_versions,
+            voice_id,
+            [voice_id],
+            "Actual recorded words.",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

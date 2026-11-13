@@ -3,6 +3,7 @@
   import { api, type Voice, type Health, type Speech } from '../lib/api';
   import { Recorder, normalizeFile } from '../lib/recorder';
   import { recordingFor, methodName, versionName, finalError, formatError } from '../lib/voice-workflow';
+  import SharedComparison from '../lib/SharedComparison.svelte';
   import '../app.css';
 
   let health = $state<Health>();
@@ -367,6 +368,8 @@
             {#if hasChildren}<p class="fine-print">Other versions were made from this one. Delete those versions first to keep the recording’s history together.</p>{/if}
             {#if confirmingDelete}<div class="delete-confirm">Delete this version and its generated speech?<div><button class="danger-button" onclick={removeVoice} disabled={busy}>Delete permanently</button><button class="text-button" onclick={() => { confirmingDelete = false; }}>Keep version</button></div></div>{/if}
           </details>
+          <SharedComparison source={recordingSource} versions={family} {selectedId} {health} disabled={busy}
+            onactivity={value => { operation = value; }} onrefresh={refresh} onerror={fail} />
           <p class="helper">Using <strong>{selectedVersion}</strong> from “{recordingSource.name}”.</p>
           {#if selected.fit}
             <div class="fit-comparison">

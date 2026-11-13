@@ -53,6 +53,7 @@ class Engine:
     refinement = None
     fitter = None
     linear_fitter = None
+    evaluation = None
     transcriber = None
 
     def load(self):
@@ -130,22 +131,34 @@ class Engine:
             shutil.rmtree(folder)
             raise
 
-    def speak(self, text, voice_id):
-        started = perf_counter()
+    def render(self, text, voice_id, max_seconds=None, cancel=None):
+        from refinement import check_cancel
+
         if voice_id != "default":
             folder = voice_folder(voice_id)
             if voice_id not in self.registered:
                 self.synth.add_voice(voice_id, str(folder / "voice.safetensors"))
                 self.registered.add(voice_id)
-        chunks = []
+        chunks, count = [], 0
         with self.synth.stream(text, voice=voice_id, **PLAYBACK_SETTINGS) as stream:
             for pcm in stream:
+                check_cancel(cancel)
                 chunks.append(np.array(pcm, dtype=np.float32, copy=True))
+                count += len(pcm)
+                if max_seconds is not None and count > max_seconds * SAMPLE_RATE:
+                    raise ValueError(
+                        "Comparison speech was too long. Check that the transcript matches the saved recording."
+                    )
         if not chunks:
             raise RuntimeError("Phonon returned no speech.")
         audio = np.concatenate(chunks)
         if not np.isfinite(audio).all():
             raise RuntimeError("Phonon returned invalid audio.")
+        return audio
+
+    def speak(self, text, voice_id):
+        started = perf_counter()
+        audio = self.render(text, voice_id)
         result_id = str(uuid4())
         sf.write(
             DATA / "audio" / f"{result_id}.wav", audio, SAMPLE_RATE, subtype="PCM_16"
@@ -310,6 +323,38 @@ class Engine:
                 shutil.rmtree(folder, ignore_errors=True)
             self.refinement = None
 
+    def compare_versions(self, voice_id, voice_ids, transcript):
+        from refinement import Cancelled
+        from shared_comparison import run_comparison
+
+        self.cancel_evaluation = threading.Event()
+        self.evaluation = {
+            "id": str(uuid4()),
+            "stage": "Preparing shared comparison",
+            "step": 0,
+            "total": len(voice_ids),
+        }
+        try:
+            self.verify_refinement_assets()
+
+            def progress(values):
+                self.evaluation = {**self.evaluation, **values}
+
+            return run_comparison(
+                DATA,
+                MODELS,
+                voice_folder(voice_id),
+                voice_ids,
+                transcript,
+                self.render,
+                progress,
+                self.cancel_evaluation,
+            )
+        except Cancelled:
+            return {"cancelled": True}
+        finally:
+            self.evaluation = None
+
 
 engine = Engine()
 
@@ -364,6 +409,8 @@ async def lifespan(_):
     yield
     if engine.refinement:
         engine.cancel_refinement.set()
+    if engine.evaluation:
+        engine.cancel_evaluation.set()
     pool.shutdown(wait=True)
 
 
@@ -403,15 +450,23 @@ def health():
         "supportsLinear": True,
         "linearReady": (MODELS / "refinement" / "linear" / "manifest.json").is_file(),
         "refinement": engine.refinement,
+        "supportsSharedComparison": True,
+        "evaluation": engine.evaluation,
     }
 
 
 @app.get("/voices")
 def voices():
+    from shared_comparison import latest_scores
+
+    scores = latest_scores(DATA)
     profiles = [
         json.loads(path.read_text())
         for path in (DATA / "voices").glob("*/profile.json")
     ]
+    for profile in profiles:
+        if profile["id"] in scores:
+            profile["sharedComparison"] = scores[profile["id"]]
     return sorted(profiles, key=lambda profile: profile["createdAt"], reverse=True)
 
 
@@ -443,6 +498,38 @@ class RefinementRequest(BaseModel):
     method: Literal["iterative", "linear"] = "iterative"
     iterations: int = Field(default=40, ge=10, le=80)
     focus: Literal["voice", "pronunciation"] = "voice"
+
+
+class ComparisonRequest(BaseModel):
+    transcript: str = Field(min_length=3, max_length=1000)
+    confirmed: bool = False
+    voiceIds: list[str] = Field(min_length=1, max_length=100)
+
+
+@app.post("/voices/{voice_id}/compare")
+async def compare_versions(voice_id: str, body: ComparisonRequest):
+    voice_folder(voice_id)
+    if not body.confirmed or len(body.transcript.strip()) < 3:
+        raise HTTPException(
+            400,
+            "Check the transcript against the saved recording before measuring shared errors.",
+        )
+    if len(set(body.voiceIds)) != len(body.voiceIds):
+        raise HTTPException(400, "Choose each version only once.")
+    for version in body.voiceIds:
+        voice_folder(version)
+    return await work(
+        engine.compare_versions, voice_id, body.voiceIds, body.transcript.strip()
+    )
+
+
+@app.post("/evaluations/{job_id}/cancel")
+async def cancel_evaluation(job_id: str):
+    identifier(job_id)
+    if not engine.evaluation or engine.evaluation["id"] != job_id:
+        raise HTTPException(404, "This comparison is no longer running.")
+    engine.cancel_evaluation.set()
+    return {"cancelling": True}
 
 
 @app.post("/voices/{voice_id}/transcribe")
@@ -527,12 +614,15 @@ def audio(result_id: str):
 
 
 def remove_voice(voice_id):
+    from shared_comparison import remove_scores
+
     folder = voice_folder(voice_id)
     for path in (DATA / "audio").glob("*.json"):
         if json.loads(path.read_text())["voiceId"] == voice_id:
             path.with_suffix(".wav").unlink(missing_ok=True)
             path.unlink()
     shutil.rmtree(folder)
+    remove_scores(DATA, voice_id)
     if voice_id in engine.registered:
         engine.reset_synth()
     return {"deleted": True}

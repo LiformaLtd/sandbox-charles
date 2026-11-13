@@ -125,6 +125,7 @@ class Scorer:
             + duration_weight * duration,
             "speakerCosine": cosine,
             "melDistance": mel,
+            "spectrumDistance": spectrum,
             "durationDistance": duration,
         }
 

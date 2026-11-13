@@ -5,7 +5,7 @@ import type { RequestHandler } from './$types';
 const uuid = '[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}';
 const readable = new RegExp(`^(health|voices|voices/${uuid}/(reference|embedding|original-comparison|fitted-comparison)|audio/${uuid})$`);
 const deletable = new RegExp(`^voices/${uuid}$`);
-const writable = new RegExp(`^(voices|speech|voices/${uuid}/(transcribe|refine)|refinements/${uuid}/cancel)$`);
+const writable = new RegExp(`^(voices|speech|voices/${uuid}/(transcribe|refine|compare)|(refinements|evaluations)/${uuid}/cancel)$`);
 
 const proxy: RequestHandler = async ({ request, params, url }) => {
   const path = params.path || '';
@@ -46,7 +46,7 @@ const proxy: RequestHandler = async ({ request, params, url }) => {
   if (path === 'voices' && method === 'POST') target.searchParams.set('name', url.searchParams.get('name') || 'My voice');
   try {
     const response = await fetch(target, { method, headers, body: body as BodyInit | undefined,
-      signal: AbortSignal.any([request.signal, AbortSignal.timeout(path.endsWith('/refine') ? 900_000 : 180_000)]) });
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(path.endsWith('/refine') || path.endsWith('/compare') ? 900_000 : 180_000)]) });
     const outgoing = new Headers({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
     for (const name of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'content-disposition']) {
       const value = response.headers.get(name);
